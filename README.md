@@ -1,8 +1,10 @@
-# Manifest Cleaner Unified 1.2.2
+# Manifest Cleaner Unified 1.2.3
 
 Ứng dụng **local**, xử lý **một manifest của một hãng tàu mỗi phiên**, hỗ trợ đối chiếu dữ liệu và xuất Excel theo mẫu nhập hệ thống quản lý container của Cảng.
 
 **Bắt đầu:** giải nén toàn bộ thư mục, dùng Python 3.12 64-bit và chạy `START.cmd`. Mở [START_HERE.html](START_HERE.html) để xem hướng dẫn tiếng Việt dùng được offline.
+
+**Bản 1.2.3** đọc phần trọng lượng VOSCO nằm ở ô nối tiếp trong cùng vận đơn khi số lượng và tổng trọng lượng nguồn khớp. Màn hình đối chiếu hiển thị tọa độ ô chứa trọng lượng.
 
 **Bản 1.2.2** hiển thị **Số niêm chì** ngay sau **Số container** trong bảng Container. Giá trị hiển thị giữ số 0 đầu và cập nhật khi sửa seal.
 

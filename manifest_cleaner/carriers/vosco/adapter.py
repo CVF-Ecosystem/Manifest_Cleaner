@@ -152,6 +152,109 @@ def _aligned_partial_weights(container_cell, description_cell, weight_cell, vali
             list(range(2, count + 2)) + [None] * (len(valid) - count))
 
 
+_WEIGHT_LINE = re.compile(r"^([0-9][0-9.,]*)\s*(TONS?|KGS?)$", re.I)
+_TOTAL_LINE = re.compile(r"^(?:TOTAL|TONG CONG)\s*[:=]\s*([0-9][0-9.,]*)(?:\s*(TONS?|KGS?))?$", re.I)
+
+
+def _continuation_weights(rows, source_row, context, assigned, assigned_raw, settings):
+    """Find a unique same-B/L weight cell, independently checked by total."""
+    missing = sum(weight is None for weight in assigned)
+    if not missing or not context.get("BL_No") or any(weight is None for weight in assigned[:-missing]):
+        return None, []
+    # Explicit units must support every prefix weight, not only the tail.
+    if any(not _WEIGHT_LINE.fullmatch(str(line).strip()) for line in assigned_raw[:-missing]):
+        return None, []
+    # Locate the actual start of this occurrence, and reject earlier competing
+    # detail in K or adjacent columns. The B/L row may carry a layout label.
+    boundary_found = False
+    for index in range(source_row - 1, -1, -1):
+        row = rows[index]
+        bill = _cell(row, COL_BL)
+        if any(_cell(row, column) for column in (COL_CONTAINER - 1, COL_CONTAINER + 1)):
+            return None, []
+        if index != source_row - 1:
+            other = _cell(row, COL_CONTAINER)
+            if other and not (bill and _is_container_header(other)):
+                return None, []
+        if bill:
+            boundary_found = (is_valid_bl(bill) and bill == context["BL_No"]
+                              and (index == source_row - 1 or not _cell(row, COL_WEIGHT)))
+            break
+        if index != source_row - 1:
+            marker = _cell(row, COL_MARKER).upper()
+            if marker and marker not in PARTY_FIELDS:
+                return None, []
+            if _cell(row, COL_PARTY) and marker not in PARTY_FIELDS:
+                return None, []
+            if any(text_value(cell) for column, cell in enumerate(row)
+                   if column not in (COL_MARKER, COL_PARTY)):
+                return None, []
+    if not boundary_found:
+        return None, []
+    candidates = []
+    structurally_ambiguous = False
+    for index in range(source_row, len(rows)):
+        row = rows[index]
+        # Any explicit BL, detail, header, or non-party content closes this
+        # occurrence, even if the next BL happens to have the same text.
+        marker = _cell(row, COL_MARKER).upper()
+        if _cell(row, COL_BL):
+            break
+        value = row[COL_WEIGHT] if COL_WEIGHT < len(row) else ""
+        if text_value(value):
+            candidates.append((index + 1, value))
+            if any(text_value(cell) for column, cell in enumerate(row) if column != COL_WEIGHT):
+                structurally_ambiguous = True
+        else:
+            if marker and marker not in PARTY_FIELDS:
+                structurally_ambiguous = True
+            if _cell(row, COL_PARTY) and marker not in PARTY_FIELDS:
+                structurally_ambiguous = True
+            if any(text_value(cell) for column, cell in enumerate(row)
+                   if column not in (COL_MARKER, COL_PARTY)):
+                structurally_ambiguous = True
+    if structurally_ambiguous or len(candidates) != 1:
+        return None, candidates
+    row_number, value = candidates[0]
+    if not isinstance(value, str):
+        return None, candidates
+    lines = value.splitlines()
+    if any(not line.strip() for line in lines):
+        return None, candidates
+    # The total may carry its unit on the following physical line.
+    if len(lines) not in (missing + 1, missing + 2):
+        return None, candidates
+    weights = []
+    for line in lines[:missing]:
+        if not _WEIGHT_LINE.fullmatch(line.strip()):
+            return None, candidates
+        weight = parse_weight(line, default_unit=settings.get("default_weight_unit", "TONS"),
+                              number_format=settings.get("number_format", "legacy"))
+        if weight is None:
+            return None, candidates
+        weights.append(weight)
+    total_match = _TOTAL_LINE.fullmatch(lines[missing].strip())
+    if not total_match:
+        return None, candidates
+    unit = total_match.group(2)
+    if len(lines) == missing + 2:
+        if unit or not re.fullmatch(r"TONS?|KGS?", lines[-1].strip(), re.I):
+            return None, candidates
+        unit = lines[-1].strip()
+    if not unit:
+        return None, candidates
+    total = parse_weight(total_match.group(1) + " " + unit,
+                         default_unit=settings.get("default_weight_unit", "TONS"),
+                         number_format=settings.get("number_format", "legacy"))
+    if total is None:
+        return None, candidates
+    summed = sum((Decimal(str(weight["value"])) for weight in assigned if weight is not None), Decimal(0))
+    summed += sum((Decimal(str(weight["value"])) for weight in weights), Decimal(0))
+    if abs(summed - Decimal(str(total["value"]))) > Decimal("0.000001"):
+        return None, candidates
+    return (row_number, value, weights, lines[:missing]), candidates
+
+
 def _scan_contexts(rows, sheet, first_data_index=0):
     """Find BL blocks and party markers without assuming sixteen header rows.
 
@@ -233,7 +336,7 @@ def parse_manifest(path, *, settings=None, progress=None):
     sheets = read_workbook(path)
     issues, records, source_fragments = [], [], []
     metadata = {
-        "carrier": "VOSCO", "adapter_version": "1.1.1", "profile_version": "vosco-1.1.1",
+        "carrier": "VOSCO", "adapter_version": "1.1.2", "profile_version": "vosco-1.1.2",
         "source_file": source_file,
         "source_baseline": "e5a78dd0444349990b08992ceb57758aa074dcb8",
         "available_sheets": [name for name, _ in sheets],
@@ -343,6 +446,21 @@ def parse_manifest(path, *, settings=None, progress=None):
                 association_ok = False
                 assigned_weights = [None] * len(valid)
                 assigned_raw_weights = [""] * len(valid)
+        continuation = None
+        if physical_alignment and any(weight is None for weight in assigned_weights):
+            continuation, continuation_candidates = _continuation_weights(
+                rows, source_row, context, assigned_weights, assigned_raw_weights, settings)
+            for continuation_row, continuation_cell in continuation_candidates:
+                source_fragments.append({"source_sheet": sheet, "source_row": continuation_row,
+                    "source_column": COL_WEIGHT + 1, "text": text_value(continuation_cell),
+                    "status": "corroborating" if continuation else "unresolved",
+                    "reason": "weight_continuation_matched" if continuation else "weight_continuation_ambiguous"})
+            if continuation:
+                continuation_row, continuation_cell, extra_weights, extra_lines = continuation
+                first_missing = next(i for i, value in enumerate(assigned_weights) if value is None)
+                assigned_weights[first_missing:] = extra_weights
+                assigned_raw_weights[first_missing:] = extra_lines
+                assigned_weight_lines[first_missing:] = list(range(1, len(extra_lines) + 1))
         first_description = clean_description_text(description_cell)
         fe_statuses = [
             determine_fe(first_description, weight, parsed.get("type"), weight_kind=weight_kind)
@@ -441,6 +559,9 @@ def parse_manifest(path, *, settings=None, progress=None):
             notify = party_values.get("Notify", "")
             if "SAME AS CONSIGNEE" in notify.upper():
                 notify = cleaned_consignee or consignee
+            from_continuation = bool(continuation and index > len(valid) - len(continuation[2]))
+            weight_source_row = continuation[0] if from_continuation else source_row
+            source_weight_cell = continuation[1] if from_continuation else native_weight_value
             record = {
                 "record_id": record_id, "BL_No": context["BL_No"],
                 "Master_BL_Group_ID": context["Master_BL_Group_ID"],
@@ -458,12 +579,16 @@ def parse_manifest(path, *, settings=None, progress=None):
                 "raw": {
                     "BL_No": context["raw_bl"], "container_cell": container_cell,
                     "container_line": raw_line, "container_line_number": line_number,
-                    "weight_cell": weight_cell, "weight_line": raw_weight,
+                    "weight_cell": source_weight_cell if from_continuation else weight_cell, "weight_line": raw_weight,
+                    "weight_source_row": weight_source_row, "weight_source_column": COL_WEIGHT + 1,
+                    "weight_total_source_row": continuation[0] if from_continuation else None,
+                    "weight_total_source_column": COL_WEIGHT + 1 if from_continuation else None,
+                    "weight_total_source_line": len(continuation[2]) + 1 if from_continuation else None,
                     "weight_source_line": assigned_weight_lines[index - 1],
-                    "weight_expected_source_line": line_number if physical_alignment else None,
-                    "weight_alignment": ("physical_line_matched" if weight else "trailing_source_weight_missing")
+                    "weight_expected_source_line": line_number if physical_alignment and not from_continuation else None,
+                    "weight_alignment": ("continuation_total_matched" if from_continuation else "physical_line_matched" if weight else "trailing_source_weight_missing")
                         if physical_alignment else None,
-                    "weight_cell_value": native_weight_value,
+                    "weight_cell_value": source_weight_cell,
                     "weight_source_unit": weight.get("source_unit") if weight else None,
                     "description_cell": description_cell, "matched_description": raw_description,
                     "description_line_evidence": classify_description_lines(description_cell),
@@ -477,7 +602,8 @@ def parse_manifest(path, *, settings=None, progress=None):
                           "vosco.operator-soc-coc", "vosco.port-mappings",
                           f"vosco.description.{match.match_type.lower()}",
                           "weight.normalized-tonnes" if weight else "weight.unresolved",
-                          *(["vosco.weight.physical-line-alignment"] if assigned_weight_lines[index - 1] is not None else []),
+                          *(["vosco.weight.continuation-total"] if from_continuation else
+                            ["vosco.weight.physical-line-alignment"] if assigned_weight_lines[index - 1] is not None else []),
                           "fe.explicit-empty" if is_explicit_empty(raw_description) else
                           "fe.cargo-mass-no-tare" if weight_kind == "cargo" else "fe.vosco-legacy-inference"],
             }

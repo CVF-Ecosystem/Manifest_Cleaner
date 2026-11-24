@@ -129,6 +129,97 @@ class Vosco110Tests(unittest.TestCase):
                 self.assertTrue(any(i["code"] == "WEIGHT_ASSOCIATION_AMBIGUOUS" for i in result["issues"]))
                 self.assertTrue(all(r["Weight_Value"] is None for r in result["records"]))
 
+    def continuation_workbook(self, *, continuation="27 TONS\nTotal:78 TONS", before=None, after=None):
+        book = Workbook()
+        sheet = book.active
+        row = [""] * 19
+        row[0], row[1], row[5] = "(C)", "TEST", "VOSCO123456"
+        row[10] = "FCL/FCL\nABCU1234567/001234 40HC-C\nABCU1234568/001235 40HC-C\nABCU1234569/001236 40HC-C"
+        row[14], row[18] = "\nRICE\nSTEEL\nWOOD", "\n25 TONS\n26 TONS\n"
+        sheet.append(row)
+        for _ in range(4): sheet.append([""] * 19)
+        party = [""] * 19
+        party[0], party[1] = "(N)", "TEST NOTIFY"
+        sheet.append(party)
+        for item in before or []: sheet.append(item)
+        row = [""] * 19
+        row[18] = continuation
+        sheet.append(row)
+        for item in after or []: sheet.append(item)
+        path = self.root / "continuation.xlsx"
+        book.save(path)
+        book.close()
+        return path
+
+    def test_continuation_weights_use_same_bill_exact_count_and_total(self):
+        result = parse_manifest(self.continuation_workbook(continuation="27 TONS\nTotal:78\nTONS"))
+        self.assertEqual([r["Weight_Value"] for r in result["records"]], [25, 26, 27])
+        last = result["records"][-1]
+        self.assertEqual((last["source_row"], last["raw"]["weight_source_row"],
+                          last["raw"]["weight_source_column"], last["raw"]["weight_source_line"]), (1, 7, 19, 1))
+        self.assertEqual(last["raw"]["weight_alignment"], "continuation_total_matched")
+        self.assertEqual((last["raw"]["weight_total_source_row"], last["raw"]["weight_total_source_column"],
+                          last["raw"]["weight_total_source_line"]), (7, 19, 2))
+        self.assertIn("vosco.weight.continuation-total", last["rules"])
+        self.assertFalse(any(i["code"] == "WEIGHT_INVALID" for i in result["issues"]))
+
+    def test_continuation_must_be_unique_scoped_and_total_checked(self):
+        next_bill = [""] * 19
+        next_bill[5] = "VOSCO654321"
+        extra = [""] * 19
+        extra[18] = "27 TONS\nTotal:78 TONS"
+        detail = [""] * 19
+        detail[10] = "ABCU1234570/001237 40HC-C"
+        for name, kwargs in [
+            ("wrong total", {"continuation": "27 TONS\nTotal:79 TONS"}),
+            ("missing unit", {"continuation": "27 TONS\nTotal:78"}),
+            ("wrong count", {"continuation": "27 TONS\n28 TONS\nTotal:106 TONS"}),
+            ("bad weight", {"continuation": "junk\nTotal:78 TONS"}),
+            ("next bill", {"before": [next_bill]}),
+            ("next detail", {"before": [detail]}),
+            ("two candidates", {"after": [extra]}),
+        ]:
+            with self.subTest(case=name):
+                result = parse_manifest(self.continuation_workbook(**kwargs))
+                original = result["records"][:3]
+                self.assertEqual([r["Weight_Value"] for r in original], [25, 26, None])
+                self.assertTrue(any(i["code"] == "WEIGHT_INVALID" and i["record_id"] == original[-1]["record_id"]
+                                    for i in result["issues"]))
+
+    def test_continuation_requires_unit_prefix_and_weight_only_candidate(self):
+        from openpyxl import load_workbook
+        for case in ("unitless prefix", "party on continuation", "earlier detail", "earlier weight", "later detail", "adjacent detail"):
+            with self.subTest(case=case):
+                path = self.continuation_workbook()
+                book = load_workbook(path)
+                sheet = book.active
+                if case == "unitless prefix":
+                    sheet.cell(1, 19).value = "\n25\n26\n"
+                elif case == "party on continuation":
+                    sheet.cell(7, 1).value = "(N)"
+                    sheet.cell(7, 2).value = "TEST NOTIFY"
+                elif case == "earlier detail":
+                    sheet.insert_rows(1)
+                    sheet.cell(1, 6).value = "VOSCO123456"
+                    sheet.cell(1, 11).value = "ABCU1234571/001237 40HC-C"
+                    sheet.cell(2, 6).value = None
+                elif case == "earlier weight":
+                    sheet.insert_rows(1)
+                    sheet.cell(1, 6).value = "VOSCO123456"
+                    sheet.cell(1, 19).value = "9 TONS"
+                    sheet.cell(2, 6).value = None
+                elif case == "later detail":
+                    sheet.cell(8, 11).value = "ABCU1234571/001237 40HC-C"
+                else:
+                    sheet.cell(8, 12).value = "ABCU1234571/001237 40HC-C"
+                book.save(path)
+                book.close()
+                result = parse_manifest(path)
+                initial = next(r for r in result["records"] if r["Container_No"] == "ABCU1234569")
+                self.assertIsNone(initial["Weight_Value"])
+                self.assertTrue(any(i["code"] == "WEIGHT_INVALID" and i["record_id"] == initial["record_id"]
+                                    for i in result["issues"]))
+
     def test_numeric_description_does_not_crash_partial_weight_audit(self):
         result = parse_manifest(self.workbook(123, containers=CONTAINERS, weight="25 TONS"))
         self.assertEqual(len(result["records"]), 2)

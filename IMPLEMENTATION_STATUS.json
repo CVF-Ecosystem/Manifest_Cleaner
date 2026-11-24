@@ -22,7 +22,7 @@
   "knownLimitations": [
     "M32 verified on this Windows machine. Clean/offline machine and Port import acceptance remain pending.",
     "M42 awaits a carrier and business-accepted source and expected output.",
-    "MC52 FF2601S has ten container records with missing weights in one source row and two explicit EMPTY/high-weight conflicts. Export remains blocked by the missing weights.",
+    "MC52 FF2601S has two explicit EMPTY/high-weight conflicts reported as warnings. The ten continuation weights are covered by the 1.2.3 correction.",
     "MC53 uses the legacy VINAFCO program replay on three manifests as the reference. Previously saved outputs for those voyages were unavailable."
   ],
   "evidence": [

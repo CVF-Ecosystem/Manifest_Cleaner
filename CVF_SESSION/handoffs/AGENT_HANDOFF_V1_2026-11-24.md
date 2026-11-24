@@ -8,7 +8,7 @@ Status: ACTIVE
 - Current mode: REVIEW
 - Active phase: REVIEW
 - Active role: ORCHESTRATOR
-- Next allowed move: Reconcile the documented VOSCO source gaps when evidence is supplied and continue Port acceptance checks.
+- Next allowed move: Reconcile the documented VOSCO F/E conflicts when evidence is supplied and continue Port acceptance checks.
 - Parked operator checkpoint: none
 
 ## Seven-Step Control Chain
@@ -76,3 +76,9 @@ Sol và Terra bàn giao hai bản sửa parser, cùng kiểm tra hồi quy bằn
 CVF Agent Declaration. Manifest_Cleaner, Core ../.Controlled-Vibe-Framework-CVF at b6d5a51a1e90c1c03426baa3d355834089ac652a. Active handoff and project REVIEW phase rehydrated, ORCHESTRATOR active, risk ceiling R2, live provider evidence required if claimed, no parked operator checkpoint. Bootstrap read model absent. Operator reported the missing column in the 1.2.1 delivery. Scoped GUI correction uses synthetic data at R1 under MC54 and the existing work order. Review and pre-dispatch checks passed before the bounded BUILD. Next move is to render the existing Seal_No field, verify it in native Tk and package a separate EXE.
 
 Bản 1.2.2 đưa Số niêm chì ngay sau Số container. Tk trên Windows đã được kiểm với mẫu giả lập cả ba hãng, gồm seal có số 0 đầu và sau chỉnh sửa. Astra kiểm độc lập cột mới và chạy xuất Excel VIMC 16 cột với hai trường seal dạng chuỗi. 229 unittest và 94 SHA-256 nguồn đạt. EXE tại dist/1.2.2/ManifestCleaner khởi động và đóng bình thường. SHA-256 EXE ba8963ad9e0e8cbadf448ba9ab408835816a08a65db549f33abc04310c9e0563. Đã kiểm lại SHA-256 của EXE 1.2.1. Project quay lại REVIEW và giữ các mục nghiệm thu đang mở.
+
+## VOSCO continuation weights reported by operator
+
+CVF Agent Declaration. Manifest_Cleaner, sibling Core ../.Controlled-Vibe-Framework-CVF at b6d5a51a1e90c1c03426baa3d355834089ac652a. Project remains in REVIEW with a bounded MC52/MC54 repair, ORCHESTRATOR active, ceiling R2, live provider evidence required if claimed, no parked checkpoint. Bootstrap read model absent. Doctor 29/29. Operator supplied the overlooked source coordinate. Audited the failed row-only search against the XLS records and merge ranges. K578 and O578 hold the thirty entries, S578 has twenty weights, and the same bill ends before row 641. S618 is a separate source cell with ten weights and the total. Next move is a bounded VOSCO parser correction under existing authority, synthetic regression, independent review and isolated build. Data remains local.
+
+Bản 1.2.3 đọc đủ 30 trọng lượng của vận đơn từ S578 và S618, cộng đúng 531,02 tấn. Terra sửa bộ đọc và Astra kiểm độc lập các ca ranh giới cùng vận đơn. Xuất thử bằng giao diện Tk với file gốc đạt 309 dòng, 16 cột, không lỗi chặn xuất. Kiểm 233 ca và 94 mục SHA-256 đạt. EXE 1.2.3 khởi động và đóng bình thường, SHA-256 e0f985294fdea05f490a1cb1a01b528841e65363193c4cb76509af18d119f1db. Đã xác minh lại SHA-256 bản 1.2.2. File xuất và JSON ở dist/1.2.3/exports. Project ở REVIEW cho các ngoại lệ F/E và nghiệm thu Cảng.

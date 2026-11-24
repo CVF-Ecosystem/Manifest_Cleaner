@@ -403,6 +403,13 @@ class GUIRegressionTests(unittest.TestCase):
             self.assertIn("STEEL DEMO", goods[1])
             self.assertEqual(goods[2], "EMPTY")
 
+    def test_source_weight_preview_shows_the_continuation_cell(self):
+        record = {"source_sheet": "Manifest", "source_row": 4, "Weight_Value": 12.75,
+                  "raw": {"weight_source_row": 36, "weight_source_column": 19,
+                          "weight_source_line": 2, "weight_line": "11.25 TONS"}}
+        self.assertEqual(gui._source_field(record, "Weight_Value"),
+                         "Manifest!S36 · dòng 2 trong ô · 11.25 TONS")
+
     def test_unsaved_preview_uses_current_form_values_without_mutating_session(self):
         session = self.session()
         app = self.app(session)

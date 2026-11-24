@@ -10,6 +10,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+from xlsxwriter.utility import xl_col_to_name
+
 from . import __version__
 from .carriers import CARRIER_PROFILES
 from .common import parse_weight, text_value
@@ -38,6 +40,8 @@ SOURCE_REASON_LABELS = {
     "description_metadata_attachment": "Dòng dẫn tới danh sách đính kèm, không gán thành tên hàng",
     "description_metadata_quantity": "Thông tin số lượng/kích cỡ được dùng để đối chiếu",
     "delivery_mode_annotation": "Ký hiệu phương thức giao nhận trong cột container",
+    "weight_continuation_matched": "Trọng lượng ở ô nối tiếp, đã khớp số lượng và tổng",
+    "weight_continuation_ambiguous": "Ô trọng lượng nối tiếp chưa đủ căn cứ để ghép",
     "legacy_compact_identifier_corroborated_in_marks": "Mã container ngắn trùng trong dòng chi tiết và MARKS",
 }
 
@@ -52,6 +56,16 @@ def _source_field(record, field):
         "Description": ("description", "comm", "matched_description", "description_cell"),
         "Cleaned_Consignee_Name_For_Output": ("consignee",),
     }
+    if field == "Weight_Value":
+        row = raw.get("weight_source_row")
+        column = raw.get("weight_source_column")
+        line = raw.get("weight_source_line")
+        value = text_value(raw.get("weight_line"))
+        if value and all(isinstance(number, int) and number > 0 for number in (row, column, line)):
+            cell = f"{xl_col_to_name(column - 1)}{row}"
+            sheet = text_value(record.get("source_sheet"))
+            address = f"{sheet}!{cell}" if sheet else cell
+            return f"{address} · dòng {line} trong ô · {value}"
     if field == "BL_No" and raw.get("bl_evidence"):
         return " | ".join(f"{item.get('position', '')}: {item.get('value', '')}" for item in raw["bl_evidence"] if item.get("value"))
     if field == "Cleaned_Consignee_Name_For_Output":
