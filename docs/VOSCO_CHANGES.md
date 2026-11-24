@@ -16,7 +16,7 @@ Người dùng chọn **hãng tàu VOSCO**. Tên tàu và tên file không đư�
 - Giữ mapping SOC/COC sang mã hãng khai thác `SVC`/`VOC` và toàn bộ mapping kích cỡ VTOS hiện có, bao gồm `40GP → 40HC`, `20RF → 22R0`. Đây là mapping đầu ra của quy trình cảng; mã nguồn vẫn được giữ riêng.
 - Giữ các cách gán mô tả theo dòng, theo số lượng/kích cỡ, hoặc dùng chung; giữ bước tinh chỉnh mô tả cuối cùng của app VOSCO.
 - Mô tả đầu ra viết hoa, bỏ dấu theo cách dùng cũ; mô tả gốc vẫn được lưu để đối chiếu.
-- Giữ quy tắc loại hàng, kiểm tra niêm chì 6 chữ số và cảnh báo tank của VOSCO. Quy tắc này không được áp sang hãng khác.
+- Giữ quy tắc loại hàng và cảnh báo tank của VOSCO. Ghi seal theo khai báo để đối chiếu khi container xuống bãi.
 - Bộ xuất chung giữ đúng hợp đồng 16 cột của VOSCO. Mô-đun không tự bổ sung cột vào file nhập cảng và không làm tròn trọng lượng ở bước đọc.
 
 ## Các lỗi đã sửa
@@ -65,4 +65,4 @@ Bộ **19 ca kiểm thử** sử dụng workbook XLSX tổng hợp và các tìn
 - Số BL giữ quy tắc chữ/số hiện tại của app. BL ngoài quy tắc được giữ trong dữ liệu gốc và cần sửa/xác nhận.
 - Mặc định vẫn đọc sheet đầu. Nếu sheet khác cũng có container, có cảnh báo để kiểm tra phạm vi; ứng dụng không tự gộp các sheet có thể là bản lặp.
 - Chưa có cặp manifest thực tế và kết quả cảng đã xác nhận trong repo. Các test tổng hợp kiểm chứng những sửa đổi nêu trên; không được hiểu là đã xác nhận mọi biến thể manifest thực tế.
-- Cách suy luận F/E theo ngưỡng khối lượng được kế thừa để không thay toàn bộ nghiệp vụ. Trường `Weight_Kind` mặc định là `unknown` vì mã cũ không chứng minh ô nguồn là trọng lượng hàng hay tổng trọng lượng; có thể khai báo rõ bằng cấu hình `weight_kind`. Khi còn `unknown`, các dòng dùng suy luận này có cảnh báo `FE_WEIGHT_KIND_UNCONFIRMED` gắn với F/E để người dùng thấy và đối chiếu. Trọng lượng không đủ bằng chứng gán theo container phải được kiểm tra trước khi xuất.
+- Mỗi lần đọc manifest dùng `Weight_Kind=gross`, gồm vỏ và hàng. Điều kiện gán trọng lượng vào đúng container và suy luận F/E vẫn theo mẫu VOSCO.

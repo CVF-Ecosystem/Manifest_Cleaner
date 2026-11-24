@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import Any
 
 from ...common import (
-    is_explicit_empty, issue, normalize_text, parse_weight, read_workbook, text_value,
+    is_explicit_empty, issue, normalize_text, parse_weight, read_workbook, seal_text, text_value,
 )
 from .profile import CARGO_TYPES, DEFAULTS, HEADER_ALIASES, INPUT_COLUMNS, SIZE_TO_VTOS
 
 
-PROFILE_VERSION = "VINAFCO-1.1.0"
+PROFILE_VERSION = "VINAFCO-1.1.1"
 _PARTY = re.compile(r"^\s*\(\s*([SCN])\s*\)\s*(.*)$", re.I | re.S)
 _CONTAINER = re.compile(r"^[A-Z]{4}\d{7}$")
 _SOC = re.compile(r"(?<![A-Z])S[.\s]*O[.\s]*C(?![A-Z])", re.I)
@@ -183,7 +183,8 @@ def _map_header(row, cfg: dict) -> tuple[dict, list, str]:
 
 
 def _raw_row(row, columns: dict) -> dict:
-    raw = {name: text_value(row.iloc[index]) for name, index in columns.items()}
+    raw = {name: (seal_text if name == "seal" else text_value)(row.iloc[index])
+           for name, index in columns.items()}
     for name in INPUT_COLUMNS:
         raw.setdefault(name, "")
     return raw
@@ -204,7 +205,7 @@ def _is_footer(raw: dict) -> bool:
 
 def _has_container_attributes(raw: dict) -> bool:
     """A populated type/seal/weight/goods row is not an ordinary empty row."""
-    return any(raw[name] for name in ("type", "seal", "gw", "comm"))
+    return any(raw[name] for name in ("type", "gw", "comm")) or bool(text_value(raw["seal"]))
 
 
 def _container_key(value: str) -> str:
@@ -724,8 +725,6 @@ def parse_manifest(path, *, settings=None, progress=None) -> dict:
             add(record, "VINAFCO_WEIGHT_INVALID", "Thiếu trọng lượng hoặc không đọc được số và đơn vị; không tự thay bằng 0.", "error", "Weight_Value")
         if not vtos or cargo == "UNKNOWN":
             add(record, "VINAFCO_TYPE_UNMAPPED", "Kích cỡ chưa có ánh xạ VTOS/loại hàng được xác nhận.", "error", "Size_Type")
-        if raw["seal"] and not (raw["seal"].isdigit() and len(raw["seal"]) in (6, 7)):
-            add(record, "VINAFCO_SEAL_REVIEW", "Seal khác mẫu 6 hoặc 7 chữ số của VINAFCO; giữ nguyên để kiểm tra.", field="Seal_No")
         if soc and (_COC.search(raw["remarks"]) or _COC.search(raw["comm"])):
             add(record, "VINAFCO_SOC_COC_CONFLICT", "Có dấu hiệu SOC và COC cùng xuất hiện; cần xác nhận hãng khai thác.", "error", "Operator")
         for code, severity, message in fe_notes:

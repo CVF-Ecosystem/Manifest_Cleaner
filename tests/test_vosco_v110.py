@@ -278,18 +278,21 @@ class Vosco110Tests(unittest.TestCase):
         self.assertTrue(all(r["Confidence"] < 100 for r in result["records"]))
         self.assertTrue(any(i["code"] == "DESCRIPTION_REVIEW" for i in result["issues"]))
 
-    def test_positive_cargo_mass_not_compared_with_tare(self):
-        for weight in ("2 TONS", "2000 KGS", "0.01 TONS"):
+    def test_legacy_low_level_cargo_and_normal_gross(self):
+        for weight, expected in (("2 TONS", 2), ("2000 KGS", 2), ("0.01 TONS", 0.01)):
             with self.subTest(weight=weight):
-                session = process_manifest(self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight=weight), "VOSCO", settings={"weight_kind": "cargo"})
-                self.assertEqual(session.records[0]["FE_Status"], "F")
-                self.assertEqual(session.records[0]["Cargo_Type"], "GENERAL")
-                self.assertIn("fe.cargo-mass-no-tare", session.records[0]["rules"])
+                path = self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight=weight)
+                legacy = parse_manifest(path, settings={"weight_kind": "cargo"})
+                self.assertEqual(legacy["records"][0]["FE_Status"], "F")
+                session = process_manifest(path, "VOSCO", settings={"weight_kind": "cargo"})
+                self.assertEqual(session.records[0]["Weight_Kind"], "gross")
+                self.assertEqual(session.records[0]["Weight_Value"], expected)
+                self.assertEqual(session.records[0]["FE_Status"], "E")
                 columns, rows = build_port_rows(session)
-                self.assertEqual(rows[0][columns.index("F/E")], "F")
+                self.assertEqual(rows[0][columns.index("TL hàng")], expected)
 
     def test_unknown_keeps_legacy_inference_with_visible_warning(self):
-        result = parse_manifest(self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight="2 TONS"))
+        result = parse_manifest(self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight="2 TONS"), settings={"weight_kind": "unknown"})
         self.assertEqual(result["records"][0]["FE_Status"], "E")
         self.assertTrue(any(i["code"] == "FE_WEIGHT_KIND_UNCONFIRMED" for i in result["issues"]))
         self.assertEqual(determine_fe("LIGHT CARGO", {"value": 2, "unit": "TONS"}, "40HC", weight_kind="gross"), "E")
@@ -301,17 +304,20 @@ class Vosco110Tests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "weight_kind"):
                     parse_manifest(path, settings={"weight_kind": value})
 
-    def test_positive_cargo_weight_and_explicit_empty_blocks_export(self):
-        session = process_manifest(self.workbook("EMPTY", containers=CONTAINERS.splitlines()[0], weight="2 TONS"), "VOSCO", settings={"weight_kind": "cargo"})
-        self.assertEqual(session.records[0]["FE_Status"], "E")
-        self.assertTrue(any(i["code"] == "EMPTY_CARGO_WEIGHT_CONFLICT" for i in session.validate()))
-        with self.assertRaises(ValueError):
-            build_port_rows(session)
+    def test_legacy_explicit_empty_and_cargo_conflict_remains_visible(self):
+        result = parse_manifest(self.workbook("EMPTY", containers=CONTAINERS.splitlines()[0], weight="2 TONS"),
+                                settings={"weight_kind": "cargo"})
+        self.assertEqual(result["records"][0]["FE_Status"], "E")
+        self.assertTrue(any(i["code"] == "EMPTY_CARGO_WEIGHT_CONFLICT" for i in result["issues"]))
 
-    def test_zero_payload_without_explicit_empty_requires_review(self):
-        session = process_manifest(self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight="0 TONS"), "VOSCO", settings={"weight_kind": "cargo"})
-        self.assertEqual(session.records[0]["FE_Status"], "F")
-        self.assertTrue(any(i["code"] == "ZERO_FULL_WEIGHT" for i in session.validate()))
+    def test_legacy_zero_cargo_and_new_gross_interpretation(self):
+        path = self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight="0 TONS")
+        result = parse_manifest(path, settings={"weight_kind": "cargo"})
+        self.assertEqual(result["records"][0]["FE_Status"], "F")
+        session = process_manifest(path, "VOSCO", settings={"weight_kind": "cargo"})
+        self.assertEqual(session.records[0]["Weight_Kind"], "gross")
+        self.assertEqual(session.records[0]["Weight_Value"], 0)
+        self.assertEqual(session.records[0]["FE_Status"], "E")
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from . import __version__
 from .carriers import CARRIERS, CARRIER_PROFILES, MAPPING_SETTINGS, TARE_SETTINGS
-from .common import inspect_workbook_source, issue, text_value
+from .common import inspect_workbook_source, issue, seal_text, text_value
 
 EDITABLE_FIELDS = ("BL_No", "Container_No", "Seal_No", "Cleaned_Consignee_Name_For_Output",
                    "Size_Type", "Operator", "FE_Status", "Weight_Value", "Description")
@@ -27,6 +27,7 @@ FIELD_LABELS = {"BL_No": "Số B/L", "Container_No": "Số container", "Seal_No"
                 "Weight_Value": "Trọng lượng (tấn)", "Description": "Hàng hóa", "Cargo_Type": "Loại hàng"}
 DEFAULT_SETTINGS = {code: profile.defaults() for code, profile in CARRIER_PROFILES.items()}
 REVIEW_FORMAT = "manifest-cleaner-review-v2"
+RETIRED_SEAL_WARNINGS = frozenset({"SEAL_LEGACY_RULE", "VOSCO_SEAL_FORMAT", "VINAFCO_SEAL_REVIEW"})
 
 
 class ReviewSourceError(ValueError):
@@ -46,8 +47,8 @@ def source_sha256(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def validate_carrier_settings(carrier: str, supplied: dict | None = None) -> dict:
-    """Validate known options and canonicalise sheet aliases before processing."""
+def validate_carrier_settings(carrier: str, supplied: dict | None = None, *, preserve_weight_kind: bool = False) -> dict:
+    """Validate carrier settings and apply the gross-weight rule for a new read."""
     if carrier not in CARRIERS:
         raise ValueError("Hãng tàu trong cấu hình không được hỗ trợ.")
     if supplied is not None and not isinstance(supplied, dict):
@@ -71,6 +72,8 @@ def validate_carrier_settings(carrier: str, supplied: dict | None = None) -> dic
         raise ValueError(f"Quy ước số không hợp lệ cho {carrier}.")
     if not isinstance(result["weight_kind"], str) or result["weight_kind"] not in {"gross", "cargo", "unknown"}:
         raise ValueError(f"weight_kind của {carrier} chỉ nhận gross, cargo hoặc unknown.")
+    if not preserve_weight_kind:
+        result["weight_kind"] = profile.weight_kind
     if "selected_sheet" in result:
         if not isinstance(result["selected_sheet"], str):
             raise ValueError("Tên sheet phải là chuỗi ký tự.")
@@ -180,6 +183,8 @@ class ManifestSession:
             output.append(issue("SETTINGS_CHANGED", "Quy ước xử lý đã thay đổi. Xử lý lại manifest trước khi xuất.", severity="error"))
         active = {r["record_id"]: r for r in self.active_records()}
         for original in self.base_issues:
+            if original.get("code") in RETIRED_SEAL_WARNINGS and original.get("severity") == "warning":
+                continue
             item = dict(original)
             rid = item.get("record_id")
             if rid is not None:
@@ -190,7 +195,8 @@ class ManifestSession:
                 field_name = item.get("field")
                 # Resolved values still undergo independent current validation below.
                 resolution_fields = item.get("resolution_fields") or ([field_name] if field_name else [])
-                if resolution_fields and all(name in verified and _present(record.get(name)) for name in resolution_fields):
+                if resolution_fields and all(name in verified and (name == "Seal_No" or _present(record.get(name)))
+                                             for name in resolution_fields):
                     continue
                 if record.get("_manual_review_reason") and item.get("severity") != "error":
                     continue
@@ -241,9 +247,6 @@ class ManifestSession:
                         add("ZERO_FULL_WEIGHT", "Container F có trọng lượng bằng 0; kiểm tra lại dữ liệu.", "warning", "Weight_Value")
                 except (ValueError, TypeError, OverflowError):
                     add("INVALID_WEIGHT", "Trọng lượng phải là số hữu hạn, không âm, theo đơn vị tấn.", field_name="Weight_Value")
-            seal = text_value(record.get("Seal_No"))
-            if seal and not re.fullmatch(r"\d{6,7}", seal):
-                add("SEAL_LEGACY_RULE", "Seal khác quy tắc 6–7 chữ số của mẫu cũ; giữ nguyên giá trị để đối chiếu.", "warning", "Seal_No")
             if fe == "F" and not _present(record.get("Description")):
                 add("MISSING_DESCRIPTION", "Container F chưa có mô tả hàng hóa.", "warning", "Description")
             if container:
@@ -318,6 +321,8 @@ class ManifestSession:
                             raise ValueError
                     except (ValueError, TypeError, OverflowError):
                         raise ValueError("Nhập trọng lượng bằng tấn, dùng dấu phẩy hoặc dấu chấm thập phân.")
+            elif name == "Seal_No":
+                value = seal_text(value)
             else:
                 value = text_value(value)
                 if name in {"Container_No", "FE_Status", "Size_Type", "Operator"}:
@@ -443,7 +448,7 @@ def load_review(path: str | Path, *, source_path: str | Path | None = None) -> M
         raise ValueError("Hãng tàu trong file phiên không hợp lệ.")
     if not isinstance(data.get("settings"), dict):
         raise ValueError("Cấu hình trong file phiên không hợp lệ.")
-    settings = validate_carrier_settings(carrier, data["settings"])
+    settings = validate_carrier_settings(carrier, data["settings"], preserve_weight_kind=True)
     records, issues, metadata, corrections = (data.get(k) for k in ("records", "base_issues", "metadata", "corrections"))
     if not isinstance(records, list) or len(records) > 200000 or any(not isinstance(r, dict) for r in records):
         raise ValueError("Danh sách bản ghi của phiên không hợp lệ.")

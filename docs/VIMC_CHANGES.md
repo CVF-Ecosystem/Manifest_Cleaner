@@ -20,6 +20,8 @@ Adapter nhận dạng cấu trúc từng dòng container:
 
 Các dạng này được phép xuất hiện chung trong một manifest. Nếu một dòng có thể đọc theo cả hai vị trí trọng lượng, ứng dụng giữ nguyên dòng và yêu cầu kiểm tra; không dùng tên tàu để chọn một đáp án.
 
+Manifest khai tổng trọng lượng vỏ và hàng. Trường seal giữ nội dung khai báo, kể cả chữ, số 0 đầu và dấu phân cách trong mã.
+
 ## 2. Những quy tắc cũ được bảo tồn
 
 - Nhận diện bảng qua các cột thông tin chủ hàng, MARKS & NUMBERS và DESCRIPTION/DISCRIPTION/PACKAGES trong 20 dòng đầu.

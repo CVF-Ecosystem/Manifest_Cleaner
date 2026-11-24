@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from .mappings import SIZE_TO_ISO, SIZE_TO_VTOS
-from ...common import parse_weight
+from ...common import parse_weight, seal_text
 
 CONTAINER_PATTERN = re.compile(r"^[A-Z]{4}\d{4,7}$", re.I)
 CONTAINER_CANDIDATE = re.compile(r"(?<![A-Z0-9])[A-Z]{4}\d{4,10}(?![A-Z0-9])", re.I)
@@ -44,8 +44,7 @@ def is_valid_container(value):
 
 
 def clean_seal_number(value):
-    text = str(value).strip().upper() if value is not None else ""
-    return None if text in {"", "N/A", "NA", "-"} else text
+    return seal_text(value) or None
 
 
 def _legacy_match(pattern, line, unit):
@@ -81,9 +80,13 @@ def parse_weight_tons(value):
     return result["value"] if result is not None else None
 
 
+def _size_text(value):
+    return str(value).strip(" ,;:/").upper()
+
+
 def is_size_token(value):
-    value = str(value).strip(" ,;:/").upper()
-    return value in _KNOWN_TYPES or bool(_SIZE_SHAPE.fullmatch(value))
+    size = _size_text(value)
+    return size in _KNOWN_TYPES or bool(_SIZE_SHAPE.fullmatch(size))
 
 
 def _strong_size(text):
@@ -118,12 +121,37 @@ def _container_matches(text):
     return matches
 
 
-def split_container_segments(text):
-    """Keep strict and structurally recognizable damaged container candidates."""
-    matches = _container_matches(text or "")
+def _segments(text, matches):
     return [(match.group().upper(), (text[match.start():matches[i + 1].start()]
              if i + 1 < len(matches) else text[match.start():]).strip(" ;|"))
             for i, match in enumerate(matches)]
+
+
+def split_container_segments(text):
+    """Keep strict and structurally recognizable damaged container candidates."""
+    return _segments(text or "", _container_matches(text or ""))
+
+
+def split_detail_segments(text, *, marked_containers=()):
+    """A container-shaped token before the detail's size can be a seal."""
+    source = text or ""
+    candidates = _container_matches(source)
+    details = []
+    for index, candidate in enumerate(candidates):
+        if details and candidate.group().upper() not in marked_containers:
+            prefix = source[details[-1].end():candidate.start()]
+            end = candidates[index + 1].start() if index + 1 < len(candidates) else len(source)
+            suffix = source[candidate.end():end]
+            fields = suffix.rstrip(" ;|").split()
+            # Treat the second identifier as the sole seal only when it
+            # immediately precedes the size and a complete weight layout.
+            # An already populated prefix or suffix seal implies competing detail.
+            if (not prefix.removeprefix("/").strip() and suffix[:1].isspace() and fields
+                    and _detail_size_index(fields) == 0 and _size_text(fields[0]) in _KNOWN_TYPES
+                    and any(_weight_layouts(fields[1:])) and not _adjacent_size_fits(fields, 0)):
+                continue
+        details.append(candidate)
+    return _segments(source, details)
 
 
 def parse_marks_container(line):
@@ -151,6 +179,43 @@ def _weight_edge(tokens, first):
     return None
 
 
+def _weight_layouts(tokens):
+    first = _weight_edge(tokens, True)
+    last = _weight_edge(tokens, False)
+    # A single numeric token is an incomplete line.
+    return first if first and first[1] else None, last if last and last[1] else None
+
+
+def _weight_candidates(tokens):
+    first, last = _weight_layouts(tokens)
+    return [{"layout": layout, "weight_raw": value[0], "source_unit": unit, "description": " ".join(value[1])}
+            for layout, unit, value in (("weight_first_tons", "TONS", first), ("description_first_kg", "KGS", last))
+            if value]
+
+
+def _adjacent_size_fits(tokens, size_index):
+    following = size_index + 1
+    return (following < len(tokens) and _size_text(tokens[following]) in _KNOWN_TYPES
+            and any(_weight_layouts(tokens[following + 1:])))
+
+
+def _detail_size_index(tokens):
+    positions = [idx for idx, token in enumerate(tokens[:6]) if is_size_token(token)]
+    if not positions:
+        return None
+    first = positions[0]
+    if _size_text(tokens[first]) in _KNOWN_TYPES:
+        # Preserve an established size layout. Two adjacent supported codes
+        # can be a literal seal and its type when only the latter fits.
+        if _adjacent_size_fits(tokens, first) and not any(_weight_layouts(tokens[first + 1:])):
+            return first + 1
+        return first
+    # An unsupported size-shaped token can still be part of the seal.
+    # Keep the original candidate for review when no known type has a layout.
+    return next((idx for idx in positions[1:] if _size_text(tokens[idx]) in _KNOWN_TYPES
+                 and any(_weight_layouts(tokens[idx + 1:]))), first)
+
+
 def parse_structured_line(line):
     """Return source fields plus layout/ambiguity, without discarding failures.
 
@@ -158,36 +223,40 @@ def parse_structured_line(line):
     weight-first-tonnes and description-first-kg layouts both fit. No vessel
     hint resolves this case and no weight is guessed.
     """
-    candidates = split_container_segments(line)
+    candidates = split_detail_segments(line)
     if not candidates:
         return None
     container, segment = candidates[0]
-    tokens = segment[len(container):].strip(" /\t").split()
-    size_index = next((i for i, token in enumerate(tokens[:6]) if is_size_token(token)), None)
+    fields = segment[len(container):].removeprefix("/").lstrip()
+    positions = list(re.finditer(r"\S+", fields))
+    tokens = [match.group() for match in positions]
+    size_index = _detail_size_index(tokens)
     result = {"container_no": container, "seal_no": None, "size_type": None,
               "description": "", "weight_raw": None, "weight_unit": None,
               "layout": "unparsed", "raw_line": line, "ambiguous_candidates": []}
     if size_index is None:
         return result
-    result["size_type"] = tokens[size_index].strip(" ,;:/").upper()
-    result["seal_no"] = clean_seal_number(" ".join(tokens[:size_index]))
+    result["size_type"] = _size_text(tokens[size_index])
+    result["seal_no"] = clean_seal_number(fields[:positions[size_index].start()].rstrip())
     tail = tokens[size_index + 1:]
-    first = _weight_edge(tail, True)
-    last = _weight_edge(tail, False)
-    # A single numeric token is an incomplete line, not two viable layouts.
-    first_valid = first is not None and bool(first[1])
-    last_valid = last is not None and bool(last[1])
-    if first_valid and last_valid:
-        result["layout"] = "ambiguous"
-        result["description"] = " ".join(tail)
-        result["ambiguous_candidates"] = [
-            {"layout": "weight_first_tons", "weight_raw": first[0], "source_unit": "TONS", "description": " ".join(first[1])},
-            {"layout": "description_first_kg", "weight_raw": last[0], "source_unit": "KGS", "description": " ".join(last[1])},
+    layouts = _weight_candidates(tail)
+    if layouts and result["size_type"] in _KNOWN_TYPES and _adjacent_size_fits(tokens, size_index):
+        alternatives = [
+            {**candidate, "size_type": _size_text(tokens[index]),
+             "seal_no": clean_seal_number(fields[:positions[index].start()].rstrip())}
+            for index in (size_index, size_index + 1)
+            for candidate in _weight_candidates(tokens[index + 1:])
         ]
-    elif first_valid:
-        result.update(layout="weight_first_tons", weight_raw=first[0], weight_unit="TONS", description=" ".join(first[1]))
-    elif last_valid:
-        result.update(layout="description_first_kg", weight_raw=last[0], weight_unit="KGS", description=" ".join(last[1]))
+        result.update(layout="seal_type_ambiguous", description=layouts[0]["description"],
+                      ambiguous_candidates=alternatives)
+        if len({(item["weight_raw"], item["source_unit"]) for item in alternatives}) == 1:
+            result.update(weight_raw=layouts[0]["weight_raw"], weight_unit=layouts[0]["source_unit"])
+    elif len(layouts) > 1:
+        result.update(layout="ambiguous", description=" ".join(tail), ambiguous_candidates=layouts)
+    elif layouts:
+        choice = layouts[0]
+        result.update(layout=choice["layout"], weight_raw=choice["weight_raw"], weight_unit=choice["source_unit"],
+                      description=choice["description"])
     else:
         result["description"] = " ".join(tail)
     return result

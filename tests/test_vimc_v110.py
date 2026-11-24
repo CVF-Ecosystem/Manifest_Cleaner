@@ -73,6 +73,98 @@ class Vimc110Tests(unittest.TestCase):
         self.assertEqual(len(result["records"]), 1)
         self.assertEqual(result["records"][0]["Seal_No"], "VMC1234567")
 
+    def test_detail_preserves_exact_seal_case_punctuation_and_spacing(self):
+        seals = ("00aB-7;  cD/09", "/MiXeD\t\t00--2", "NA", "N/A", "-")
+        lines = [f"DEMU000000{idx} {seal} 20GP 25 STEEL" for idx, seal in enumerate(seals, 1)]
+        result = parse_manifest(self.standard(lines))
+        self.assertEqual(tuple(record["Seal_No"] for record in result["records"]), seals)
+        self.assertEqual(tuple(record["raw"]["seal"] for record in result["records"]), seals)
+        self.assertEqual({record["Weight_Kind"] for record in result["records"]}, {"gross"})
+        self.assertEqual({record["Weight_Value"] for record in result["records"]}, {25})
+        self.assertEqual({record["FE_Status"] for record in result["records"]}, {"F"})
+
+    def test_container_shaped_seal_retains_its_slot_and_subsequent_detail(self):
+        first = "DEMU1111111 abCd0000123 20GP 25 STEEL"
+        second = "DEMU2222222 001234 40HC 26 STEEL"
+        path = self.standard([f"{first} ; {second}"])
+        records = parse_manifest(path)["records"]
+        self.assertEqual([record["Container_No"] for record in records], ["DEMU1111111", "DEMU2222222"])
+        self.assertEqual([record["Seal_No"] for record in records], ["abCd0000123", "001234"])
+
+    def test_marks_keep_two_adjacent_ids_as_separate_detail_candidates(self):
+        path = self.workbook([
+            ["B/L NO:", "", "BL-1", "COC LADEN"], [PARTY, "", "", ""],
+            ["", "DEMU1111111/20GP DEMU2222222/20GP", "", "DEMU1111111 DEMU2222222 20GP 25 STEEL"],
+        ])
+        result = parse_manifest(path)
+        self.assertEqual([record["Container_No"] for record in result["records"]], ["DEMU1111111", "DEMU2222222"])
+        self.assertIsNone(result["records"][1]["Seal_No"])
+        self.assertTrue(any(finding["code"] == "VIMC_CONTAINER_UNPARSED" for finding in result["issues"]))
+
+    def test_competing_detail_rows_are_not_absorbed_as_a_seal_without_marks(self):
+        for line in ("DEMU1111111 123456 DEMU2222222 654321 20GP 25 STEEL",
+                     "DEMU1111111 DEMU2222222 654321 20GP 25 STEEL",
+                     "DEMU1111111 123456 DEMU2222222 20GP 25 STEEL",
+                     "DEMU1111111 DEMU2222222 40HC 20GP 25 STEEL"):
+            with self.subTest(line=line):
+                result = parse_manifest(self.standard([line]))
+                self.assertEqual([record["Container_No"] for record in result["records"]],
+                                 ["DEMU1111111", "DEMU2222222"])
+                self.assertTrue(any(finding["code"] == "VIMC_CONTAINER_UNPARSED" for finding in result["issues"]))
+
+    def test_known_weighted_size_is_preferred_over_size_shaped_seal_text(self):
+        lines = ["DEMU1111111 00ax  /77  20GP 25 STEEL", "DEMU2222222 Seal-001 99WT 27 STEEL"]
+        first, second = parse_manifest(self.standard(lines))["records"]
+        self.assertEqual((first["Seal_No"], first["Size_Type"], first["Weight_Value"]), ("00ax  /77", "20GP", 25))
+        self.assertEqual((second["Seal_No"], second["Size_Type"], second["Weight_Value"]), ("Seal-001", "99WT", 27))
+
+    def test_adjacent_supported_size_candidates_require_review_even_with_same_weight(self):
+        line = "DEMU1111111 40HC 20GP STEEL 25000"
+        session = process_manifest(self.standard([line]), "VIMC")
+        record, = session.records
+        alternatives = record["raw"]["ambiguous_candidates"]
+        self.assertEqual([(c["seal_no"], c["size_type"], c["description"]) for c in alternatives],
+                         [(None, "40HC", "20GP STEEL"), ("40HC", "20GP", "STEEL")])
+        self.assertEqual(record["raw"]["text"], line)
+        self.assertEqual(record["Weight_Value"], 25)
+        issue = next(i for i in session.validate() if i["code"] == "VIMC_SEAL_TYPE_AMBIGUOUS")
+        self.assertEqual(issue["resolution_fields"], ["Seal_No", "Size_Type", "Description"])
+        self.assertEqual(session.metadata["coverage"]["unresolved_fragments"], 1)
+        with self.assertRaises(ValueError):
+            build_port_rows(session)
+        session.update_record(record["record_id"], {}, "Verified type and goods but omitted seal",
+                              verified_fields=["Size_Type", "Description"])
+        with self.assertRaises(ValueError):
+            build_port_rows(session)
+        session.update_record(record["record_id"], {}, "Verified blank seal", verified_fields=["Seal_No"])
+        cols, rows = build_port_rows(session)
+        self.assertEqual(rows[0][cols.index("Số niêm chì")], "")
+
+    def test_adjacent_size_candidates_do_not_hide_alternate_weight_layout(self):
+        line = "DEMU1111111 40HC 20GP 25 STEEL 25000"
+        session = process_manifest(self.standard([line]), "VIMC")
+        record, = session.records
+        self.assertIsNone(record["Weight_Value"])
+        alternatives = record["raw"]["ambiguous_candidates"]
+        self.assertEqual([(c["size_type"], c["weight_raw"], c["source_unit"]) for c in alternatives],
+                         [("40HC", "25000", "KGS"), ("20GP", "25", "TONS"), ("20GP", "25000", "KGS")])
+        issue = next(i for i in session.validate() if i["code"] == "VIMC_SEAL_TYPE_AMBIGUOUS")
+        self.assertEqual(issue["resolution_fields"], ["Seal_No", "Size_Type", "Description", "Weight_Value"])
+        session.update_record(record["record_id"], {"Seal_No": "40HC", "Size_Type": "20GP", "Description": "STEEL"},
+                              "Verified seal, size and goods")
+        with self.assertRaises(ValueError):
+            build_port_rows(session)
+        session.update_record(record["record_id"], {"Weight_Value": 25}, "Verified weight")
+        self.assertEqual(len(build_port_rows(session)[1]), 1)
+
+    def test_weight_kind_override_still_available_to_direct_adapter(self):
+        path = self.standard([GOOD])
+        for kind in ("cargo", "unknown"):
+            with self.subTest(kind=kind):
+                record, = parse_manifest(path, settings={"weight_kind": kind})["records"]
+                self.assertEqual(record["Weight_Kind"], kind)
+                self.assertEqual(record["Weight_Value"], 20)
+
     def test_headings_summaries_and_contact_numbers_not_containers(self):
         for text in ("TOTAL 1234567 20GP", "SEAL 1234567 20GP", "PHONE 1234567 20GP",
                      "(2) X20GP COC", "COC LADEN", "SHIP 1234567 VOYAGE", "GACH MEN"):
@@ -130,7 +222,7 @@ class Vimc110Tests(unittest.TestCase):
         ], header=["", HEADER[0], "B/L", HEADER[1], HEADER[3]])
         result = parse_manifest(path)
         a, missing, b = result["records"]
-        self.assertEqual(result["metadata"]["profile_version"], "vimc-1.2")
+        self.assertEqual(result["metadata"]["profile_version"], "vimc-1.3")
         self.assertEqual([record["Cleaned_Consignee_Name_For_Output"] for record in (a, missing, b)],
                          ["TEST CONSIGNEE", "", "MAPPED CONSIGNEE"])
         evidence = next(entry for entry in a["raw"]["party_evidence"] if entry["role"] == "Consignee")

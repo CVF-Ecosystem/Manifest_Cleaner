@@ -1,8 +1,10 @@
-# Manifest Cleaner Unified 1.2.3
+# Manifest Cleaner Unified 1.2.4
 
 Ứng dụng **local**, xử lý **một manifest của một hãng tàu mỗi phiên**, hỗ trợ đối chiếu dữ liệu và xuất Excel theo mẫu nhập hệ thống quản lý container của Cảng.
 
 **Bắt đầu:** giải nén toàn bộ thư mục, dùng Python 3.12 64-bit và chạy `START.cmd`. Mở [START_HERE.html](START_HERE.html) để xem hướng dẫn tiếng Việt dùng được offline.
+
+**Bản 1.2.4** áp dụng tổng trọng lượng vỏ và hàng cho cả ba hãng. Seal được ghi nguyên văn theo manifest và đối chiếu khi container xuống bãi.
 
 **Bản 1.2.3** đọc phần trọng lượng VOSCO nằm ở ô nối tiếp trong cùng vận đơn khi số lượng và tổng trọng lượng nguồn khớp. Màn hình đối chiếu hiển thị tọa độ ô chứa trọng lượng.
 
@@ -134,17 +136,13 @@ Giao diện tự tìm `settings.json` cạnh ứng dụng; nếu chưa có file 
 
 Số đã lưu dạng numeric trong Excel giữ nguyên giá trị; không được diễn giải lại theo locale. Đơn vị ghi rõ trong ô/header được bộ đọc xử lý theo quy tắc của hãng; nội bộ dùng tấn, chưa làm tròn sớm. Không thay quy ước chỉ để làm mất cảnh báo.
 
-### Phân biệt `cargo`, `gross`, `unknown`
+### Tổng trọng lượng và seal khai báo
 
-| Giá trị | Ý nghĩa và cách dùng |
-|---|---|
-| `cargo` | Trọng lượng hàng. Với VOSCO, hàng dương không bị so với trọng lượng vỏ để suy ra rỗng. |
-| `gross` | Tổng trọng lượng theo ngữ nghĩa cột nguồn; áp dụng quy tắc gross/tare của hãng có dùng suy luận này. |
-| `unknown` | Chưa xác nhận nghĩa cột. VOSCO giữ hành vi legacy và cảnh báo khi phải suy luận F/E từ trọng lượng. |
+Manifest VOSCO, VIMC và VINAFCO dùng tổng trọng lượng vỏ container và hàng bên trong (`gross`). Khi xuất, app quy đổi tổng về tấn theo mẫu của hãng. Các quy tắc xác định F/E vẫn theo từng hãng, với VIMC đọc từ ngữ cảnh dòng hoặc nhóm.
 
-Mặc định VOSCO/VIMC là `unknown`; VINAFCO là `gross`. VIMC đọc F/E từ ngữ cảnh dòng/nhóm; không chuyển sang thuật toán tare của hãng khác chỉ vì cùng tên cấu hình. Chỉ đổi `weight_kind` sau khi đã xác nhận ý nghĩa dữ liệu với nguồn nghiệp vụ.
+Mỗi lần đọc mới áp dụng `gross`, kể cả khi file cấu hình cũ ghi `cargo` hoặc `unknown`. Mở lại phiên đã lưu sẽ khôi phục dữ liệu và quy ước của phiên đó. Để áp dụng quy tắc mới cho phiên cũ, lưu phần chỉnh sửa cần giữ rồi đọc lại manifest gốc.
 
-Với VOSCO: khai báo EMPTY nhưng cấu hình `cargo` có khối lượng hàng dương tạo lỗi cần xác nhận F/E và khối lượng. Khối lượng hàng bằng 0, nếu không có khai báo EMPTY, không tự trở thành container rỗng.
+Số niêm chì được ghi nhận theo khai báo trong manifest, gồm chữ, số 0 đầu và dấu phân cách. Hai cột seal trong Excel lưu dạng văn bản. Việc đối chiếu seal thực tế diễn ra khi container được dỡ xuống bãi.
 
 ## Các tình huống từ audit đã được xử lý trong 1.1
 

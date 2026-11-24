@@ -37,7 +37,7 @@ class CarrierProfile:
     adapter: str
     operators: tuple[str, str]
     export: PortExportProfile = PortExportProfile()
-    weight_kind: str = "unknown"
+    weight_kind: str = "gross"
     default_weight_unit: str | None = None
     sheet_alias: str | None = None
     weight_unit_alias: str | None = None
@@ -73,7 +73,6 @@ CARRIER_PROFILES = {
     "VINAFCO": CarrierProfile(
         adapter="manifest_cleaner.carriers.vinafco.adapter",
         operators=("VFC", "SVF"),
-        weight_kind="gross",
         default_weight_unit="TONS",
         sheet_alias="target_sheet_name",
         weight_unit_alias="default_weight_unit_if_missing",

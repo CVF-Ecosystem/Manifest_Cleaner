@@ -13,8 +13,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from xlsxwriter.utility import xl_col_to_name
 
 from . import __version__
-from .carriers import CARRIER_PROFILES
-from .common import parse_weight, text_value
+from .common import parse_weight, seal_text, text_value
 from .engine import CARRIERS, EDITABLE_FIELDS, FIELD_LABELS, ReviewSourceError, load_review, load_settings, process_manifest, validate_carrier_settings
 from .exporter import export_port_bundle, preview_record_for_export
 
@@ -23,7 +22,7 @@ BG = "#F2F5F8"
 TEXT = "#20364A"
 MUTED = "#596D7C"
 NUMBER_LABELS = {"legacy": "Theo quy tắc hãng", "decimal_comma": "Dấu phẩy thập phân", "decimal_dot": "Dấu chấm thập phân"}
-WEIGHT_LABELS = {"unknown": "Chưa xác nhận ý nghĩa", "gross": "Tổng trọng lượng (gross)", "cargo": "Trọng lượng hàng"}
+WEIGHT_LABELS = {"unknown": "Chưa xác nhận (phiên cũ)", "gross": "Tổng vỏ và hàng", "cargo": "Trọng lượng hàng (phiên cũ)"}
 SOURCE_REASON_LABELS = {
     "table_header": "Tiêu đề bảng", "identical_table_header": "Tiêu đề lặp lại, giữ cùng cấu trúc và đơn vị",
     "header_schema_or_unit_changed": "Tiêu đề thay đổi cột hoặc đơn vị", "after_changed_header": "Chưa đọc tiếp sau tiêu đề thay đổi",
@@ -78,9 +77,10 @@ def _source_field(record, field):
         return " | ".join(evidence) or text_value(raw.get("comm") or raw.get("matched_description") or raw.get("description")) or "Xem mô tả và quy tắc suy luận"
     if field == "Operator":
         return "SOC" if raw.get("is_soc") is True else "Xem dấu SOC/COC trong nguồn"
+    value_text = seal_text if field == "Seal_No" else text_value
     for name in names.get(field, ()):
         if raw.get(name) is not None and text_value(raw[name]) != "":
-            value = text_value(raw[name])
+            value = value_text(raw[name])
             if field == "Weight_Value" and raw.get("weight_source_unit"):
                 value += " " + text_value(raw["weight_source_unit"])
             return value
@@ -398,6 +398,8 @@ class ManifestApp:
 
     def _complete_read(self, session):
         self.session = session
+        if getattr(self, "read_override", None):
+            self.read_override = (session.carrier, self.selected_path, dict(session.settings))
         self.refresh()
         candidates = session.metadata.get("table_candidates") or []
         if not candidates:
@@ -508,7 +510,7 @@ class ManifestApp:
             label = "Đã loại" if excluded else "Cần sửa" if error else "Cần kiểm tra" if row_issues else "Đã đối chiếu" if record.get("_manual_review_reason") else "Đủ dữ liệu"
             tag = "excluded" if excluded else "error" if error else "warning" if row_issues else ""
             weight = record.get("Weight_Value")
-            values = (label, record.get("Container_No", ""), text_value(record.get("Seal_No")),
+            values = (label, record.get("Container_No", ""), seal_text(record.get("Seal_No")),
                       record.get("BL_No", ""), record.get("VTOS_Size", ""),
                       record.get("Operator", ""), record.get("FE_Status", ""), text_value(weight),
                       record.get("Cleaned_Consignee_Name_For_Output", ""), record.get("Description", ""))
@@ -639,6 +641,7 @@ class ManifestApp:
     def edit_record(self, rid):
         record = self.session.get_record(rid)
         original = {name: text_value(record.get(name)) for name in EDITABLE_FIELDS}
+        original["Seal_No"] = seal_text(record.get("Seal_No"))
         record_issues = [item for item in self.session.validate() if item.get("record_id") == rid]
         affected = {field for item in record_issues for field in (item.get("resolution_fields") or [item.get("field")]) if field}
         dialog = tk.Toplevel(self.root)
@@ -742,7 +745,8 @@ class ManifestApp:
                 return
             for column, value in preview.items():
                 field = source_fields.get(column)
-                comparison.insert("", "end", values=(column, _source_field(record, field) if field else "Theo quy tắc xuất", text_value(value)), tags=("review",) if field in affected else ())
+                output = seal_text(value) if field == "Seal_No" else text_value(value)
+                comparison.insert("", "end", values=(column, _source_field(record, field) if field else "Theo quy tắc xuất", output), tags=("review",) if field in affected else ())
         notebook.bind("<<NotebookTabChanged>>", lambda _: update_preview())
         ttk.Button(source_tab, text="Cập nhật xem trước theo các ô đang sửa", command=update_preview).pack(anchor="e", pady=6)
         advanced = ttk.Frame(source_tab)
@@ -871,28 +875,23 @@ class ManifestApp:
         choice = tk.StringVar(value=next(k for k, v in choices.items() if v == current))
         ttk.Label(body, text="Quy ước số của dữ liệu dạng chữ").pack(anchor="w", pady=(14, 4))
         ttk.Combobox(body, textvariable=choice, values=list(choices), state="readonly", width=48).pack(fill="x")
-        ttk.Label(body, text="Ý nghĩa trọng lượng trong nguồn").pack(anchor="w", pady=(14, 4))
-        weight_choices = {value: key for key, value in WEIGHT_LABELS.items()}
-        default_weight_kind = CARRIER_PROFILES[carrier].weight_kind
-        weight_choice = tk.StringVar(value=WEIGHT_LABELS[existing.get("weight_kind", default_weight_kind)])
-        ttk.Combobox(body, textvariable=weight_choice, values=list(weight_choices), state="readonly").pack(fill="x")
+        ttk.Label(body, text="Trọng lượng manifest gồm vỏ container và hàng bên trong.").pack(anchor="w", pady=(14, 4))
         ttk.Label(body, text="Sheet cần xử lý (có thể nhập đúng tên sheet)").pack(anchor="w", pady=(14, 4))
         automatic = "Theo quy tắc nhận diện của hãng"
         available = self.session.metadata.get("available_sheets", []) if self.session else []
         sheet_choice = tk.StringVar(value=existing.get("selected_sheet") or automatic)
         ttk.Combobox(body, textvariable=sheet_choice, values=[automatic, *available], state="normal").pack(fill="x")
-        ttk.Label(body, text="Chỉ đổi ý nghĩa trọng lượng khi đã đối chiếu với hãng tàu. Số numeric trong Excel giữ nguyên. Cấu hình mới chỉ có hiệu lực sau khi bấm Xử lý lại; các chỉnh sửa của phiên cũ không tự chuyển sang kết quả mới.", wraplength=590, style="Muted.TLabel").pack(anchor="w", pady=(16, 6))
+        ttk.Label(body, text="Quy ước dấu thập phân áp dụng cho các ô dạng chữ. Bấm Xử lý lại để dùng cấu hình mới. Các chỉnh sửa của phiên cũ nằm trong bản đối chiếu đã lưu.", wraplength=590, style="Muted.TLabel").pack(anchor="w", pady=(16, 6))
         def save():
             updated = copy.deepcopy(existing)
             updated["number_format"] = choices[choice.get()]
-            updated["weight_kind"] = weight_choices[weight_choice.get()]
             selected_sheet = sheet_choice.get().strip()
             if selected_sheet and selected_sheet != automatic:
                 updated["selected_sheet"] = selected_sheet
             else:
                 updated.pop("selected_sheet", None)
             try:
-                updated = validate_carrier_settings(carrier, updated)
+                updated = validate_carrier_settings(carrier, updated, preserve_weight_kind=True)
             except ValueError as exc:
                 messagebox.showerror("Cấu hình chưa hợp lệ", str(exc), parent=dialog)
                 return
@@ -902,7 +901,7 @@ class ManifestApp:
             # Only persist the fields changed here, not settings held by a
             # saved review or the sheet picked for this specific workbook.
             defaults = dict(self.settings[carrier])
-            for key in ("number_format", "weight_kind", "selected_sheet"):
+            for key in ("number_format", "selected_sheet"):
                 if updated.get(key) != existing.get(key):
                     if key in updated:
                         defaults[key] = updated[key]

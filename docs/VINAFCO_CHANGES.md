@@ -47,10 +47,10 @@ Dữ liệu chuẩn và màn hình đối chiếu giữ mô tả đã đọc đ�
 | `operator_soc`, `operator_coc` | Mã hãng khai thác, mặc định SVF/VFC |
 | `default_weight_unit` | Đơn vị mặc định khi nguồn không ghi, mặc định TONS |
 | `number_format` | `legacy`, `decimal_comma`, `decimal_dot` |
-| `weight_kind` | `gross` mặc định; chỉ đổi sang `cargo` hoặc `unknown` sau khi xác nhận ý nghĩa cột nguồn |
+| `weight_kind` | `gross` cho lần đọc manifest mới. Phiên đã lưu giữ quy ước xử lý ban đầu |
 | `tare_20ft`, `tare_40ft`, `tare_45ft`, `tare_20rf`, `tare_40rf`, `tare_45rf` | Ngưỡng tare theo tấn |
 | `min_payload`, `safety_margin` | Ngưỡng và biên độ cho chính sách gross cũ, mỗi giá trị mặc định 0,1 tấn |
-| `cargo_weight_empty_threshold` | Ngưỡng chỉ dùng khi `weight_kind=cargo`, mặc định 0,05 tấn |
+| `cargo_weight_empty_threshold` | Trường tương thích cấu hình và phiên cũ |
 | `size_to_vtos` hoặc `size_to_iso` | Dictionary bổ sung/ghi đè ánh xạ kích cỡ VTOS |
 | `cargo_type_mapping` hoặc `size_type_to_cargo_type_base` | Dictionary bổ sung/ghi đè loại hàng cơ bản |
 

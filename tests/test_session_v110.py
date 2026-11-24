@@ -252,6 +252,23 @@ class Session110Tests(unittest.TestCase):
         settings["VINAFCO"]["size_to_vtos"]["CUSTOM"] = "40HC"
         self.assertEqual(load_settings(path)["VINAFCO"]["size_to_vtos"]["CUSTOM"], "20DC")
 
+    def test_new_read_uses_gross_but_legacy_review_retains_saved_weight_rule(self):
+        settings_path = self.folder / "settings.json"
+        settings_path.write_text('{"VOSCO":{"weight_kind":"cargo"},"VIMC":{"weight_kind":"unknown"}}', encoding="utf-8")
+        self.assertTrue(all(settings["weight_kind"] == "gross" for settings in load_settings(settings_path).values()))
+        source = create_vimc(self.folder / "legacy-input.xlsx")
+        session = process_manifest(source, "VIMC", settings={"weight_kind": "cargo"})
+        self.assertEqual(session.settings["weight_kind"], "gross")
+        self.assertEqual(session.records[0]["Weight_Kind"], "gross")
+        session.settings["weight_kind"] = "cargo"
+        session.records[0]["Weight_Kind"] = "cargo"
+        review = self.folder / "legacy.review.json"
+        session.save_review(review)
+        resumed = load_review(review)
+        self.assertEqual(resumed.settings["weight_kind"], "cargo")
+        self.assertEqual(resumed.records[0]["Weight_Kind"], "cargo")
+        self.assertEqual(process_manifest(source, "VIMC", settings=resumed.settings).settings["weight_kind"], "gross")
+
     def test_uncached_formula_on_used_sheet_blocks_export_even_if_its_record_was_skipped(self):
         source = create_vimc(self.folder / "uncached.xlsx")
         book = load_workbook(source)

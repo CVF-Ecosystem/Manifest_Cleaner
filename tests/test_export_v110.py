@@ -87,6 +87,24 @@ class Export110Tests(unittest.TestCase):
             else:
                 self.assertFalse(path.exists(), str(path))
 
+    def test_seal_export_preserves_verbatim_text_without_shape_warning(self):
+        session = self.session()
+        rid = session.records[0]["record_id"]
+        seal = " =ab-001  /  xy/02 "
+        session.update_record(rid, {"Seal_No": seal}, "Chép đúng khai báo seal")
+        session.base_issues.append({"code": "SEAL_LEGACY_RULE", "severity": "warning", "record_id": rid})
+        self.assertFalse(any(issue["code"] == "SEAL_LEGACY_RULE" for issue in session.validate()))
+        output = exporter.export_port_excel(session, self.outputs / "seal.xlsx")
+        book = load_workbook(output)
+        try:
+            sheet = book["Processed_Manifest"]
+            for col in ("D", "E"):
+                self.assertEqual(sheet[f"{col}2"].value, seal)
+                self.assertEqual(sheet[f"{col}2"].data_type, "s")
+            self.assertEqual(len(sheet.conditional_formatting), 1)  # EMPTY row format only
+        finally:
+            book.close()
+
     def test_preview_matches_actual_sixteen_column_export_all_carriers(self):
         for carrier in CREATORS:
             for status in ("F", "E"):

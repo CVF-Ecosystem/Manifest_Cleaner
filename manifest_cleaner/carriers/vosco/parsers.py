@@ -84,33 +84,40 @@ def parse_container_line(line: str) -> Optional[Dict[str, Any]]:
     suffix_marker: str = ""
     is_soc = False
 
-    # Check for SOC/COC marker at end
-    suffix_marker_match = MARKER_PATTERN.search(remaining_part)
+    # A lone slash-delimited size-shaped value is a seal unless it is an
+    # established size. In particular its final -C/-S may be seal text.
+    single_token = re.fullmatch(r"/(\d{2}[A-Za-z0-9]{1,4})(?:-[CS])?", remaining_part, re.I)
+    lone_unsupported_seal = bool(single_token and single_token.group(1).upper() not in SIZE_TO_VTOS)
+
+    # The carrier suffix belongs to a size token, not arbitrary seal text.
+    suffix_marker_match = None if lone_unsupported_seal else MARKER_PATTERN.search(remaining_part)
     if suffix_marker_match:
-        suffix_marker = suffix_marker_match.group(1).upper()
-        part_before_suffix = remaining_part[:suffix_marker_match.start()].strip()
-        if part_before_suffix.endswith("-"):
-            part_before_suffix = part_before_suffix[:-1].strip()
+        before = remaining_part[:suffix_marker_match.start()].strip()
+        if re.search(r"(?:^|[\s/])\d{2}[A-Za-z0-9]{1,4}$", before) or before == "//":
+            suffix_marker = suffix_marker_match.group(1).upper()
+            part_before_suffix = before
+        else:
+            part_before_suffix = remaining_part
     else:
         part_before_suffix = remaining_part
 
-    # Extract size/type
-    # A numeric seal alone is not a container type.
-    size_type_matches = [value for value in SIZE_TYPE_PATTERN.findall(part_before_suffix)
-                         if any(char.isalpha() for char in value)]
-    if size_type_matches:
-        size_type = size_type_matches[-1].upper()
-        size_type_start_index = part_before_suffix.rfind(size_type)
-        if size_type_start_index != -1:
-            seal_part_candidate = part_before_suffix[:size_type_start_index].strip()
-            # Clean seal number
-            if seal_part_candidate.endswith("/"):
-                seal_part_candidate = seal_part_candidate[:-1].strip()
-            if seal_part_candidate.startswith("/"):
-                seal_part_candidate = seal_part_candidate[1:].strip()
-            seal_no = seal_part_candidate or None
+    # A final size token is delimited by whitespace or the structural slash.
+    # Match without uppercasing or otherwise normalizing the source seal.
+    type_match = None if lone_unsupported_seal else re.search(
+        r"(?:^|[\s/])(\d{2}[A-Za-z0-9]{1,4})$", part_before_suffix)
+    if type_match and any(char.isalpha() for char in type_match.group(1)):
+        size_type = type_match.group(1).upper()
+        seal_part_candidate = part_before_suffix[:type_match.start(1)].strip()
+        if (type_match.start(1) > 0
+                and part_before_suffix[type_match.start(1) - 1] == "/"):
+            seal_part_candidate = seal_part_candidate[:-1].strip()
+        if seal_part_candidate.startswith("/"):
+            seal_part_candidate = seal_part_candidate[1:].strip()
+        seal_no = seal_part_candidate or None
     elif part_before_suffix.startswith("/"):
-        seal_no = part_before_suffix[1:].strip() if part_before_suffix[1:] else None
+        seal_no = part_before_suffix[1:].strip() or None
+
+    size_type_matches = [size_type] if size_type else []
 
     # SOC detection
     if suffix_marker == "S":

@@ -14,7 +14,7 @@ from pathlib import Path
 import pandas as pd
 import xlsxwriter
 
-from .common import text_value
+from .common import seal_text, text_value
 from . import __version__
 from .carriers import CARRIER_PROFILES
 from .engine import ManifestSession, assert_source_unchanged, source_sha256
@@ -78,7 +78,7 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_re
                   "Kích cỡ": text_value(record.get(profile.primary_size_field)),
                   "Kích cỡ VTOS": text_value(record.get("VTOS_Size")), "Loại Container": text_value(record.get("VTOS_Size")),
                   "F/E": text_value(record.get("FE_Status")), "TL hàng": weight, "Trọng lượng (Tấn)": weight,
-                  "Số niêm chì": text_value(record.get("Seal_No")), "Số niêm chì 1": text_value(record.get("Seal_No")),
+                  "Số niêm chì": seal_text(record.get("Seal_No")), "Số niêm chì 1": seal_text(record.get("Seal_No")),
                   "Chủ hàng": text_value(record.get("Cleaned_Consignee_Name_For_Output")),
                   "Hàng hóa": description,
                   "Loại hàng": text_value(record.get("Cargo_Type")), "Độ chính xác (%)": confidence,
@@ -130,7 +130,6 @@ def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: 
             text_format = book.add_format({"num_format": "@"})
             numeric_format = book.add_format({"num_format": CARRIER_PROFILES[session.carrier].export.weight_format})
             empty_format = book.add_format({"bg_color": "#DAEEF3"})
-            seal_format = book.add_format({"bg_color": "#FFF3BF"})
             for col_index, label in enumerate(columns):
                 sheet.write_string(0, col_index, label, header)
                 width = min(45, max(len(label) + 2, max((len(str(row[col_index] or "")) for row in rows), default=0) + 2))
@@ -149,9 +148,6 @@ def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: 
             last_col = xl_col_to_name(len(columns) - 1)
             if rows:
                 sheet.conditional_format(f"A2:{last_col}{len(rows)+1}", {"type": "formula", "criteria": f'=${fe_col}2="E"', "format": empty_format})
-                seal_col = xl_col_to_name(columns.index("Số niêm chì"))
-                formula = f'=AND(NOT(ISBLANK({seal_col}2)),NOT(AND(ISNUMBER(--TRIM({seal_col}2)),OR(LEN(TRIM({seal_col}2))=6,LEN(TRIM({seal_col}2))=7))))'
-                sheet.conditional_format(f"{seal_col}2:{seal_col}{len(rows)+1}", {"type": "formula", "criteria": formula, "format": seal_format})
             sheet.freeze_panes(1, 0)
             sheet.autofilter(0, 0, len(rows), len(columns) - 1)
         os.replace(temp_name, path)

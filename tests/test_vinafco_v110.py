@@ -87,6 +87,17 @@ class Vinafco110Tests(unittest.TestCase):
         self.assertEqual(session.metadata["source_weight_units"], ["KGS", "TONS"])
         self.assertEqual(session.records[0]["raw"]["gw"], "25 TONS")
 
+    def test_dedicated_seal_cells_keep_declared_text_without_shape_warnings(self):
+        seals = ("  00Ab;  xY/5\t  ", "-", "n/a", "NA", "001234")
+        rows = [self.container(f"DEMU000000{idx}", seal=seal) for idx, seal in enumerate(seals, 1)]
+        path = self.workbook(rows)
+        result = parse_manifest(path)
+        self.assertEqual(tuple(record["Seal_No"] for record in result["records"]), seals)
+        self.assertEqual(tuple(record["raw"]["seal"] for record in result["records"]), seals)
+        self.assertEqual({record["Weight_Kind"] for record in result["records"]}, {"gross"})
+        self.assertEqual({record["Weight_Value"] for record in result["records"]}, {25})
+        self.assertNotIn("VINAFCO_SEAL_REVIEW", {finding["code"] for finding in result["issues"]})
+
     def test_same_schema_repeated_header_with_equivalent_unit_alias_is_allowed(self):
         path = self.workbook([self.container(gw=25000), self.headers("G.W. (KG)"),
                               self.container("MSCU7654321", gw=26000)], weight="GWKGS")

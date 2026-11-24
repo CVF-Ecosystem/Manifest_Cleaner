@@ -167,7 +167,7 @@ class VoscoAdapterTests(unittest.TestCase):
         self.assertEqual(no_marker["records"][0]["BL_No"], "")
 
     def test_weight_kind_inference_has_visible_warning(self):
-        result = parse_manifest(self.workbook([source_row(weight="25 TONS")]))
+        result = parse_manifest(self.workbook([source_row(weight="25 TONS")]), settings={"weight_kind": "unknown"})
         warning = next(i for i in result["issues"] if i["code"] == "FE_WEIGHT_KIND_UNCONFIRMED")
         self.assertEqual(warning["record_id"], result["records"][0]["record_id"])
         self.assertEqual(warning["field"], "FE_Status")
@@ -187,6 +187,31 @@ class VoscoAdapterTests(unittest.TestCase):
         session.update_record(session.records[0]["record_id"], {"Size_Type": "BANANA"}, "Kiểm tra dữ liệu chưa được map")
         self.assertIsNone(session.records[0]["VTOS_Size"])
         self.assertTrue([i for i in session.validate() if i["severity"] == "error"])
+
+    def test_seal_text_is_preserved_verbatim_until_yard_inspection(self):
+        for seal in ("00Ab-7/xy", "No Seal", "x  Y  07", "a.b+01", "N/A", "literal-C", "abc/"):
+            with self.subTest(seal=seal):
+                result = parse_manifest(self.workbook([source_row(containers=f"ABCU1234567/{seal} 40HC-C")]))
+                record = result["records"][0]
+                self.assertEqual(record["Seal_No"], seal)
+                self.assertNotIn("VOSCO_SEAL_FORMAT", {i["code"] for i in result["issues"]})
+                self.assertEqual(record["Weight_Kind"], "gross")
+                self.assertNotIn("FE_WEIGHT_KIND_UNCONFIRMED", {i["code"] for i in result["issues"]})
+        self.assertEqual(parse_container_line("ABCU1234567/literal-C")["seal"], "literal-C")
+        for literal in ("12Ab-C", "12Ab-S", "12Ab"):
+            parsed = parse_container_line("ABCU1234567/" + literal)
+            self.assertEqual((parsed["seal"], parsed["type"], parsed["operator"]), (literal, None, "VOC"))
+        supported = parse_container_line("ABCU1234567/40HC-S")
+        self.assertEqual((supported["seal"], supported["type"], supported["operator"]), (None, "40HC", "SVC"))
+        unsupported = parse_container_line("ABCU1234567/seal/12Ab-C")
+        self.assertEqual((unsupported["seal"], unsupported["type"], unsupported["operator"]), ("seal", "12AB", "VOC"))
+        for value, expected_seal, expected_size in (
+            ("ABCU1234567/Ab-07/xY/40HC-C", "Ab-07/xY", "40HC"),
+            ("ABCU1234567//40RF-S", None, "40RF"),
+            ("ABCU1234567/No Seal/20DC-C", "No Seal", "20DC"),
+        ):
+            parsed = parse_container_line(value)
+            self.assertEqual((parsed["seal"], parsed["type"]), (expected_seal, expected_size))
 
     def test_numeric_seal_is_not_misidentified_as_size(self):
         result = parse_manifest(self.workbook([source_row(containers="ABCU1234567/001234")]))

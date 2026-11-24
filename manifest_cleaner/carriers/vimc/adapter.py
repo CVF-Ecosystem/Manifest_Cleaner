@@ -14,11 +14,11 @@ from .. import CARRIER_PROFILES
 from .mappings import CARGO_TYPE_MAPPING, SIZE_TO_ISO, SIZE_TO_VTOS
 from .parsers import (
     CONTAINER_CANDIDATE, STOP_KEYWORDS_PATTERN, is_valid_container,
-    parse_marks_container, parse_structured_line, split_container_segments,
+    parse_marks_container, parse_structured_line, split_container_segments, split_detail_segments,
 )
 
 SOURCE_COMMIT = "03e0d34e3fe4a27d8d2ce0d54d96ea9275370436"
-PROFILE_VERSION = "vimc-1.2"
+PROFILE_VERSION = "vimc-1.3"
 _BL_MARKER = re.compile(r"\bB\s*/?\s*L\s*NO\.?\s*:", re.I)
 _PARTY_MARKER = re.compile(r"^\s*([123])\s*[).]\s*(.*)$")
 _TRAILING_OWNER_TOTAL = re.compile(
@@ -249,7 +249,7 @@ def _base_record(group, entry, segment_index, source_file, sheet, parsed, status
         "Operator": CARRIER_PROFILES["VIMC"].operator((own_owner or owner) == "SOC"),
         "FE_Status": status or "", "Weight_Value": weight_result["value"] if weight_result is not None else None,
         "Weight_Unit": "TONS" if weight_result is not None else None,
-        "Weight_Kind": settings.get("weight_kind", "unknown"), "Description": description,
+        "Weight_Kind": settings["weight_kind"], "Description": description,
         "Cargo_Type": "", "Shipper": shipper, "Consignee": consignee, "Notify": notify,
         "Cleaned_Consignee_Name_For_Output": _clean_party_name(consignee),
         "Confidence": 100 if parsed.get("layout") in {"weight_first_tons", "description_first_kg", "marks_empty", "explicit_empty_detail"} else 0,
@@ -350,7 +350,13 @@ def _validate_record(record, parsed, issues):
         _add_issue(issues, "VIMC_SIZE_MISSING", "Chưa đọc được kích cỡ container.", record=record, severity="error", field="Size_Type")
     elif not record.get("Physical_ISO_Size"):
         _add_issue(issues, "VIMC_SIZE_UNKNOWN", "Kích cỡ chưa có ánh xạ ISO; đã giữ nguyên mã nguồn.", record=record, severity="warning", field="Size_Type")
-    if parsed.get("layout") == "ambiguous":
+    if parsed.get("layout") == "seal_type_ambiguous":
+        affected = ["Seal_No", "Size_Type", "Description"]
+        if parsed.get("weight_raw") is None:
+            affected.append("Weight_Value")
+        _add_issue(issues, "VIMC_SEAL_TYPE_AMBIGUOUS", "Hai mã kích cỡ liền nhau đều khớp cấu trúc dòng. Cần đối chiếu seal, kích cỡ, mô tả và trọng lượng theo dòng gốc.", record=record, severity="error")
+        issues[-1]["resolution_fields"] = affected
+    elif parsed.get("layout") == "ambiguous":
         # This is a coupled layout/weight/description decision. Editing only the
         # numeric weight cannot resolve it; an explicit review must remain.
         _add_issue(issues, "VIMC_LAYOUT_AMBIGUOUS", "Dòng phù hợp cả trọng lượng đầu dòng (tấn) và cuối dòng (kg). Cần xác nhận trọng lượng, đơn vị và mô tả; ứng dụng không chọn theo tên tàu.", record=record, severity="error")
@@ -380,6 +386,8 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
     markers = _source_status_markers(group)
     detail_columns = {entry["col"] for entry in group["description"]}
     detail_fragments = {}
+    marks_by_entry = [(entry, parse_marks_container(entry["text"])) for entry in group["marks"]]
+    marked_containers = {mark["container_no"] for _, found in marks_by_entry for mark in found}
 
     def fragment(entry, text, status, reason, record=None):
         evidence = {"source_sheet": sheet, "source_row": entry["row"],
@@ -391,7 +399,7 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
         return evidence
 
     for entry in group["description"] + group["other"]:
-        segments = split_container_segments(entry["text"])
+        segments = split_detail_segments(entry["text"], marked_containers=marked_containers)
         if not segments:
             fragment(entry, entry["text"], "ignored", "Thông tin nguồn không có cấu trúc dòng container; giữ để đối chiếu.")
         for segment_index, (_, segment) in enumerate(segments, 1):
@@ -405,16 +413,16 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
             _validate_record(record, parsed, issues)
             records.append(record)
             counters[parsed["layout"]] += 1
-            unresolved = record["raw"].get("identifier_requires_review") or parsed["layout"] in {"unparsed", "ambiguous"}
+            unresolved = (record["raw"].get("identifier_requires_review")
+                          or parsed["layout"] in {"unparsed", "ambiguous", "seal_type_ambiguous"})
             detail_fragments[record["record_id"]] = fragment(
                 entry, segment, "unresolved" if unresolved else "parsed", parsed["layout"], record,
             )
     by_container = defaultdict(list)
     for record in records:
         by_container[record["Container_No"]].append(record)
-    for entry in group["marks"]:
+    for entry, parsed_marks in marks_by_entry:
         status, owner = _context(entry, markers, marks=True)
-        parsed_marks = parse_marks_container(entry["text"])
         if not parsed_marks:
             fragment(entry, entry["text"], "ignored", "Nội dung MARKS không có cấu trúc container được hỗ trợ; giữ nguyên để đối chiếu.")
         for segment_index, parsed_mark in enumerate(parsed_marks, 1):
@@ -471,6 +479,7 @@ def _warn_duplicates(records, issues):
 def parse_manifest(path, *, settings=None, progress=None):
     """Parse one workbook selected explicitly as carrier VIMC."""
     settings = dict(settings or {})
+    settings.setdefault("weight_kind", CARRIER_PROFILES["VIMC"].weight_kind)
     source_file = Path(path).name
     issues, records, source_fragments = [], [], []
     counters = Counter()
@@ -562,4 +571,5 @@ def parse_manifest(path, *, settings=None, progress=None):
                             **{f"{status}_fragments": sum(item["status"] == status for item in source_fragments)
                                for status in ("parsed", "unresolved", "ignored", "corroborating")}},
                          "row_layout_counts": dict(counters), "selection_basis": "carrier_and_row_structure",
-                         "weight_internal_unit": "TONS", "number_format": settings.get("number_format", "legacy")}}
+                         "weight_internal_unit": "TONS", "weight_kind": settings["weight_kind"],
+                         "number_format": settings.get("number_format", "legacy")}}

@@ -141,9 +141,10 @@ settings cạnh thư mục nguồn khi chạy Python, cạnh `ManifestCleaner.ex
 đóng gói. Giao diện đang dùng giá trị lưu trong phiên khôi phục có thể khác cấu
 hình máy; điều này phải hiện rõ, không tự ghi đè settings của máy.
 
-- Chung: `number_format`, `weight_kind`, `selected_sheet`.
-- VOSCO: fixed columns, đơn vị mặc định; `cargo` không so với tare; `unknown`
-  giữ legacy kèm cảnh báo. Alias `sheet_name` được chuẩn hóa thành selected_sheet.
+- Chung gồm `number_format` và `selected_sheet`. Lần đọc mới dùng `weight_kind=gross`.
+  Phiên đã lưu giữ quy ước trọng lượng và dữ liệu của lúc xử lý.
+- VOSCO dùng bố cục cột cố định và đơn vị mặc định của mẫu.
+  Alias `sheet_name` được chuẩn hóa thành `selected_sheet`.
 - VIMC: grammar từng dòng quyết định nguồn kg/tấn; các bảng mapping được quản
   lý riêng. Không phục hồi dispatch theo tên tàu.
 - VINAFCO: alias cột, đơn vị, operator, ngưỡng và mapping theo tài liệu hãng;

@@ -6,7 +6,7 @@ One carrier and one workbook per session. Select VOSCO, VIMC or VINAFCO explicit
 
 `adapter.parse_manifest(path, *, settings=None, progress=None)` returns a dictionary containing `records`, `issues` and `metadata`. Application callers should use `engine.process_manifest()` so settings validation, source hashes and workbook formula checks are applied. Direct adapter entry points are intended for carrier development and focused tests.
 
-`process_manifest(path, carrier, *, settings=None, progress=None)` returns a `ManifestSession`. Settings are canonicalized by `validate_carrier_settings`: known keys only; `number_format` is `legacy`, `decimal_comma` or `decimal_dot`; `weight_kind` is `gross`, `cargo` or `unknown`; optional `selected_sheet` is an exact sheet name. Existing VOSCO `sheet_name` and VINAFCO `target_sheet_name` aliases remain accepted. `load_settings(None)` loads defaults; an explicitly missing or malformed file fails.
+`process_manifest(path, carrier, *, settings=None, progress=None)` returns a `ManifestSession`. All new reads use `gross` (container tare plus contents). Legacy settings with `cargo` or `unknown` are accepted and normalized to `gross` for new reads. Saved reviews retain their recorded settings. Settings accept known keys, `number_format` values `legacy`, `decimal_comma` or `decimal_dot`, and optional exact `selected_sheet` names. VOSCO `sheet_name` and VINAFCO `target_sheet_name` aliases remain accepted. `load_settings(None)` loads defaults. An explicitly missing or malformed file fails.
 
 ## Records and evidence
 
@@ -42,7 +42,7 @@ The payload hash detects accidental corruption or inconsistent saves. It is not 
 
 `exporter.build_port_rows(session)` validates before producing the carrier's existing 16-column schema. `preview_record_for_export(session, record)` uses the same field mapping, quantity scope and rounding while allowing inspection of an unfinished row. Preview never disables the real export gate.
 
-`export_port_excel(session, path, *, overwrite=False)` writes one workbook, checks source integrity and preserves text identifiers such as seal numbers. Strings are written as text; they are not evaluated as formulas. VIMC/VINAFCO round weight at export to two decimals with the existing pandas convention. VOSCO keeps its established precision. Existing VTOS/operator/cargo mappings, Master B/L grouping and EMPTY output rules remain carrier-specific.
+`export_port_excel(session, path, *, overwrite=False)` writes one workbook and checks source integrity. Both seal columns use the exact declared text, with physical seal verification deferred to the yard. Excel stores strings as text. VIMC/VINAFCO round weight at export to two decimals with the existing pandas convention. VOSCO keeps its established precision. VTOS/operator/cargo mappings, Master B/L grouping and EMPTY output rules remain carrier-specific.
 
 `export_port_bundle(session, path, *, overwrite=False, include_review=True, review_path=None)` is the normal GUI/CLI path. Default review name is `<output-stem>.review.json`; a custom JSON destination may be in a different directory. It stages both files, checks both destinations, backs up existing outputs separately from prepared files, then commits. Caught commit failures trigger rollback; failed rollback retains recovery copies and reports their locations. Replacement is atomic per file, not a filesystem-wide or power-loss-safe transaction across two files.
 

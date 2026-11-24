@@ -336,7 +336,7 @@ def parse_manifest(path, *, settings=None, progress=None):
     sheets = read_workbook(path)
     issues, records, source_fragments = [], [], []
     metadata = {
-        "carrier": "VOSCO", "adapter_version": "1.1.2", "profile_version": "vosco-1.1.2",
+        "carrier": "VOSCO", "adapter_version": "1.1.3", "profile_version": "vosco-1.1.3",
         "source_file": source_file,
         "source_baseline": "e5a78dd0444349990b08992ceb57758aa074dcb8",
         "available_sheets": [name for name, _ in sheets],
@@ -543,14 +543,12 @@ def parse_manifest(path, *, settings=None, progress=None):
             if tank_warning:
                 add("TANK_WEIGHT_REVIEW", tank_warning, field="FE_Status")
             if (not parsed.get("_unparsed") and weight
-                    and settings.get("weight_kind", "unknown") == "unknown"
+                    and weight_kind == "unknown"
                     and not is_explicit_empty(raw_description)):
                 add("FE_WEIGHT_KIND_UNCONFIRMED",
                     "F/E đang theo quy tắc suy luận trọng lượng của mẫu VOSCO. Chưa xác nhận trọng lượng nguồn là hàng hay tổng; cần đối chiếu F/E.",
                     field="FE_Status")
             seal = parsed.get("seal")
-            if seal and not (seal.isdigit() and len(seal) == 6):
-                add("VOSCO_SEAL_FORMAT", "Số niêm chì khác quy tắc 6 chữ số của mẫu VOSCO; cần đối chiếu.", field="Seal_No")
             consignee = party_values.get("Consignee", "")
             cleaned_consignee = clean_consignee_name(consignee)
             if not cleaned_consignee:
@@ -569,7 +567,7 @@ def parse_manifest(path, *, settings=None, progress=None):
                 "Size_Type": parsed.get("type") or "", "Operator": parsed.get("operator"),
                 "FE_Status": fe_status, "Weight_Value": weight["value"] if weight else None,
                 "Weight_Unit": "TONS" if weight else None,
-                "Weight_Kind": settings.get("weight_kind", "unknown"),
+                "Weight_Kind": weight_kind,
                 "Description": description,
                 "Shipper": party_values.get("Shipper", ""), "Consignee": consignee,
                 "Notify": notify, "Cleaned_Consignee_Name_For_Output": cleaned_consignee,

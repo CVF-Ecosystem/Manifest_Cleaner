@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>Manifest Cleaner 1.1.1 — Hướng dẫn sử dụng</title>
+  <title>Manifest Cleaner 1.2.4 — Hướng dẫn sử dụng</title>
   <style>
     :root{--navy:#12334c;--navy2:#245675;--orange:#e58436;--ink:#20364a;--muted:#536879;--line:#dce5ed;--paper:#f3f6f9;--green:#286047;--red:#9b3429;--amber:#805715}
     *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -35,12 +35,12 @@
     <div class="eyebrow">Công cụ local · Dữ liệu nhập hệ thống Cảng</div>
     <h1>Một manifest.<br>Một hãng tàu.</h1>
     <p>Đọc nguồn, giải quyết các mục cần kiểm tra và xuất đúng mẫu 16 cột. Phiên bản 1.1 bổ sung xác nhận từng trường, xem trước giá trị xuất và mở lại phiên làm việc.</p>
-    <div class="badges"><span class="badge version">Phiên bản 1.1.1</span><span class="badge">22-11-2026</span><span class="badge">VOSCO · VIMC · VINAFCO</span><span class="badge">Hướng dẫn offline</span></div>
+    <div class="badges"><span class="badge version">Phiên bản 1.2.4</span><span class="badge">24-11-2026</span><span class="badge">VOSCO · VIMC · VINAFCO</span><span class="badge">Hướng dẫn offline</span></div>
   </div>
 </header>
 <nav aria-label="Nội dung hướng dẫn"><div class="wrap"><a href="#bat-dau">Bắt đầu</a><a href="#doi-chieu">Đối chiếu</a><a href="#cau-hinh">Cấu hình đọc</a><a href="#luu-phien">Lưu / mở lại phiên</a><a href="#xu-ly-loi">Tình huống cần xử lý</a><a href="#ky-thuat">Cho agent local</a></div></nav>
 <main id="noi-dung" class="wrap">
-  <section class="callout success"><strong>Bản vá 1.1.1:</strong> CLI giữ nguyên bộ Excel–JSON cũ khi dữ liệu mới còn lỗi chặn xuất, kể cả khi có yêu cầu ghi đè. <a href="docs/V1_1_1_GUIDE.html">Xem bản vá, hướng dẫn local và đề xuất hoàn thiện</a>. Các đề xuất đọc Excel linh hoạt hơn chưa được triển khai trong bản vá này.</section>
+  <section class="callout success"><strong>Quy tắc bản 1.2.4.</strong> Trọng lượng khai báo gồm vỏ và hàng. Số niêm chì được ghi theo manifest để đối chiếu khi container xuống bãi.</section>
   <section id="bat-dau">
     <h2>Bắt đầu trên Windows</h2>
     <div class="panel">
@@ -102,19 +102,17 @@
   </section>
 
   <section id="cau-hinh">
-    <h2>Chọn đúng nghĩa của dữ liệu nguồn</h2>
+    <h2>Quy tắc đọc manifest</h2>
     <div class="table-wrap"><table>
       <thead><tr><th>Trong Cấu hình đọc</th><th>Cách dùng</th></tr></thead>
       <tbody>
         <tr><td><strong>Quy ước số</strong></td><td><code>legacy</code> giữ quy tắc nguồn cũ; <code>decimal_comma</code> đọc kiểu <code>25.000,50</code>; <code>decimal_dot</code> đọc kiểu <code>25,000.50</code>. Số numeric trong Excel giữ nguyên giá trị.</td></tr>
-        <tr><td><strong>Trọng lượng hàng</strong><br><code>cargo</code></td><td>Dùng khi cột ghi khối lượng hàng. Với VOSCO, hàng nhẹ dương không bị so với khối lượng vỏ để suy ra rỗng.</td></tr>
-        <tr><td><strong>Tổng trọng lượng</strong><br><code>gross</code></td><td>Dùng khi đã xác nhận ngữ nghĩa gross của cột; áp dụng quy tắc gross/tare của hãng có dùng suy luận này.</td></tr>
-        <tr><td><strong>Chưa xác nhận ý nghĩa</strong><br><code>unknown</code></td><td>Mặc định VOSCO/VIMC. VOSCO giữ quy tắc legacy và cảnh báo khi cần suy luận F/E từ trọng lượng. VINAFCO mặc định gross.</td></tr>
+        <tr><td><strong>Tổng trọng lượng</strong><br><code>gross</code></td><td>Manifest của cả ba hãng khai tổng trọng lượng gồm vỏ container và hàng bên trong. Excel xuất ghi tổng theo đơn vị tấn.</td></tr>
         <tr><td><strong>Sheet cần xử lý</strong></td><td>Chọn hoặc nhập chính xác tên sheet. Tên không tồn tại báo lỗi. Nếu không chỉ định, áp dụng hành vi nhận diện sheet của từng hãng.</td></tr>
       </tbody>
     </table></div>
-    <div class="callout"><strong>Chỉ đổi cấu hình sau khi đã xác nhận nghĩa dữ liệu.</strong> Thay đổi thật sẽ yêu cầu <strong>Xử lý lại</strong>; nếu có chỉnh sửa cần giữ, lưu đối chiếu trước. Lưu lại cùng cấu hình hiện tại không vô hiệu hóa phiên.</div>
-    <p class="small muted">VIMC tiếp tục đọc F/E từ ngữ cảnh dòng/nhóm. Không chuyển quy tắc tare của hãng khác sang VIMC chỉ vì có cùng tên tùy chọn. Cấu hình sâu và đơn vị mặc định được mô tả trong README và tài liệu từng hãng.</p>
+    <div class="callout"><strong>Ghi nguyên số niêm chì theo manifest.</strong> Hai cột seal trong Excel lưu dạng văn bản. Đối chiếu số seal thực tế khi container xuống bãi.</div>
+    <p class="small muted">Sau khi đổi quy ước số hoặc sheet, lưu đối chiếu nếu cần giữ chỉnh sửa trước khi bấm <strong>Xử lý lại</strong>. App đọc F/E theo quy tắc của từng hãng.</p>
   </section>
 
   <section id="luu-phien">
@@ -153,7 +151,7 @@
     <h2>Khi ứng dụng yêu cầu kiểm tra</h2>
     <div class="grid">
       <div class="panel"><span class="label error">Lỗi chặn xuất</span><h3>Sửa dữ liệu hoặc xử lý nguồn</h3><p>Thiếu trường bắt buộc, mã chưa đúng dạng, trọng lượng/mô tả mơ hồ, cấu trúc bảng thay đổi hoặc công thức nguồn chưa có kết quả đều cần xử lý trước khi tạo file nhập.</p><p>Chỉ loại một dòng sau khi đã xác định dòng đó không cần xuất và ghi rõ lý do. Lỗi toàn file cần xử lý nguồn/cấu hình rồi đọc lại.</p></div>
-      <div class="panel"><span class="label warn">Cảnh báo</span><h3>Đọc căn cứ trước khi xác nhận</h3><p>Cảnh báo có thể liên quan suy luận F/E, seal khác quy tắc cũ hoặc container liên quan nhiều B/L. Đọc dữ liệu nguồn, ghi căn cứ đối chiếu và kiểm tra kết quả sẽ xuất.</p><p>Điểm “Độ chính xác (%)” là điểm quy tắc giữ để tương thích, không phải tỷ lệ chính xác đã đo.</p></div>
+      <div class="panel"><span class="label warn">Cảnh báo</span><h3>Đọc căn cứ trước khi xác nhận</h3><p>Cảnh báo có thể liên quan F/E hoặc container liên quan nhiều B/L. Đọc dữ liệu nguồn, ghi căn cứ đối chiếu và kiểm tra kết quả sẽ xuất.</p><p>Điểm “Độ chính xác (%)” là điểm quy tắc giữ để tương thích, không phải tỷ lệ chính xác đã đo.</p></div>
     </div>
     <details>
       <summary>Công thức Excel chưa có kết quả lưu</summary>
@@ -170,7 +168,7 @@
           <tr><td><strong>F02 · Mã VIMC hỏng</strong></td><td>Giữ các ứng viên có cấu trúc được hỗ trợ để sửa hoặc loại có lý do; mã sai không được ngầm coi là đúng.</td></tr>
           <tr><td><strong>F03 · Đơn vị VINAFCO</strong></td><td>Nhận tên cột cùng đơn vị, kể cả các header kg liền chữ đã hỗ trợ. Header lặp đổi cột/đơn vị gây lỗi để đối chiếu.</td></tr>
           <tr><td><strong>F04 · Mô tả VOSCO</strong></td><td>Dùng cùng danh sách mô tả đã phân loại để đếm/ghép; dòng thông tin PORT không làm lệch hàng trong ca đã tái hiện.</td></tr>
-          <tr><td><strong>F05 · Nghĩa trọng lượng</strong></td><td>VOSCO phân biệt cargo/gross/unknown khi suy luận F/E; nêu mâu thuẫn EMPTY với khối lượng hàng dương.</td></tr>
+          <tr><td><strong>F05 · Nghĩa trọng lượng</strong></td><td>App đọc tổng trọng lượng, áp dụng quy tắc F/E theo hãng và chỉ ra mâu thuẫn trong khai báo.</td></tr>
           <tr><td><strong>F06 · Selection</strong></td><td>Các nút theo dòng dùng container được chọn trong tab hiện hành và hiển thị đối tượng thao tác.</td></tr>
           <tr><td><strong>F07 · Công thức nguồn</strong></td><td>XLSX/XLSM thiếu kết quả công thức hoặc có lỗi công thức tạo lỗi nguồn chặn xuất.</td></tr>
           <tr><td><strong>F08 · Cấu hình CLI</strong></td><td>Đường dẫn <code>--settings</code> đã chỉ định nhưng thiếu/sai phải báo lỗi; không tự đổi sang mặc định.</td></tr>
@@ -258,6 +256,6 @@ python -m manifest_cleaner.cli --resume output.review.json --source D:/Du_lieu/m
     <p class="small"><kbd>Ctrl</kbd> + <kbd>O</kbd> mở manifest &nbsp;·&nbsp; <kbd>Ctrl</kbd> + <kbd>S</kbd> xuất &nbsp;·&nbsp; <kbd>F1</kbd> hướng dẫn</p>
   </section>
 </main>
-<footer><div class="wrap footer-row"><span>Manifest Cleaner Unified 1.1.1 · 22-11-2026</span><span>Hướng dẫn tiếng Việt · Không dùng tài nguyên ngoài để hiển thị</span></div></footer>
+<footer><div class="wrap footer-row"><span>Manifest Cleaner Unified 1.2.4 · 24-11-2026</span><span>Hướng dẫn tiếng Việt · Dùng được offline</span></div></footer>
 </body>
 </html>

@@ -393,6 +393,13 @@ class GUIRegressionTests(unittest.TestCase):
         self.assertFalse(app.dirty)
         self.assertFalse(app.config_path.exists())
 
+    def test_gui_applies_migrated_gross_setting_after_reprocessing_legacy_review(self):
+        session = self.session()
+        app = self.app(session)
+        app.read_override = (session.carrier, app.selected_path, {**session.settings, "weight_kind": "unknown"})
+        app._complete_read(session)
+        self.assertEqual(app._read_settings()["weight_kind"], "gross")
+
     def test_source_preview_shows_conflicting_goods_before_export(self):
         session = self.session(status="COC EMPTY")
         app = self.app(session)

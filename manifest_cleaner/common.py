@@ -33,6 +33,11 @@ def normalize_text(value: Any) -> str:
     return " ".join(text.upper().split())
 
 
+def seal_text(value: Any) -> str:
+    """Return declared seal text exactly, including spaces and punctuation."""
+    return value if isinstance(value, str) else text_value(value)
+
+
 def is_explicit_empty(value: Any) -> bool:
     """Match container-status phrases, never goods such as EMPTY BOTTLES."""
     text = normalize_text(value).strip(" .:;-_")

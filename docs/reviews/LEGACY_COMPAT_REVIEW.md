@@ -36,3 +36,13 @@ Bộ đọc VOSCO quét phần còn lại của cùng vận đơn khi đã xác 
 Đã mở file gốc và xuất qua giao diện Tk trên Windows. File xuất đủ 309 dòng và 16 cột, không có lỗi chặn xuất. Mười ô `I138:I147` lấy giá trị từ `S618` dòng 1–10, các trọng lượng còn lại khớp bản cũ. JSON mở lại đúng nguồn, giữ tọa độ và khớp SHA-256 với Excel. Hai cảnh báo EMPTY/trọng lượng cao vẫn cần đối chiếu nghiệp vụ.
 
 Reviewer độc lập xác minh file thực tế và các ca giả lập có ô nối tiếp lẫn thông tin chủ hàng, thiếu đơn vị, nhiều khối chi tiết, nhiều ô trọng lượng, thiếu giá trị hoặc gặp vận đơn mới. Bộ nguồn đạt 233 kiểm thử và 94 mục SHA-256.
+
+## Quy tắc khai báo trong bản 1.2.4
+
+Người vận hành xác nhận trọng lượng trên manifest của hãng là tổng vỏ và hàng. Mỗi lần đọc mới dùng `gross` và xuất tổng theo đơn vị tấn của mẫu Cảng. Phiên đã lưu giữ quy ước và giá trị đã ghi nhận lúc xử lý.
+
+Số niêm chì được ghi theo khai báo nguồn. Hai cột xuất giữ nguyên chữ, số 0 đầu, khoảng trắng và dấu phân cách thuộc trường seal, ở dạng văn bản Excel. App đã bỏ cảnh báo và tô màu theo mẫu seal 6–7 chữ số. Việc đối chiếu với seal thực tế thực hiện khi container xuống bãi.
+
+Kiểm năm manifest thực tế trên máy Windows. VIMC có 157 dòng, VOSCO có 309 dòng và VINAFCO có 322 dòng trong ba file. Cả năm file đều xử lý theo `gross`, xuất đủ 16 cột và mở lại được qua JSON. VOSCO giữ hai cảnh báo mâu thuẫn giữa khai báo EMPTY và trọng lượng cao.
+
+Kiểm độc lập các seal có số 0 đầu, dấu phân cách, chữ thường và văn bản giống công thức. Trường hợp một dòng VIMC có nhiều cách tách seal và kích cỡ cần xác nhận theo nguyên văn nguồn. Đã kiểm 246 ca và 94 mục SHA-256 trên bộ nguồn.
