@@ -1,8 +1,10 @@
-# Manifest Cleaner Unified 1.2.5
+# Manifest Cleaner Unified 1.2.6
 
 Ứng dụng **local**, xử lý **một manifest của một hãng tàu mỗi phiên**, hỗ trợ đối chiếu dữ liệu và xuất Excel theo mẫu nhập hệ thống quản lý container của Cảng.
 
 **Bắt đầu:** giải nén toàn bộ thư mục, dùng Python 3.12 64-bit và chạy `START.cmd`. Mở [START_HERE.html](START_HERE.html) để xem hướng dẫn tiếng Việt dùng được offline.
+
+**Bản 1.2.6** cảnh báo trọng lượng tổng của container có hàng thấp hơn vỏ tham chiếu và chuỗi kg dùng dấu chấm dạng nhóm nghìn theo quy ước legacy. Đối chiếu ô nguồn, rồi xác nhận trường trọng lượng trong form sửa dòng hoặc dùng Đã đối chiếu cho cả dòng nếu giữ giá trị. Sửa dòng sau đó sẽ kiểm lại cảnh báo.
 
 **Bản 1.2.5** giữ nút Lưu ở chân cửa sổ đối chiếu, sửa cách so số lượng VOSCO và cách ghi cảnh báo từng dòng.
 
@@ -49,7 +51,9 @@ Sau khi chuẩn bị đủ phụ thuộc, thao tác manifest không cần tải 
 
 ### Đóng gói EXE
 
-`BUILD_EXE.cmd` chạy kiểm thử rồi dùng công thức đóng gói Windows. Đường dẫn dự kiến: `dist/ManifestCleaner/ManifestCleaner.exe`. Khi bàn giao bản đã build, chuyển **cả thư mục** `dist/ManifestCleaner`, không lấy riêng file EXE.
+`BUILD_EXE.cmd` chạy kiểm thử rồi tạo gói Windows cục bộ. Bản bàn giao theo phiên bản nằm ở `dist/<phiên bản>/ManifestCleaner/ManifestCleaner.exe`.
+
+Chỉ gửi hoặc nén thư mục `dist/<phiên bản>/ManifestCleaner` cùng toàn bộ tệp bên trong. Tránh nén cả `dist/<phiên bản>` vì thư mục `exports` có thể chứa manifest nghiệp vụ và JSON đối chiếu.
 
 Bộ script/spec là đầu vào cho bước build ở máy Windows; việc có sẵn chúng không đồng nghĩa EXE đã được kiểm tra. Các giới hạn Windows và nghiệm thu Cảng được nêu ở cuối tài liệu.
 

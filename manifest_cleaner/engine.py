@@ -13,7 +13,10 @@ import uuid
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
+
+from xlsxwriter.utility import xl_col_to_name
 
 from . import __version__
 from .carriers import CARRIERS, CARRIER_PROFILES, MAPPING_SETTINGS, TARE_SETTINGS
@@ -31,6 +34,7 @@ RETIRED_SEAL_WARNINGS = frozenset({"SEAL_LEGACY_RULE", "VOSCO_SEAL_FORMAT", "VIN
 WEIGHT_ISSUES = {"VOSCO": {"EMPTY_WEIGHT_CONFLICT", "TANK_WEIGHT_REVIEW", "EMPTY_CARGO_WEIGHT_CONFLICT"},
                  "VINAFCO": {"VINAFCO_FE_CONFLICT", "VINAFCO_FE_DEFAULTED", "VINAFCO_FE_INFERRED"}}
 WEIGHT_CONTEXT = {"FE_Status", "Weight_Value", "Description", "Size_Type"}
+KGS_DOT_NUMBER = re.compile(r"(?P<number>\+?[0-9]{1,3}(?:\.[0-9]{3})+)\s*(?P<unit>KGS?|KILOGRAMS?)?", re.I)
 # A parser can identify the cause more precisely than a generic missing-field check.
 PARSER_EQUIVALENTS = {
     "MISSING_BL_NO": {"VINAFCO_BL_MISSING", "VIMC_BL_MISSING", "INVALID_OR_MISSING_BL"},
@@ -157,6 +161,62 @@ def _present(value) -> bool:
     return bool(text_value(value))
 
 
+def _weight_warnings(record, number, tare, settings, metadata):
+    raw = record.get("raw") or {}
+    value = raw.get("weight") or raw.get("weight_line") or raw.get("gw")
+    source_text = text_value(value)
+    row = raw.get("weight_source_row") or record.get("source_row")
+    sheet = record.get("source_sheet")
+    column = raw.get("weight_source_column") or raw.get("source_column")
+    if column is None and "gw" in raw:
+        gw_column = (metadata.get("column_mapping") or {}).get("gw")
+        if isinstance(gw_column, int) and gw_column >= 0:
+            column = gw_column + 1  # VINAFCO records the header mapping as zero-based.
+    line = raw.get("weight_source_line") or raw.get("source_line")
+    cell = f"{xl_col_to_name(column - 1)}{row}" if isinstance(column, int) and column > 0 and row else None
+    address = f"{sheet}!{cell}" if sheet and cell else cell
+    if address and line:
+        address += f", dòng {line} trong ô"
+    evidence = f' Nguồn ghi «{source_text}»' + (f" tại {address}." if address else ".") if source_text else ""
+    container = text_value(record.get("Container_No"))
+    size = text_value(record.get("Size_Type")).upper()
+
+    def finding(code, message):
+        item = issue(code, message, record_id=record["record_id"], field="Weight_Value",
+                     source_row=row, source_sheet=sheet)
+        if cell:
+            item["source_cell"] = cell
+            item["source_column"] = column
+        if line:
+            item["source_line"] = line
+        return item
+
+    if tare is not None and 0 < number < tare:
+        yield finding("GROSS_WEIGHT_BELOW_TARE",
+                      f"Container {container} có hàng (F), tổng trọng lượng {number:g} tấn thấp hơn "
+                      f"vỏ tham chiếu {tare:g} tấn của cỡ {size}.{evidence} Đối chiếu trọng lượng.")
+
+    if (settings.get("number_format", "legacy") != "legacy" or raw.get("weight_source_unit") != "KGS"
+            or "Weight_Value" in record.get("_edited_fields", ()) or not isinstance(value, str)
+            or raw.get("weight_cell_is_text") is False
+            or ("weight_cell_value" in raw and not isinstance(raw["weight_cell_value"], str))):
+        return
+    match = KGS_DOT_NUMBER.fullmatch(source_text)
+    if not match:
+        return
+    digits = match["number"]
+    # Older VINAFCO sessions stored a numeric cell and unmarked text in the same form.
+    if "gw" in raw and "weight_cell_is_text" not in raw and not match["unit"] and digits.count(".") == 1:
+        return
+    grouped = Decimal(digits.replace(".", "")) / 1000
+    decimal_reading = (f"Nếu là dấu thập phân, giá trị là {Decimal(digits) / 1000:f} tấn."
+                       if digits.count(".") == 1 else "Cách đọc dấu thập phân không hợp lệ vì có nhiều dấu chấm.")
+    yield finding("KGS_DOT_GROUPING",
+                  f"Container {container} có trọng lượng ghi theo kg dạng «{source_text}». "
+                  f"Nếu dấu chấm phân nhóm nghìn, giá trị là {grouped:f} tấn. {decimal_reading} "
+                  f"Quy ước hiện tại đọc {number:g} tấn.{f' Nguồn tại {address}.' if address else ''} Đối chiếu trước khi xác nhận.")
+
+
 def _json_safe(value):
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
@@ -225,6 +285,7 @@ class ManifestSession:
         by_container = defaultdict(list)
         compact_identifier = getattr(adapter, "is_corroborated_compact_identifier", None)
         validate_size = getattr(adapter, "is_supported_size_type", None)
+        reference_tare = getattr(adapter, "reference_tare", None)
         for record in active.values():
             rid = record["record_id"]
             verified = set(record.get("_current_verified_fields", record.get("_verified_fields", [])))
@@ -245,7 +306,8 @@ class ManifestSession:
                         "warning", "Container_No")
                 else:
                     add("INVALID_CONTAINER", "Số container phải gồm 4 chữ cái và 7 chữ số.", field_name="Container_No")
-            if _present(record.get("Size_Type")) and validate_size and not validate_size(record["Size_Type"], self.settings):
+            supported_size = _present(record.get("Size_Type")) and (not validate_size or validate_size(record["Size_Type"], self.settings))
+            if _present(record.get("Size_Type")) and not supported_size:
                 add("UNKNOWN_SIZE_TYPE", "Kích cỡ chưa có trong bảng quy đổi của hãng; điền mã đã biết hoặc bổ sung mapping có kiểm tra.", field_name="Size_Type")
             allowed_operators = set(CARRIER_PROFILES[self.carrier].operators) | {str(self.settings[k]).upper() for k in ("operator_soc", "operator_coc") if self.settings.get(k)}
             if _present(record.get("Operator")) and text_value(record.get("Operator")).upper() not in allowed_operators:
@@ -269,6 +331,14 @@ class ManifestSession:
                         add("ZERO_FULL_WEIGHT", "Container có hàng (F) nhưng tổng trọng lượng khai là 0 tấn. Đối chiếu trọng lượng trên manifest.", "warning", "Weight_Value")
                 except (ValueError, TypeError, OverflowError):
                     add("INVALID_WEIGHT", "Trọng lượng phải là số hữu hạn, không âm, theo đơn vị tấn.", field_name="Weight_Value")
+                else:
+                    # Row acknowledgment confirms warnings, as for every other warning;
+                    # any later edit clears it and the check runs again.
+                    if "Weight_Value" not in verified and not record.get("_manual_review_reason"):
+                        kind = record.get("Weight_Kind") or self.settings.get("weight_kind")
+                        tare = (reference_tare(record, self.settings)
+                                if fe == "F" and number > 0 and kind == "gross" and supported_size and reference_tare else None)
+                        output.extend(_weight_warnings(record, number, tare, self.settings, self.metadata))
             if fe == "F" and not _present(record.get("Description")):
                 add("MISSING_DESCRIPTION", "Container có hàng (F) và ô hàng hóa đang trống. Đối chiếu mô tả hàng trên vận đơn.", "warning", "Description")
             for item in weight_issues(record, self.settings) if weight_issues else ():

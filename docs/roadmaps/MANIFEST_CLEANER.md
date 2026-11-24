@@ -52,3 +52,175 @@ Sau mỗi mốc, cập nhật bảng trên với phiên bản, dữ liệu thử
 - **M1.1 — Phạm vi bản sửa đầu tiên.** Hai điểm trong cùng adapter cần dùng chung quy tắc nhận diện phạm vi: dò dữ liệu thực bên dưới tiêu đề bảng và phân tích từng dòng sau khi chọn sheet. Trường hợp chỉ có bảng tổng hợp sau một header chi tiết phải báo thiếu dữ liệu. Ca thiếu mã container ngay trước khối tổng hợp phải giữ được dòng để đối chiếu. Bộ đọc cần phân biệt phần tổng hợp đã xác định với dữ liệu tiếp theo, và nêu vùng hoặc dòng còn mơ hồ để người vận hành kiểm tra. [Bộ đọc VINAFCO](../../manifest_cleaner/carriers/vinafco/adapter.py) · [Bộ test VINAFCO](../../tests/test_vinafco_v110.py)
 - **M1.2 — Căn cứ từ hai mẫu.** Cả hai sheet `MANIFEST` có ba tiêu đề tổng hợp liền nhau trong cột B–D, rồi đến dòng mã kích cỡ và số lượng. `2535HS` ghi 2 × 20DC và 2 × 40HC. Các giá trị cuối trong cột số lượng của mẫu này thiếu nhãn, nên tổng theo nhãn vẫn chưa xác định dù các dòng theo kích cỡ cộng được 4. Ca nghiệm thu cần phân biệt hai loại số liệu.
 - **M3.2 — Chuẩn bị môi trường.** Máy hiện có Python 3.11 x64 và Tk 8.6. `SETUP.cmd` có đường dự phòng 3.11 và sẽ cài theo pin vào `.venv` của project. Lượt kiểm Windows phải dùng môi trường này hoặc bản Python hỗ trợ tương đương đã ghi rõ phiên bản. Kiểm file đích bị khóa cần khóa thật trên Windows và đối chiếu hash Excel/JSON trước và sau. Bộ test mô phỏng lỗi ghi hiện có tiếp tục dùng cho hồi quy. [Hướng dẫn Windows](../WINDOWS_RELEASE_CHECKLIST.md)
+
+## Trạng thái hiện tại theo bản review
+
+Trạng thái dưới đây lấy từ bản review đã hoàn tất. [Kết quả nghiệm thu từng mốc](../reviews/ROADMAP_1_2_REVIEW.md).
+
+| Mốc | Trạng thái | Việc còn lại |
+| --- | --- | --- |
+| M01, M11, M12, M21, M22, M31, M41 | VERIFIED | Đã kiểm chứng theo tiêu chí từng mốc. |
+| M32 | IMPLEMENTED_UNPROVED | Đã có bản chạy cục bộ trên Windows. Còn kiểm trên máy độc lập sạch/offline và nghiệm thu nhập Cảng với dữ liệu đã xác nhận. |
+| M42 | BLOCKED | Cần xác định hãng, mẫu manifest và mẫu hoặc quy tắc đầu ra được nghiệp vụ xác nhận. |
+
+### Dữ liệu coverage theo mốc
+
+```cvf-milestone-coverage-json
+{
+  "schemaVersion": "cvf.milestoneCoverage@1.0.0",
+  "authority": {
+    "path": "docs/roadmaps/MANIFEST_CLEANER.md",
+    "heading": "## Mốc và tiêu chí nghiệm thu",
+    "sha256": "dcd00c7073a34231c8d5e65c45a0b0b2aaff980f18c5c57eb0cd3f138928e463"
+  },
+  "milestone": {
+    "id": "MC1",
+    "consumer": "Người vận hành manifest tại Cảng",
+    "outcome": "Đọc và đối soát đúng dữ liệu rồi xuất đúng mẫu; dễ tích hợp hãng mới.",
+    "checkpoint": {
+      "trigger": "Có bằng chứng từng mốc",
+      "owner": "Orchestrator và reviewer độc lập",
+      "decision": "Xác nhận phần đạt và ghi phần còn giữ"
+    }
+  },
+  "phase": "REVIEW",
+  "action": {
+    "kind": "REVIEW",
+    "selected": [],
+    "owner": "Orchestrator và reviewer độc lập",
+    "output": "Đối chiếu trạng thái theo hồ sơ review hiện có.",
+    "budgetMinutes": 120,
+    "stop": "Giữ kết luận theo phạm vi bằng chứng đã ghi. M32 và M42 còn mở.",
+    "next": "Kiểm bản Windows độc lập, nghiệm thu nhập Cảng và nhận dữ liệu đã xác nhận khi có hãng mới."
+  },
+  "rows": [
+    {
+      "id": "M01",
+      "state": "VERIFIED",
+      "gap": "",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M01 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    },
+    {
+      "id": "M11",
+      "state": "VERIFIED",
+      "gap": "",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M11 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    },
+    {
+      "id": "M12",
+      "state": "VERIFIED",
+      "gap": "",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M12 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    },
+    {
+      "id": "M21",
+      "state": "VERIFIED",
+      "gap": "",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M21 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    },
+    {
+      "id": "M22",
+      "state": "VERIFIED",
+      "gap": "",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M22 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    },
+    {
+      "id": "M31",
+      "state": "VERIFIED",
+      "gap": "",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M31 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    },
+    {
+      "id": "M32",
+      "state": "IMPLEMENTED_UNPROVED",
+      "gap": "Kiểm trên máy Windows độc lập sạch/offline và nghiệm thu nhập Cảng.",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M32 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    },
+    {
+      "id": "M41",
+      "state": "VERIFIED",
+      "gap": "",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M41 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    },
+    {
+      "id": "M42",
+      "state": "BLOCKED",
+      "gap": "Chờ hãng mới và mẫu nguồn cùng quy tắc hoặc đầu ra được nghiệp vụ xác nhận.",
+      "owner": "Orchestrator / maintainer",
+      "destination": "Roadmap criterion M42 checkpoint",
+      "evidence": [
+        {
+          "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
+          "sha256": "74b7f57c75ac7c5be6be8dd893cc592e709d12c085a2acd1e2e0c9eab2318657"
+        }
+      ]
+    }
+  ],
+  "supportingWork": [],
+  "conclusions": {
+    "tranche": "PENDING",
+    "trancheSummary": "Phiên bản 1.2.6 đã trả kết quả cho reviewer độc lập.",
+    "trancheEvidence": [],
+    "product": "PENDING",
+    "productSummary": "Còn nghiệm thu M32 và bằng chứng đầu vào cho M42.",
+    "acceptance": [],
+    "owner": "Orchestrator"
+  }
+}
+```

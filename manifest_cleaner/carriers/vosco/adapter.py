@@ -420,6 +420,11 @@ def refresh_derived_fields(record, settings=None):
     return result
 
 
+def reference_tare(record, settings=None):
+    size = text_value(record.get("Size_Type")).upper()
+    return TANK_TARE_WEIGHTS_TONS.get(size, TARE_WEIGHTS_TONS.get(size[:2]))
+
+
 def current_weight_issues(record, settings=None):
     """Derive VOSCO F/E weight findings from current values and saved policy."""
     settings = settings or {}
@@ -452,7 +457,7 @@ def current_weight_issues(record, settings=None):
                 f"Mô tả ghi EMPTY nhưng trọng lượng hàng là {value:g} tấn (> 0); đối chiếu F/E và trọng lượng.",
                 severity="error", details={"weight_tons": value, "threshold_tons": 0, "weight_kind": kind})
         elif kind != "cargo":
-            tare = TANK_TARE_WEIGHTS_TONS.get(size, TARE_WEIGHTS_TONS.get(size[:2]))
+            tare = reference_tare(record)
             if tare is not None and value > tare + SAFETY_MARGIN_TONS:
                 threshold = tare + SAFETY_MARGIN_TONS
                 add("EMPTY_WEIGHT_CONFLICT",

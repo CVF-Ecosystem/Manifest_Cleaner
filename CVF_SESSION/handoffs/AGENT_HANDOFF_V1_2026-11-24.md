@@ -32,11 +32,14 @@ independent reviewer.
 
 ## Completed
 
-- Project governance bootstrap created the initial continuity surfaces.
+- Roadmap milestones M01, M11, M12, M21, M22, M31 and M41 are VERIFIED. See docs/reviews/ROADMAP_1_2_REVIEW.md.
+- MC51–MC54 were implemented and checked through 1.2.5. The local Windows build and the five-manifest replay covered 788 rows, zero blocking errors and three warnings.
 
 ## Open Work
 
-- Run and review the pre-dispatch gates for the first roadmapped implementation.
+- Independent REVIEWER assessment of the 1.2.6 worker return and the weight warning evidence.
+- M32 is IMPLEMENTED_UNPROVED pending a clean/offline Windows machine check and Port import acceptance. M42 is BLOCKED pending a new carrier and accepted input/output evidence.
+- Confirm the interpretation of dot-grouped kg with operations. The two documented VOSCO EMPTY/gross weight discrepancies also await source confirmation.
 
 ## Claim Boundary
 
@@ -94,3 +97,28 @@ Bản 1.2.4 áp dụng gross khi đọc mới cho cả ba hãng và ghi seal the
 CVF Agent Declaration. Manifest_Cleaner, ../.Controlled-Vibe-Framework-CVF at b6d5a51a1e90c1c03426baa3d355834089ac652a, REVIEW to bounded BUILD, ORCHESTRATOR, R2 ceiling, live provider evidence required for governance claims. Active handoff rehydrated, no parked checkpoint. Under MC51–MC54 inspect the supplied bill, assess warnings and notes across adapters and common UI/export, repair the inaccessible save controls, replay local samples and refer the result for independent review.
 
 Bản 1.2.5. Terra sửa cách tính số lượng và thông báo trọng lượng VOSCO. Sol sửa cửa sổ đối chiếu trên Windows. Orchestrator sửa kiểm tra chung, VINAFCO, trùng VIMC và ghi chú xuất. Astra đã kiểm độc lập các thay đổi cuối. Bộ kiểm tra phát hành đạt 266 ca và 94 SHA-256. Năm manifest thật cho 788 dòng với 0 lỗi chặn, 3 cảnh báo. EXE 1.2.5 đã khởi động và đóng thành công trên Windows, SHA-256 484a9170e3e7643c7469c8d2e67a61cadad946e23d75409e17e31460cafd7aa7. Bản xuất VOSCO và JSON tại dist/1.2.5/exports, đã đối chiếu lại qua đường xuất GUI. Phiên 1.2.3 đã lưu từ nội dung nguồn có SHA-256 khác file thật hiện tại nên bộ kiểm tra nguồn từ chối mở lại. Các phiên mới đã mở lại thành công. Project ở REVIEW, ORCHESTRATOR, tiếp tục đối chiếu hai dòng EMPTY khi có chứng từ bổ sung và xác nhận nhập Cảng.
+
+## 1.2.6 rà trọng lượng và đồng bộ hồ sơ
+
+CVF Agent Declaration. Manifest_Cleaner, Core ../.Controlled-Vibe-Framework-CVF tại b6d5a51a1e90c1c03426baa3d355834089ac652a. Tranche được giao cho IMPLEMENTATION_WORKER theo docs/work_orders/WO_MC_LEGACY_COMPAT.md (MC52, MC54). Rủi ro R2 do kiểm manifest thật cục bộ. Bằng chứng sống cho kết luận quản trị CVF là YES. Handoff này đang active, trạng thái project REVIEW, không có checkpoint đang chờ. Activation CURRENT_ASSESSED, Doctor 29/29, BOOTSTRAP_MIGRATION_PENDING. Chạy pre-dispatch trước BUILD. Trả working tree, kết quả kiểm thử và các điểm còn mở cho REVIEWER độc lập.
+
+Worker return 1.2.6. Hai cảnh báo đọc từ trọng lượng hiện tại và ô nguồn. VINAFCO dùng cấu hình vỏ theo kích cỡ và loại lạnh. VOSCO dùng bảng của hãng, VIMC tham chiếu bảng VOSCO theo cỡ vật lý. Với ô VINAFCO cũ thiếu dấu vết kiểu ô, chỉ phát hiện dấu chấm khi còn đủ bằng chứng là chuỗi nguồn. Mở lại phiên v2 giữ chỉnh sửa và xác nhận. Trọng lượng đã sửa vẫn sinh cảnh báo dưới vỏ nếu còn dưới ngưỡng và chưa xác nhận lại.
+
+Pre-dispatch đạt 7/7. Kiểm thử nguồn tăng từ 266 lên 274, checksum từ 94 lên 95. Cùng năm manifest cục bộ cho 788 dòng, 0 lỗi chặn và 3 cảnh báo trước và sau, khớp dữ liệu nghiệp vụ xuất và SHA-256 nguồn. Dữ liệu thật ở dist. Các mẫu hồi quy trong Git dùng dữ liệu tổng hợp. Bước tiếp theo là REVIEWER độc lập kiểm working tree và bằng chứng cơ học trong .cvf/runtime/v126. HEAD tại 199fc919a86051b83c4c8d77827b9ff17406d367, bản 1.2.6 ở working tree.
+
+Lượt gate đầu lưu tại .cvf/runtime/v126/*.initial-failure.json. pr-ci và worker-return cùng trả `COV_BLOCK_REQUIRED @ docs/roadmaps/MANIFEST_CLEANER.md: milestone coverage admission refused`. Tổng thời gian thực thi hai lệnh 2,4 giây. Điểm lỗi là hồ sơ roadmap, sau khi kiểm thử sản phẩm đã đạt. Đã đối chiếu candidate list, required_artifact, validate_text và đăng ký MC1. Khi roadmap được sửa, gate bắt buộc có đúng một khối coverage. Roadmap này chưa có khối đó, nên gate từ chối trước bước so hash của mục tiêu chí. Sửa giới hạn trong mục mới bằng coverage tham chiếu pin MC1 và bằng chứng review hiện có. Kiểm hash tiêu chí trước và sau, rồi chạy lại cả hai gate. Reviewer độc lập nhận kết quả và quyết định bước tiếp theo.
+
+Sau bổ sung khối coverage dùng kết quả review đã có, pr-ci và worker-return đều PASS, gồm CVF-DG-COV-01. Mục tiêu chí giữ SHA-256 dcd00c7073a34231c8d5e65c45a0b0b2aaff980f18c5c57eb0cd3f138928e463. Gate pr-ci chạy cục bộ với base và head tại HEAD, kèm kiểm working tree. Hồ sơ phát hành kiểm các đường dẫn có sẵn trong PACKAGE_MANIFEST.sha256 và test mới. Cả hai kết luận acceptance của snapshot coverage để PENDING.
+
+## Review độc lập 1.2.6
+
+CVF Agent Declaration. Manifest_Cleaner, Core ../.Controlled-Vibe-Framework-CVF tại b6d5a51a1e90c1c03426baa3d355834089ac652a, REVIEW, REVIEWER độc lập với worker 1.2.6, rủi ro R2, bằng chứng provider live chỉ áp dụng khi có tuyên bố quản trị AI, không có checkpoint đang chờ. Activation CURRENT_ASSESSED.
+
+Reviewer chạy lại bộ kiểm thử, pr-ci 8/8 và năm manifest thật cục bộ: 788 dòng, 0 lỗi chặn, 3 cảnh báo cũ, không có cảnh báo mới. Phát hiện duy nhất cần sửa: hai cảnh báo mới không tôn trọng xác nhận cả dòng, khác mọi cảnh báo khác và khác nội dung hộp thoại Đã đối chiếu.
+
+Reviewer-local repair theo quyết định của operator chọn hành vi nhất quán. reviewerLocalRepairBasis: xác nhận dòng xóa GROSS_WEIGHT_BELOW_TARE và KGS_DOT_GROUPING như các cảnh báo khác, sửa dòng sau đó kiểm lại. unchangedObjective YES, unchangedDesign YES, unchangedPaths YES, unchangedAuthority YES, unchangedEffects YES, unchangedCommitOwner YES, evidenceDetermined YES. Đổi manifest_cleaner/engine.py, một ca hồi quy trong tests/test_weight_warnings.py, câu hướng dẫn README và checksum. Còn mở ngoài lượt này: bảng vỏ VIMC đang dùng chung module VOSCO, cần tách sang module chung ở lượt sau. Chưa commit và chưa build EXE 1.2.6.
+
+## Commit 1.2.6
+
+Operator yêu cầu commit bản 1.2.6. Orchestrator ghi chuyển vai sang COMMIT_STEWARD và SESSION_SYNC_STEWARD. Cập nhật IMPLEMENTATION_STATUS với giới hạn đã biết của 1.2.6. Chạy pre-commit gate trên đúng thay đổi đã stage, rồi commit cục bộ phần sản phẩm, kiểm thử, hồ sơ và continuity trong một commit. Biên nhận gate và bảng đối chiếu manifest thật nằm ở .cvf/runtime/v126, ngoài Git. Chưa build EXE 1.2.6. Project trở lại ORCHESTRATOR trong REVIEW. Bước tiếp theo là build EXE 1.2.6 tách riêng, sau đó giao tranche 1.2.7 giao diện.
+

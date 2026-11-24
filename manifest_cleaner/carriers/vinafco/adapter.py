@@ -466,6 +466,10 @@ def _tare(size: str, cfg: dict) -> float | None:
     return cfg[f"tare_{length}{'rf' if reefer else 'ft'}"]
 
 
+def reference_tare(record, settings=None):
+    return _tare(record.get("Size_Type"), _settings(settings))
+
+
 def _fe(description: str, weight: dict | None, size: str, cfg: dict):
     """Apply the carrier's legacy weight policy, recording every inference/conflict."""
     notes = []
@@ -731,6 +735,7 @@ def parse_manifest(path, *, settings=None, progress=None) -> dict:
         # The unit in a populated cell can override the header. Keep the unit
         # actually used by parse_weight; an unreadable weight has no such evidence.
         raw["weight_source_unit"] = weight["source_unit"] if weight is not None else None
+        raw["weight_cell_is_text"] = isinstance(native.get("gw"), str)
         fe, fe_notes, rules, inferred_fe = _fe(raw["comm"], weight, raw["type"], cfg)
         soc = group["soc"] or bool(_SOC.search(raw["remarks"])) or bool(_SOC.search(raw["comm"]))
         vtos, cargo = _derived(raw["type"], fe, cfg)

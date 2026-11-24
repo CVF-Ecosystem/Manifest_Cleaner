@@ -11,6 +11,7 @@ import re
 
 from ...common import is_explicit_empty, issue, normalize_text, parse_weight, read_workbook, text_value
 from .. import CARRIER_PROFILES
+from ..vosco.mappings import TANK_TARE_WEIGHTS_TONS, TARE_WEIGHTS_TONS
 from .mappings import CARGO_TYPE_MAPPING, SIZE_TO_ISO, SIZE_TO_VTOS
 from .parsers import (
     CONTAINER_CANDIDATE, STOP_KEYWORDS_PATTERN, is_valid_container,
@@ -47,6 +48,16 @@ def is_supported_size_type(size_type, settings=None):
     value = text_value(size_type).upper().replace("'", "")
     known = set(physical_map) | set(physical_map.values()) | set(port_map) | set(port_map.values())
     return bool(value and value in {item.replace("'", "") for item in known})
+
+
+def reference_tare(record, settings=None):
+    size = text_value(record.get("Size_Type")).upper().replace("'", "")
+    physical_type = text_value(record.get("Physical_ISO_Size")).upper()
+    iso_length = re.fullmatch(r"([24L])\d[A-Z]\d", physical_type or size)
+    length = {"2": "20", "4": "40", "L": "45"}[iso_length[1]] if iso_length else size[:2]
+    if size.endswith("TK") or physical_type[2:3] == "T":
+        return TANK_TARE_WEIGHTS_TONS.get(f"{length}TK")
+    return TARE_WEIGHTS_TONS.get(length)
 
 
 def _clean_party_name(value):
