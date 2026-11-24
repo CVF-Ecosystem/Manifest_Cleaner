@@ -25,12 +25,14 @@
     "MC52 FF2601S reads all 309 weights. Version 1.2.5 retains two warnings for declared EMPTY 20TK containers at 11 tons against a 6-ton reference threshold. The source declaration is preserved.",
     "MC53 uses the legacy VINAFCO program replay on three manifests as the reference. Previously saved outputs for those voyages were unavailable.",
     "1.2.6 warns when a full container's gross weight is below the carrier reference tare and when a kg value uses dot thousands grouping under the legacy number rule. The parsed value is unchanged until operations confirm the dot-in-kg interpretation.",
-    "VIMC reference tare reuses the VOSCO tare table; moving it to a shared carrier module remains open."
+    "VIMC reference tare reuses the VOSCO tare table; moving it to a shared carrier module remains open.",
+    "1.2.7 interface was checked on the development Windows machine at 100%, 125% and 150% display scaling with synthetic samples and local real manifests. The operator waived a separate interface check on a Port machine on 2026-11-25; Port import acceptance remains open under M32."
   ],
   "evidence": [
     "docs/reviews/ROADMAP_1_2_REVIEW.md",
     "docs/reviews/activation-roadmap/pre-dispatch-admitted.json",
-    "docs/reviews/LEGACY_COMPAT_REVIEW.md"
+    "docs/reviews/LEGACY_COMPAT_REVIEW.md",
+    "docs/reviews/ui-1.2.7/README.md"
   ],
-  "updatedAt": "2026-11-24"
+  "updatedAt": "2026-11-25"
 }

@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import copy
+import csv
+import io
 import json
+import os
 import queue
 import sys
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import filedialog, font as tkfont, messagebox, simpledialog, ttk
 
 from xlsxwriter.utility import xl_col_to_name
 
@@ -16,11 +19,43 @@ from . import __version__
 from .common import parse_weight, seal_text, text_value
 from .engine import CARRIERS, EDITABLE_FIELDS, FIELD_LABELS, ReviewSourceError, load_review, load_settings, process_manifest, validate_carrier_settings
 from .exporter import export_port_bundle, preview_record_for_export
+from .issue_display import issue_field, issue_location, issue_raw_value, issue_title
 
-NAVY = "#13334C"
-BG = "#F2F5F8"
-TEXT = "#20364A"
-MUTED = "#596D7C"
+# Light operational palette, Segoe UI hierarchy and shared spacing in pixels at 96 DPI.
+PAGE = "#F3F6F9"
+SURFACE = "#FFFFFF"
+BORDER = "#8193A5"
+TEXT = "#182A3D"
+MUTED = "#46596C"
+ACCENT = "#124C72"
+ACCENT_HOVER = "#0C3C5C"
+ACCENT_SOFT = "#E6EFF7"
+SUCCESS = "#166146"
+WARNING = "#745000"
+WARNING_BG = "#FFF4D8"
+DANGER = "#9C2E28"
+DANGER_HOVER = "#F8E2DF"
+DANGER_BG = "#FCECEB"
+EXCLUDED_BG = "#E8EDF2"
+DISABLED_BG = "#E4EAF0"
+FOCUS = "#14669A"
+FONT = ("Segoe UI", 10)
+FONT_BOLD = ("Segoe UI", 10, "bold")
+FONT_TITLE = ("Segoe UI", 15, "bold")
+FONT_NUMBER = ("Segoe UI", 17, "bold")
+FONT_MONO = ("Consolas", 9)
+IDENTIFIER_COLUMNS = ("Container_No", "Seal_No", "BL_No", "VTOS_Size", "Operator")
+# Figure spaces keep right-aligned weights apart from the left-aligned consignee text.
+WEIGHT_PAD = "\u2007\u2007"
+GAP = 8
+PAD = 16
+WINDOW_PREFERRED = (1440, 820)
+WINDOW_MINIMUM = (940, 620)
+STAT_ITEMS = (
+    ("containers", "Container", "Count"), ("full", "F · Có hàng", "Success"),
+    ("empty", "E · Rỗng", "Count"), ("errors", "Lỗi chặn", "Error"),
+    ("warnings", "Cảnh báo", "Warning"), ("excluded", "Đã loại", "Muted"),
+)
 NUMBER_LABELS = {"legacy": "Theo quy tắc hãng", "decimal_comma": "Dấu phẩy thập phân", "decimal_dot": "Dấu chấm thập phân"}
 WEIGHT_LABELS = {"unknown": "Chưa xác nhận (phiên cũ)", "gross": "Tổng vỏ và hàng", "cargo": "Trọng lượng hàng (phiên cũ)"}
 SOURCE_REASON_LABELS = {
@@ -94,18 +129,29 @@ def _source_field(record, field):
     return "—"
 
 
-def _runtime_description(session):
-    settings = session.metadata.get("effective_settings") or session.settings
+def _present_text(value):
+    return bool(text_value(value))
+
+
+def _sheet_description(session):
     metadata = session.metadata
     sheets = metadata.get("selected_sheet") or metadata.get("source_sheet") or metadata.get("sheets_used") or "Chưa xác định"
     if isinstance(sheets, (list, tuple)):
         sheets = ", ".join(str(x) for x in sheets)
-    profile = metadata.get("profile_version") or metadata.get("profile") or metadata.get("adapter") or session.carrier
-    if isinstance(profile, dict):
-        profile = profile.get("name") or profile.get("version") or session.carrier
-    number = NUMBER_LABELS.get(settings.get("number_format", "legacy"), settings.get("number_format"))
-    weight = WEIGHT_LABELS.get(settings.get("weight_kind", metadata.get("weight_kind", "unknown")), "Chưa xác nhận ý nghĩa")
-    return f"Đang dùng: {number}  |  Trọng lượng: {weight}  |  Sheet: {sheets}  |  Bộ quy tắc: {profile}"
+    return sheets
+
+
+def _runtime_exceptions(session):
+    """Name reading settings only when they differ from the carrier default, such as an older saved session."""
+    settings = session.metadata.get("effective_settings") or session.settings
+    notes = []
+    number_format = settings.get("number_format", "legacy")
+    if number_format != "legacy":
+        notes.append("Số: " + NUMBER_LABELS.get(number_format, number_format))
+    weight_kind = settings.get("weight_kind", session.metadata.get("weight_kind", "unknown"))
+    if weight_kind != "gross":
+        notes.append("Trọng lượng: " + WEIGHT_LABELS.get(weight_kind, "Chưa xác nhận ý nghĩa"))
+    return notes
 
 
 def _reconciliation_description(session):
@@ -154,19 +200,51 @@ def _monitor_work_area(parent):
     return 0, 0, parent.winfo_screenwidth(), parent.winfo_screenheight()
 
 
-def _fit_dialog(dialog, parent, preferred=(1000, 760), minimum=(475, 330)):
+def _enable_dpi_awareness():
+    """Opt in before Tk creates an HWND, falling back on older Windows."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    try:
+        if ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+            return
+    except (AttributeError, OSError):
+        pass
+    try:
+        if ctypes.windll.shcore.SetProcessDpiAwareness(2) in (0, -2147024891):
+            return
+    except (AttributeError, OSError):
+        pass
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except (AttributeError, OSError):
+        pass
+
+
+def _pixels(widget, value):
+    """Scale fixed dimensions with Tk's measured display density."""
+    return round(value * widget.winfo_fpixels("1i") / 96)
+
+
+def _fit_window(window, parent, preferred, minimum):
     left, top, right, bottom = _monitor_work_area(parent)
-    max_width = max(1, right - left - 32)
-    max_height = max(1, bottom - top - 72)
-    width, height = min(preferred[0], max_width), min(preferred[1], max_height)
+    max_width = max(1, right - left - _pixels(window, 24))
+    max_height = max(1, bottom - top - _pixels(window, 60))
+    width, height = min(_pixels(window, preferred[0]), max_width), min(_pixels(window, preferred[1]), max_height)
     x = left + (right - left - width) // 2
-    y = top + (bottom - top - height - 40) // 2
-    dialog.geometry(f"{width}x{height}+{x}+{y}")
-    dialog.minsize(min(minimum[0], width), min(minimum[1], height))
+    y = top + max(0, (bottom - top - height - _pixels(window, 30)) // 2)
+    # The leading plus makes negative coordinates absolute on a monitor left of the primary.
+    window.geometry(f"{width}x{height}+{x}+{y}")
+    window.minsize(min(_pixels(window, minimum[0]), width), min(_pixels(window, minimum[1]), height))
+
+
+def _fit_dialog(dialog, parent, preferred=(940, 690), minimum=(475, 330)):
+    _fit_window(dialog, parent, preferred, minimum)
 
 
 def _scroll_area(parent):
-    canvas = tk.Canvas(parent, background=BG, borderwidth=0, highlightthickness=0, width=1, height=1)
+    canvas = tk.Canvas(parent, background=PAGE, borderwidth=0, highlightthickness=0, width=1, height=1)
     scroll = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
     scroll.pack(side="right", fill="y")
     canvas.pack(side="left", fill="both", expand=True)
@@ -224,7 +302,12 @@ def _bind_dialog_scroll(dialog, panes):
 
 def _wrapped_label(parent, **options):
     label = ttk.Label(parent, wraplength=420, **options)
-    parent.bind("<Configure>", lambda event: label.configure(wraplength=max(100, event.width - 24)), add="+")
+
+    def resize(event):
+        if event.widget is parent and label.winfo_exists():
+            label.configure(wraplength=max(100, event.width - _pixels(parent, 2 * PAD)))
+
+    parent.bind("<Configure>", resize, add="+")
     return label
 
 
@@ -232,18 +315,22 @@ class ManifestApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title(f"Manifest Cleaner {__version__} — Nhập hệ thống Cảng")
-        self.root.geometry("1240x800")
-        self.root.minsize(1020, 650)
-        self.root.configure(bg=BG)
+        self.root.withdraw()
+        self.root.configure(bg=PAGE)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.session = None
         self.busy = False
         self.events = queue.Queue()
         self.dirty = False
+        self.export_directory = None
         self.selected_path = None
         self.read_override = None
         self.sort_field = None
         self.sort_reverse = False
+        self.severity_filter = None
+        self.count_labels = {}
+        self.table_counts = (0, 0)
+        self.issue_count = 0
         self.carrier = tk.StringVar(value=CARRIERS[0])
         self.search = tk.StringVar()
         self.only_issues = tk.BooleanVar(value=False)
@@ -251,8 +338,10 @@ class ManifestApp:
         self.include_review = tk.BooleanVar(value=True)
         self.status = tk.StringVar(value="Chọn hãng tàu và mở một file manifest để bắt đầu.")
         self.file_label = tk.StringVar(value="Chưa chọn manifest")
-        self.summary = tk.StringVar(value="Mỗi lần xử lý một manifest của một hãng tàu.")
-        self.configuration = tk.StringVar(value="Quy ước số, ý nghĩa trọng lượng và sheet sẽ hiện tại đây sau khi mở manifest.")
+        self.summary = tk.StringVar()
+        self.filter_status = tk.StringVar()
+        self.export_hint = tk.StringVar(value="Mở manifest để xuất.")
+        self.configuration = tk.StringVar(value="")
         self.config_path = (Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]) / "settings.json"
         try:
             self.settings = load_settings(self.config_path if self.config_path.is_file() else None)
@@ -261,6 +350,9 @@ class ManifestApp:
             messagebox.showwarning("Cấu hình", f"Không đọc được cấu hình: {exc}\nĐang dùng quy tắc mặc định từ các repo.", parent=root)
         self._style()
         self._build()
+        _fit_window(self.root, self.root, WINDOW_PREFERRED, WINDOW_MINIMUM)
+        self.root.deiconify()
+        self.root.bind_class("TButton", "<Return>", lambda event: (event.widget.invoke(), "break")[1])
         self.search.trace_add("write", lambda *_: self.refresh())
         self.root.bind("<Control-o>", lambda _: self.choose_file())
         self.root.bind("<Control-s>", lambda _: self.export())
@@ -270,104 +362,394 @@ class ManifestApp:
     def _style(self):
         style = ttk.Style(self.root)
         style.theme_use("clam")
-        style.configure("TFrame", background=BG)
-        style.configure("TLabel", background=BG, foreground=TEXT, font=("Segoe UI", 10))
+        pixels = lambda value: _pixels(self.root, value)
+        style.configure(".", background=PAGE, foreground=TEXT, font=FONT,
+                        focuscolor=FOCUS, bordercolor=BORDER)
+        style.configure("TFrame", background=PAGE)
+        style.configure("TLabel", background=PAGE, foreground=TEXT, font=FONT)
         style.configure("Muted.TLabel", foreground=MUTED)
-        style.configure("Issue.TLabel", foreground="#A52B25", font=("Segoe UI", 10, "bold"))
-        style.configure("TButton", font=("Segoe UI", 10), padding=(12, 8))
-        style.configure("Primary.TButton", background=NAVY, foreground="white", borderwidth=0)
-        style.map("Primary.TButton", background=[("active", "#245675"), ("disabled", "#BAC6D0")], foreground=[("disabled", "#EEF2F5")])
-        style.configure("Treeview", font=("Segoe UI", 10), rowheight=30, background="white", fieldbackground="white", foreground=TEXT)
-        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), padding=(8, 10))
-        style.map("Treeview", background=[("selected", "#245675")], foreground=[("selected", "white")])
-        style.configure("TNotebook.Tab", font=("Segoe UI", 10), padding=(18, 9))
-        style.configure("TCheckbutton", background=BG, foreground=TEXT, font=("Segoe UI", 10))
+        style.configure("Issue.TLabel", foreground=DANGER, font=FONT_BOLD)
+        style.configure("Toolbar.TFrame", background=SURFACE)
+        style.configure("Toolbar.TLabel", background=SURFACE)
+        style.configure("Title.Toolbar.TLabel", font=FONT_TITLE)
+
+        style.configure("TButton", background=SURFACE, foreground=TEXT, font=FONT,
+                        padding=(pixels(10), pixels(5)), borderwidth=1, relief="solid",
+                        lightcolor=BORDER, darkcolor=BORDER)
+        style.map("TButton",
+                  background=[("disabled", PAGE), ("pressed", ACCENT_SOFT), ("active", ACCENT_SOFT)],
+                  foreground=[("disabled", MUTED)], bordercolor=[("focus", FOCUS), ("!focus", BORDER)],
+                  lightcolor=[("focus", FOCUS)], darkcolor=[("focus", FOCUS)])
+        style.configure("Primary.TButton", background=ACCENT, foreground=SURFACE,
+                        bordercolor=ACCENT, lightcolor=ACCENT, darkcolor=ACCENT, focuscolor=SURFACE)
+        style.map("Primary.TButton",
+                  background=[("disabled", DISABLED_BG), ("pressed", ACCENT_HOVER), ("active", ACCENT_HOVER)],
+                  foreground=[("disabled", MUTED), ("!disabled", SURFACE)],
+                  bordercolor=[("disabled", BORDER), ("focus", FOCUS)],
+                  lightcolor=[("disabled", DISABLED_BG), ("!disabled", ACCENT)],
+                  darkcolor=[("disabled", DISABLED_BG), ("!disabled", ACCENT)])
+        style.configure("Danger.TButton", foreground=DANGER)
+        style.map("Danger.TButton", foreground=[("disabled", MUTED), ("!disabled", DANGER)],
+                  background=[("disabled", PAGE), ("active", DANGER_HOVER), ("pressed", DANGER_HOVER)])
+        for variant, color in (("Count", ACCENT), ("Success", SUCCESS), ("Error", DANGER),
+                               ("Warning", WARNING), ("Muted", MUTED)):
+            style.configure(f"{variant}.Number.TLabel", background=SURFACE, foreground=color, font=FONT_NUMBER)
+            style.configure(f"{variant}.Count.TButton", font=FONT_BOLD, foreground=color,
+                            padding=(pixels(6), pixels(1)))
+            style.map(f"{variant}.Count.TButton", foreground=[("disabled", MUTED), ("!disabled", color)],
+                      background=[("disabled", PAGE), ("active", ACCENT_SOFT)])
+
+        style.configure("Treeview", font=FONT, rowheight=pixels(29),
+                        background=SURFACE, fieldbackground=SURFACE, foreground=TEXT)
+        style.configure("Treeview.Heading", font=FONT_BOLD, padding=(pixels(8), pixels(6)),
+                        background=PAGE, foreground=TEXT, relief="flat")
+        style.map("Treeview",
+                  background=[("selected", ACCENT)], foreground=[("selected", SURFACE)],
+                  bordercolor=[("focus", FOCUS)])
+        style.map("Treeview.Heading", background=[("active", ACCENT_SOFT)])
+        style.configure("TNotebook", background=PAGE, tabmargins=0, padding=0)
+        style.configure("TNotebook.Tab", font=FONT, padding=(pixels(13), pixels(6)),
+                        background=PAGE, foreground=MUTED)
+        style.map("TNotebook.Tab",
+                  background=[("selected", ACCENT_SOFT), ("active", SURFACE)],
+                  foreground=[("selected", ACCENT)], font=[("selected", FONT_BOLD)],
+                  padding=[("selected", (pixels(13), pixels(9))), ("!selected", (pixels(13), pixels(6)))],
+                  expand=[("selected", (0, pixels(2), 0, 0))], bordercolor=[("focus", FOCUS)])
+        style.configure("TCheckbutton", background=PAGE, foreground=TEXT, font=FONT)
+        style.map("TCheckbutton", bordercolor=[("focus", FOCUS)])
+        for control in ("TEntry", "TCombobox"):
+            style.configure(control, padding=(pixels(5), pixels(3)), fieldbackground=SURFACE)
+            style.map(control, fieldbackground=[("disabled", DISABLED_BG), ("readonly", SURFACE)],
+                      foreground=[("disabled", MUTED)], bordercolor=[("focus", FOCUS)],
+                      lightcolor=[("focus", FOCUS)], darkcolor=[("focus", FOCUS)])
+        style.configure("Horizontal.TProgressbar", background=ACCENT, troughcolor=DISABLED_BG)
 
     def _build(self):
-        header = tk.Frame(self.root, bg=NAVY)
-        header.pack(fill="x")
-        tk.Label(header, text="MANIFEST CLEANER", font=("Segoe UI", 22, "bold"), fg="white", bg=NAVY).pack(anchor="w", padx=24, pady=(17, 2))
-        carrier_list = "  ·  ".join(CARRIERS)
-        tk.Label(header, text=f"{carrier_list}     |     Chuẩn hóa dữ liệu để nhập hệ thống Cảng", font=("Segoe UI", 11), fg="#D6E5EF", bg=NAVY).pack(anchor="w", padx=25, pady=(0, 18))
-        toolbar = ttk.Frame(self.root, padding=(20, 16))
+        gap = _pixels(self.root, GAP)
+        pad = _pixels(self.root, PAD)
+        toolbar = ttk.Frame(self.root, style="Toolbar.TFrame", padding=(pad, gap))
         toolbar.pack(fill="x")
-        ttk.Label(toolbar, text="Hãng tàu", font=("Segoe UI", 10, "bold")).pack(side="left", padx=(0, 10))
-        self.carrier_box = ttk.Combobox(toolbar, textvariable=self.carrier, values=CARRIERS, state="readonly", width=14, font=("Segoe UI", 11))
-        self.carrier_box.pack(side="left")
+        ttk.Label(toolbar, text="Manifest Cleaner", style="Title.Toolbar.TLabel").pack(side="left", padx=(0, pad))
+        ttk.Label(toolbar, text="Hãng tàu", style="Toolbar.TLabel", font=FONT_BOLD).pack(side="left", padx=(0, gap))
+        self.carrier_box = ttk.Combobox(toolbar, textvariable=self.carrier, values=CARRIERS,
+                                       state="readonly", width=8, font=FONT)
+        self.carrier_box.pack(side="left", padx=(0, gap))
         self.carrier_box.bind("<<ComboboxSelected>>", self.carrier_changed)
         self.open_button = ttk.Button(toolbar, text="Mở manifest…", style="Primary.TButton", command=self.choose_file)
-        self.open_button.pack(side="left", padx=12)
+        self.open_button.pack(side="left", padx=(0, gap))
         self.resume_button = ttk.Button(toolbar, text="Mở phiên đã lưu…", command=self.choose_review)
-        self.resume_button.pack(side="left", padx=(0, 8))
+        self.resume_button.pack(side="left", padx=(0, gap))
         self.reload_button = ttk.Button(toolbar, text="Xử lý lại", command=self.reprocess, state="disabled")
         self.reload_button.pack(side="left")
-        ttk.Button(toolbar, text="Cấu hình đọc…", command=self.number_settings).pack(side="right", padx=(8, 0))
-        ttk.Button(toolbar, text="Hướng dẫn", command=self.help).pack(side="right")
-        info = ttk.Frame(self.root, padding=(22, 0, 22, 12))
+        extras = ttk.Frame(toolbar, style="Toolbar.TFrame")
+        extras.pack(side="right")
+        ttk.Button(extras, text="Hướng dẫn", command=self.help).pack(side="left")
+        ttk.Button(extras, text="Cấu hình đọc…", command=self.number_settings).pack(side="left", padx=(gap, 0))
+
+        # Reserve the lower controls before giving the remaining space to the table.
+        footer = ttk.Frame(self.root, padding=(pad, gap // 2, pad, gap))
+        footer.pack(side="bottom", fill="x")
+        footer.columnconfigure(0, weight=1)
+        self.json_check = ttk.Checkbutton(footer, text="Xuất kèm đối chiếu JSON để mở lại phiên",
+                                          variable=self.include_review)
+        self.json_check.grid(row=0, column=0, sticky="w", pady=(0, gap // 2))
+        self.progress = ttk.Progressbar(footer, mode="determinate", length=_pixels(self.root, 110))
+        self.progress.grid(row=1, column=1, sticky="e", padx=(gap, 0))
+        self.status_label = _wrapped_label(footer, textvariable=self.status, style="Muted.TLabel")
+        self.status_label.grid(row=1, column=0, sticky="w")
+        footer.bind("<Configure>", lambda event: self.status_label.configure(
+            wraplength=max(100, event.width - self.progress.winfo_reqwidth() - 3 * pad)), add="+")
+
+        self.actionbar = ttk.Frame(self.root, padding=(pad, gap, pad, 0))
+        self.actionbar.pack(side="bottom", fill="x")
+        edits = ttk.Frame(self.actionbar)
+        edits.grid(row=0, column=0, sticky="w")
+        self.actionbar.columnconfigure(1, weight=1)
+        self.edit_button = ttk.Button(edits, text="Xem / sửa dòng", command=self.edit_selected, state="disabled")
+        self.edit_button.pack(side="left", padx=(0, gap))
+        self.ack_button = ttk.Button(edits, text="Đã đối chiếu…", command=self.acknowledge, state="disabled")
+        self.ack_button.pack(side="left", padx=(0, gap))
+        self.exclude_button = ttk.Button(edits, text="Loại / khôi phục dòng…", command=self.exclude, state="disabled")
+        self.exclude_button.pack(side="left")
+        outputs = ttk.Frame(self.actionbar)
+        outputs.grid(row=0, column=2, sticky="e")
+        self.review_button = ttk.Button(outputs, text="Lưu đối chiếu…", command=self.save_review, state="disabled")
+        self.review_button.pack(side="left", padx=(0, gap))
+        self.export_button = ttk.Button(outputs, text="Xuất file nhập Cảng…", style="Primary.TButton", command=self.export, state="disabled")
+        self.export_button.pack(side="left")
+        self.export_hint_label = _wrapped_label(self.actionbar, textvariable=self.export_hint, style="Muted.TLabel")
+        self.export_hint_label.grid(row=1, column=0, columnspan=3, sticky="e", pady=(gap // 2, 0))
+        self.export_folder_button = ttk.Button(self.actionbar, text="Mở thư mục kết quả", command=self.open_export_folder)
+        self.export_folder_button.grid(row=2, column=2, sticky="e", pady=(gap // 2, 0))
+        self.export_folder_button.grid_remove()
+
+        info = ttk.Frame(self.root, padding=(pad, gap, pad, 0))
         info.pack(fill="x")
-        ttk.Label(info, textvariable=self.file_label, font=("Segoe UI", 11, "bold")).pack(anchor="w")
-        ttk.Label(info, textvariable=self.summary, style="Muted.TLabel", wraplength=950).pack(anchor="w", pady=(5, 0))
-        ttk.Label(info, textvariable=self.configuration, style="Muted.TLabel", wraplength=950).pack(anchor="w", pady=(5, 0))
-        filters = ttk.Frame(self.root, padding=(20, 5, 20, 10))
+        _wrapped_label(info, textvariable=self.file_label, font=FONT_BOLD).pack(anchor="w")
+        counts = ttk.Frame(info)
+        counts.pack(fill="x", pady=(gap, gap // 2))
+        for index, (key, label, variant) in enumerate(STAT_ITEMS):
+            counts.columnconfigure(index, weight=1, uniform="stats")
+            value = tk.StringVar(value="—")
+            self.count_labels[key] = value
+            card = ttk.Frame(counts, style="Toolbar.TFrame", padding=(gap, gap // 2))
+            card.grid(row=0, column=index, sticky="nsew", padx=(0, gap if index < len(STAT_ITEMS) - 1 else 0))
+            card.rowconfigure(0, minsize=_pixels(self.root, 26))
+            number = ttk.Label(card, textvariable=value, style=f"{variant}.Number.TLabel")
+            if key in {"errors", "warnings"}:
+                severity = "error" if key == "errors" else "warning"
+                button = ttk.Button(card, style=f"{variant}.Count.TButton", text=label,
+                                    command=lambda kind=severity: self._filter_severity(kind))
+                button.grid(row=0, column=0, sticky="w")
+                number.bind("<Button-1>", lambda _, choice=button: choice.invoke())
+            else:
+                ttk.Label(card, text=label, style="Toolbar.TLabel").grid(row=0, column=0, sticky="w")
+            number.grid(row=1, column=0, sticky="w")
+        self.summary_label = _wrapped_label(info, textvariable=self.summary, style="Muted.TLabel")
+        self.summary_label.pack(anchor="w")
+        # Shown only while it has text, so an empty line never leaves a gap.
+        self.configuration_label = _wrapped_label(info, textvariable=self.configuration, style="Muted.TLabel")
+
+        filters = ttk.Frame(self.root, padding=(pad, gap, pad, gap))
         filters.pack(fill="x")
-        ttk.Label(filters, text="Tìm container / B/L / hàng hóa:").pack(side="left", padx=(0, 8))
-        ttk.Entry(filters, textvariable=self.search, width=31, font=("Segoe UI", 10)).pack(side="left")
-        ttk.Checkbutton(filters, text="Chỉ mục cần kiểm tra", variable=self.only_issues, command=self.refresh).pack(side="left", padx=16)
+        ttk.Label(filters, text="Tìm container / B/L / hàng hóa:").pack(side="left", padx=(0, gap))
+        self.search_entry = ttk.Entry(filters, textvariable=self.search, width=17)
+        self.search_entry.pack(side="left", padx=(0, gap))
+        ttk.Checkbutton(filters, text="Chỉ mục cần kiểm tra", variable=self.only_issues, command=self.refresh).pack(side="left", padx=(0, gap))
         ttk.Checkbutton(filters, text="Hiện dòng đã loại", variable=self.show_excluded, command=self.refresh).pack(side="left")
-        ttk.Button(filters, text="Tra nguồn…", command=self.show_source_coverage).pack(side="right")
+        filter_actions = ttk.Frame(filters)
+        filter_actions.pack(side="right")
+        ttk.Button(filter_actions, text="Xóa bộ lọc", command=self._clear_filters).pack(side="left", padx=(gap, gap))
+        ttk.Button(filter_actions, text="Tra nguồn…", command=self.show_source_coverage).pack(side="left")
+        filter_feedback = ttk.Frame(self.root)
+        filter_feedback.pack(fill="x", padx=pad, pady=(0, gap // 2))
+        _wrapped_label(filter_feedback, textvariable=self.filter_status, style="Muted.TLabel").pack(anchor="w")
+
         self.tabs = ttk.Notebook(self.root)
-        self.tabs.pack(fill="both", expand=True, padx=20, pady=(0, 12))
+        self.tabs.pack(fill="both", expand=True, padx=pad)
+        self.tabs.enable_traversal()
         data_tab = ttk.Frame(self.tabs)
         issues_tab = ttk.Frame(self.tabs)
         self.tabs.add(data_tab, text="Container")
         self.tabs.add(issues_tab, text="Cần kiểm tra")
-        self.tabs.bind("<<NotebookTabChanged>>", self._update_row_actions)
-        fields = ("status", "Container_No", "Seal_No", "BL_No", "VTOS_Size", "Operator", "FE_Status",
-                  "Weight_Value", "Cleaned_Consignee_Name_For_Output", "Description")
-        self.tree = ttk.Treeview(data_tab, columns=fields, show="headings", selectmode="browse")
-        widths = {"status": 115, "Container_No": 140, "Seal_No": 125, "BL_No": 155, "VTOS_Size": 105, "Operator": 95,
-                  "FE_Status": 55, "Weight_Value": 125, "Cleaned_Consignee_Name_For_Output": 220, "Description": 300}
-        for name in fields:
-            label = "Trạng thái" if name == "status" else FIELD_LABELS.get(name, name)
-            self.tree.heading(name, text=label, command=lambda key=name: self.sort_by(key))
-            self.tree.column(name, width=widths[name], minwidth=45, stretch=False)
+        self.tabs.bind("<<NotebookTabChanged>>", self._tab_changed)
+        fields = (
+            ("status", "Trạng thái", 103), ("Container_No", FIELD_LABELS["Container_No"], 120),
+            ("Seal_No", FIELD_LABELS["Seal_No"], 95), ("BL_No", FIELD_LABELS["BL_No"], 108),
+            ("VTOS_Size", FIELD_LABELS["VTOS_Size"], 83), ("Operator", FIELD_LABELS["Operator"], 90),
+            ("FE_Status", FIELD_LABELS["FE_Status"], 42), ("Weight_Value", FIELD_LABELS["Weight_Value"], 111),
+            ("Cleaned_Consignee_Name_For_Output", FIELD_LABELS["Cleaned_Consignee_Name_For_Output"], 200),
+            ("Description", FIELD_LABELS["Description"], 180),
+        )
+        self.tree = ttk.Treeview(data_tab, columns=tuple(name for name, _, _ in fields),
+                                 show="headings", selectmode="browse", height=6)
+        self.data_headings = {name: label for name, label, _ in fields}
+        self._columns(self.tree, fields, stretchy={"Cleaned_Consignee_Name_For_Output", "Description"},
+                      numeric={"Weight_Value"}, sortable=True)
         self._scrollbars(data_tab, self.tree)
-        self.tree.tag_configure("error", background="#FDE9E7")
-        self.tree.tag_configure("warning", background="#FFF6DD")
-        self.tree.tag_configure("excluded", foreground="#87939C", background="#EDF0F3")
+        self.tree.tag_configure("error", background=DANGER_BG)
+        self.tree.tag_configure("warning", background=WARNING_BG)
+        self.tree.tag_configure("excluded", foreground=MUTED, background=EXCLUDED_BG)
         self.tree.bind("<Double-1>", lambda _: self.edit_selected())
+        self.tree.bind("<Return>", lambda _: self.edit_selected())
         self.tree.bind("<<TreeviewSelect>>", self._update_row_actions)
-        issue_fields = ("severity", "container", "field", "message", "source")
-        self.issue_tree = ttk.Treeview(issues_tab, columns=issue_fields, show="headings", selectmode="browse")
-        for name, label, width in [("severity", "Mức", 100), ("container", "Container", 140), ("field", "Thông tin", 140),
-                                  ("message", "Nội dung cần kiểm tra", 650), ("source", "Nguồn", 160)]:
-            self.issue_tree.heading(name, text=label)
-            self.issue_tree.column(name, width=width, minwidth=70, stretch=name == "message")
-        self._scrollbars(issues_tab, self.issue_tree)
+
+        self._build_issues(issues_tab, gap)
+        self.tree.bind("<Control-c>", lambda _: self._copy_table_row(self.tree))
+        self.empty_labels = [tk.Label(tab, bg=SURFACE, fg=MUTED, font=FONT, takefocus=False)
+                             for tab in (data_tab, self.issue_list)]
+        # Tk traverses siblings in stacking order. Match the visible layout.
+        self.actionbar.lift()
+        footer.lift()
+        self._update_table_states()
+
+    def _build_issues(self, tab, gap):
+        toolbar = ttk.Frame(tab, padding=(0, gap // 2))
+        toolbar.pack(fill="x")
+        self.issue_detail_open = True
+        self.issue_detail_toggle = ttk.Button(toolbar, text="Ẩn chi tiết", command=self._toggle_issue_detail)
+        self.issue_detail_toggle.pack(side="right")
+        body = ttk.Frame(tab)
+        body.pack(fill="both", expand=True)
+        self.issue_panel = ttk.Frame(body, width=_pixels(self.root, 335), padding=(gap, 0, 0, 0))
+        self.issue_panel.pack(side="right", fill="y")
+        self.issue_panel.pack_propagate(False)
+        self.issue_list = ttk.Frame(body)
+        self.issue_list.pack(fill="both", expand=True)
+        issue_fields = (("#0", "Loại vấn đề / Container", 200), ("severity", "Mức", 82),
+                        ("field", "Trường", 134), ("source", "Nguồn", 122))
+        self.issue_tree = ttk.Treeview(self.issue_list, columns=("severity", "field", "source"),
+                                      show="tree headings", selectmode="browse", height=6)
+        self._columns(self.issue_tree, issue_fields, stretchy={"#0", "field"})
+        self._scrollbars(self.issue_list, self.issue_tree)
         self.issue_tree.bind("<Double-1>", self.open_issue)
-        self.issue_tree.bind("<<TreeviewSelect>>", self._update_row_actions)
-        self.issue_tree.tag_configure("error", background="#FDE9E7")
-        self.issue_tree.tag_configure("warning", background="#FFF6DD")
+        self.issue_tree.bind("<Return>", self.open_issue)
+        self.issue_tree.bind("<Control-c>", lambda _: self._copy_table_row(self.issue_tree, hierarchical=True))
+        self.issue_tree.bind("<<TreeviewSelect>>", self._issue_selected)
+        self.issue_tree.tag_configure("group", background=ACCENT_SOFT, font=FONT_BOLD)
+        self.issue_tree.tag_configure("error", background=DANGER_BG)
+        self.issue_tree.tag_configure("warning", background=WARNING_BG)
         self.issue_records = {}
+        self.issue_items = {}
+        self.issue_groups = {}
+        self.issue_locations = {}
         self.issue_keys = {}
-        actionbar = ttk.Frame(self.root, padding=(20, 0, 20, 10))
-        actionbar.pack(fill="x")
-        self.edit_button = ttk.Button(actionbar, text="Xem / sửa dòng", command=self.edit_selected, state="disabled")
-        self.edit_button.pack(side="left")
-        self.ack_button = ttk.Button(actionbar, text="Đã đối chiếu…", command=self.acknowledge, state="disabled")
-        self.ack_button.pack(side="left", padx=8)
-        self.exclude_button = ttk.Button(actionbar, text="Loại / khôi phục dòng…", command=self.exclude, state="disabled")
-        self.exclude_button.pack(side="left")
-        self.review_button = ttk.Button(actionbar, text="Lưu đối chiếu…", command=self.save_review, state="disabled")
-        self.review_button.pack(side="right", padx=(8, 0))
-        self.export_button = ttk.Button(actionbar, text="Xuất file nhập Cảng…", style="Primary.TButton", command=self.export, state="disabled")
-        self.export_button.pack(side="right")
-        footer = ttk.Frame(self.root, padding=(22, 5, 22, 16))
-        footer.pack(fill="x")
-        ttk.Checkbutton(footer, text="Xuất kèm đối chiếu JSON để mở lại phiên", variable=self.include_review).pack(anchor="w", pady=(0, 8))
-        self.progress = ttk.Progressbar(footer, mode="indeterminate", length=125)
-        self.progress.pack(side="right")
-        ttk.Label(footer, textvariable=self.status, style="Muted.TLabel", wraplength=850).pack(side="left")
+        buttons = ttk.Frame(self.issue_panel)
+        buttons.pack(side="bottom", fill="x", pady=(gap // 2, 0))
+        self.issue_edit_button = ttk.Button(buttons, text="Sửa dòng", command=self.edit_selected, state="disabled")
+        self.issue_ack_button = ttk.Button(buttons, text="Đã đối chiếu", command=self.acknowledge, state="disabled")
+        self.issue_source_button = ttk.Button(buttons, text="Xem nguồn", command=self._show_issue_source, state="disabled")
+        for button in (self.issue_edit_button, self.issue_ack_button, self.issue_source_button):
+            button.pack(side="left", expand=True, fill="x")
+        self.issue_detail_title = _wrapped_label(self.issue_panel, text="Chi tiết đối chiếu", font=FONT_BOLD)
+        self.issue_detail_title.pack(anchor="w", pady=(gap // 2, gap // 2))
+        self.issue_detail_text = self._read_only_text(self.issue_panel)
+        buttons.lift()
+        self.issue_panel.lift()
+        self._set_issue_panel("Chi tiết đối chiếu", "Chọn một vấn đề để xem thông báo và nguồn.")
+
+    @staticmethod
+    def _read_only_text(parent):
+        frame = ttk.Frame(parent)
+        frame.pack(fill="both", expand=True)
+        detail = tk.Text(frame, width=1, height=1, wrap="word", font=FONT, bg=SURFACE, fg=TEXT,
+                         highlightbackground=BORDER, highlightcolor=FOCUS, padx=GAP, pady=GAP,
+                         exportselection=False)
+        scroll = ttk.Scrollbar(frame, orient="vertical", command=detail.yview)
+        scroll.pack(side="right", fill="y")
+        detail.pack(side="left", fill="both", expand=True)
+        detail.configure(yscrollcommand=scroll.set)
+        # Read-only text is focusable for copy and scrolling, and Tab leaves it.
+        detail.bind("<Tab>", lambda _: (detail.tk_focusNext().focus_set(), "break")[1])
+        detail.bind("<Shift-Tab>", lambda _: (detail.tk_focusPrev().focus_set(), "break")[1])
+        return detail
+
+    def _set_issue_panel(self, title, body):
+        self.issue_detail_title.configure(text=title)
+        self.issue_detail_text.configure(state="normal")
+        self.issue_detail_text.delete("1.0", "end")
+        self.issue_detail_text.insert("1.0", body)
+        self.issue_detail_text.configure(state="disabled")
+        self.issue_detail_text.yview_moveto(0)
+
+    def _copy_table_row(self, tree, *, hierarchical=False):
+        selection = tree.selection()
+        if selection:
+            row = selection[0]
+            # The full item dictionary coerces numeric-looking strings such as seal IDs.
+            values = tuple(str(value).removesuffix(WEIGHT_PAD) for value in tree.item(row, "values"))
+            if hierarchical:
+                values = (tree.item(row, "text"), *values)
+            output = io.StringIO(newline="")
+            csv.writer(output, dialect="excel-tab").writerow(values)
+            self.root.clipboard_clear()
+            self.root.clipboard_append(output.getvalue().removesuffix("\r\n"))
+        return "break"
+
+    def _toggle_issue_detail(self):
+        self.issue_detail_open = not self.issue_detail_open
+        self._update_issue_panel_visibility()
+
+    def _update_issue_panel_visibility(self):
+        visible = self.issue_detail_open and self.issue_count
+        if visible:
+            self.issue_panel.pack(side="right", fill="y", before=self.issue_list)
+        else:
+            if self.root.focus_get() in (self.issue_detail_text, self.issue_edit_button,
+                                        self.issue_ack_button, self.issue_source_button):
+                self.issue_tree.focus_set()
+            self.issue_panel.pack_forget()
+        self.issue_detail_toggle.configure(text="Ẩn chi tiết" if visible else "Hiện chi tiết",
+                                           state="normal" if self.issue_count else "disabled")
+
+    def _issue_selected(self, _=None):
+        self._update_row_actions()
+        selected = self.issue_tree.selection()
+        key = selected[0] if selected and self.session and not self.busy else None
+        item = self.issue_items.get(key)
+        group = self.issue_groups.get(key)
+        rid = self.issue_records.get(key)
+        available = "normal" if rid else "disabled"
+        self.issue_edit_button.configure(state=available)
+        self.issue_ack_button.configure(state=available)
+        self.issue_source_button.configure(state="normal" if item else "disabled")
+        if item:
+            record = self.session.get_record(rid) if rid else {}
+            context = "Toàn file" if not rid else (
+                f"Container {record.get('Container_No') or 'chưa có số'} · B/L {record.get('BL_No') or 'chưa có số'}")
+            value = issue_raw_value(item, record)
+            body = (f"{context}\n{issue_field(item)} · {self.issue_locations[key]}\n\n{item['message']}")
+            if value:
+                body += f"\n\nGiá trị nguồn\n{value}"
+            self._set_issue_panel(issue_title(item), body)
+        elif group:
+            title, count = group
+            self._set_issue_panel(title, f"{count} vấn đề trong nhóm. Mở nhóm và chọn từng dòng để xem nguồn "
+                                         "và cách xử lý. Với lỗi toàn file, kiểm tra nguồn hoặc cấu hình đọc.")
+        else:
+            self._set_issue_panel("Chi tiết đối chiếu", "Chọn một vấn đề để xem thông báo và nguồn.")
+
+    def _show_issue_source(self):
+        selected = self.issue_tree.selection()
+        key = selected[0] if selected and self.session and not self.busy else None
+        item = self.issue_items.get(key)
+        if not item:
+            return
+        rid = self.issue_records[key]
+        record = self.session.get_record(rid) if rid else {}
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Nguồn vấn đề")
+        dialog.transient(self.root)
+        _fit_dialog(dialog, self.root, (740, 460), (425, 280))
+        dialog.grab_set()
+        frame = ttk.Frame(dialog, padding=PAD)
+        frame.pack(fill="both", expand=True)
+        ttk.Button(frame, text="Đóng", command=dialog.destroy).pack(side="bottom", anchor="e", pady=(GAP, 0))
+        name = self.selected_path.name if self.selected_path else ""
+        _wrapped_label(frame, text=f"{name} · {self.issue_locations[key]}", font=FONT_BOLD).pack(anchor="w", pady=(0, GAP))
+        text = self._read_only_text(frame)
+        value = issue_raw_value(item, record)
+        text.insert("1.0", value or "Chưa lưu nguyên văn cho vấn đề này. Đối chiếu vị trí trên manifest gốc.\n\n" + item["message"])
+        text.configure(state="disabled")
+        text.focus_set()
+        dialog.bind("<Escape>", lambda _: dialog.destroy())
+
+    def _set_configuration(self, text):
+        self.configuration.set(text)
+        label = getattr(self, "configuration_label", None)
+        if label is None:
+            return
+        if text:
+            label.pack(anchor="w", after=self.summary_label)
+        else:
+            label.pack_forget()
+
+    def _fit_identifier_columns(self, records):
+        """Widen identifier columns to the longest value so B/L and seal numbers are never cut off."""
+        if not isinstance(self.tree, ttk.Treeview):
+            return  # Display-free regression doubles have no font metrics.
+        font = tkfont.Font(root=self.root, font=FONT)
+        padding, cap = _pixels(self.root, 20), _pixels(self.root, 320)
+        floors = self.__dict__.get("column_floor", {})
+        for key in IDENTIFIER_COLUMNS:
+            texts = {seal_text(record.get(key)) if key == "Seal_No" else text_value(record.get(key)) for record in records}
+            widest = max((font.measure(text) for text in texts if text), default=0)
+            width = min(cap, max(floors.get((str(self.tree), key), 0), widest + padding))
+            self.tree.column(key, width=width, minwidth=width)
+
+    def _columns(self, table, fields, *, stretchy=(), numeric=(), sortable=False):
+        font = tkfont.Font(root=self.root, font=FONT_BOLD)
+        heading_padding = _pixels(self.root, 20)
+        for key, name, base in fields:
+            width = max(_pixels(self.root, base), font.measure(name + (" ↓" if sortable else "")) + heading_padding)
+            self.__dict__.setdefault("column_floor", {})[(str(table), key)] = width
+            # Long free-text columns shrink before the table needs a horizontal scrollbar.
+            minimum = min(width, _pixels(self.root, 120)) if key in stretchy else width
+            table.column(key, width=width, minwidth=minimum, stretch=key in stretchy,
+                         anchor="e" if key in numeric else "w")
+            table.heading(key, text=name, anchor="w")
+            if sortable:
+                table.heading(key, command=lambda field=key: self.sort_by(field))
 
     @staticmethod
     def _scrollbars(parent, tree):
@@ -382,7 +764,7 @@ class ManifestApp:
 
     def carrier_changed(self, _=None):
         if self.session and self.carrier.get() != self.session.carrier:
-            self.export_button.configure(state="disabled")
+            self._update_export_state()
             self.status.set("Hãng đã đổi. Bấm Xử lý lại hoặc mở manifest mới để dùng quy tắc của hãng vừa chọn.")
         elif self.session:
             self.refresh()
@@ -456,8 +838,13 @@ class ManifestApp:
             self.read_override = (carrier, path, settings)
         self.file_label.set(path.name)
         self.summary.set("Đang đọc dữ liệu và áp dụng quy tắc hãng tàu…")
-        self.configuration.set("Đang xác định cấu hình hiệu lực và các sheet trong file…")
+        self._set_configuration("")
         self.status.set("Đang xử lý. Cửa sổ vẫn có thể di chuyển và xem trạng thái.")
+        for value in self.count_labels.values():
+            value.set("—")
+        self.table_counts = (0, 0)
+        self.issue_count = 0
+        self.tabs.tab(1, text="Cần kiểm tra")
         self.tree.delete(*self.tree.get_children())
         self.issue_tree.delete(*self.issue_tree.get_children())
         self.open_button.configure(state="disabled")
@@ -467,6 +854,10 @@ class ManifestApp:
         self.review_button.configure(state="disabled")
         self.carrier_box.configure(state="disabled")
         self._update_row_actions()
+        self._update_table_states()
+        self._issue_selected()
+        self._update_export_state()
+        self.progress.configure(mode="indeterminate")
         self.progress.start(15)
         settings = self._read_settings()
         def work():
@@ -489,7 +880,7 @@ class ManifestApp:
                 else:
                     self.busy = False
                     self.progress.stop()
-                    self.progress["value"] = 0
+                    self.progress.configure(mode="determinate", value=0)
                     self.open_button.configure(state="normal")
                     self.resume_button.configure(state="normal")
                     self.reload_button.configure(state="normal")
@@ -498,8 +889,12 @@ class ManifestApp:
                         self._complete_read(value)
                     else:
                         self.summary.set("Chưa xử lý được manifest. File gốc được giữ nguyên.")
-                        self.status.set(value)
-                        messagebox.showerror("Không xử lý được manifest", value, parent=self.root)
+                        self.status.set("Không đọc được manifest. Kiểm tra file và hãng đã chọn rồi bấm Xử lý lại.")
+                        self._update_table_states()
+                        self._update_export_state()
+                        messagebox.showerror("Không xử lý được manifest",
+                                             f"{value}\n\nKiểm tra file và hãng đã chọn, rồi bấm Xử lý lại.",
+                                             parent=self.root)
         except queue.Empty:
             pass
         self.root.after(100, self._poll)
@@ -522,22 +917,21 @@ class ManifestApp:
         by_name = {candidate["source_sheet"]: candidate for candidate in candidates}
         dialog = tk.Toplevel(self.root)
         dialog.title("Chọn sheet manifest")
-        dialog.geometry("740x390")
-        dialog.minsize(550, 320)
         dialog.transient(self.root)
+        _fit_dialog(dialog, self.root, (740, 390), (420, 260))
         dialog.grab_set()
-        body = ttk.Frame(dialog, padding=18)
+        body = ttk.Frame(dialog, padding=PAD)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text="Tìm thấy nhiều bảng. Chọn sheet cần xử lý.").pack(anchor="w")
+        actions = ttk.Frame(body)
+        actions.pack(side="bottom", fill="x", pady=(GAP, 0))
+        _wrapped_label(body, text="Tìm thấy nhiều bảng. Chọn sheet cần xử lý.").pack(anchor="w")
         selected = tk.StringVar(dialog)
         choice = ttk.Combobox(body, textvariable=selected, values=tuple(by_name), state="readonly")
         choice.pack(fill="x", pady=8)
         header = tk.StringVar(dialog, value="Chọn tên sheet để xem dòng tiêu đề và mẫu dữ liệu.")
-        ttk.Label(body, textvariable=header).pack(anchor="w")
+        _wrapped_label(body, textvariable=header).pack(anchor="w")
         preview = tk.Text(body, height=6, wrap="word", state="disabled", padx=6, pady=6)
         preview.pack(fill="both", expand=True, pady=(6, 0))
-        actions = ttk.Frame(body)
-        actions.pack(fill="x", pady=(10, 0))
         picked = None
 
         def confirm():
@@ -561,101 +955,250 @@ class ManifestApp:
             use.configure(state="normal")
 
         choice.bind("<<ComboboxSelected>>", show_preview)
+        dialog.bind("<Return>", lambda _: confirm())
         dialog.bind("<Escape>", lambda _: dialog.destroy())
         choice.focus_set()
         self.root.wait_window(dialog)
         return picked
 
+    def _filter_severity(self, severity):
+        if not self.session or self.busy:
+            return
+        self.severity_filter = severity
+        self.tabs.select(1)
+        self.refresh()
+        self.issue_tree.focus_set()
+
+    def _clear_filters(self):
+        self.severity_filter = None
+        self.only_issues.set(False)
+        self.show_excluded.set(False)
+        if self.search.get():
+            self.search.set("")  # Its trace refreshes both tables.
+        else:
+            self.refresh()
+
+    def _tab_changed(self, _=None):
+        self._issue_selected()
+        self._update_table_states()
+
+    def _update_table_states(self):
+        if self.busy:
+            messages = ["Đang đọc manifest…"] * 2
+        elif not self.session:
+            message = "Kiểm tra file rồi bấm Xử lý lại." if self.selected_path else "Chọn hãng rồi bấm Mở manifest."
+            messages = [message] * 2
+        else:
+            data_empty = ("Không có kết quả. Bấm Xóa bộ lọc để xem lại."
+                          if self.session.records else "Chưa có dòng container. Xem tab Cần kiểm tra.")
+            issue_empty = ("Không có cảnh báo hoặc lỗi." if not self.table_counts[1]
+                           else "Không có kết quả. Bấm Xóa bộ lọc để xem lại.")
+            messages = [data_empty, issue_empty]
+        tables = (self.tree, self.issue_tree)
+        for table, label, message in zip(tables, self.empty_labels, messages):
+            if not table.get_children():
+                label.configure(text=message)
+                label.place(relx=.5, rely=.44, anchor="center", relwidth=.85)
+            else:
+                label.place_forget()
+        self._update_issue_panel_visibility()
+        if not self.session:
+            self.filter_status.set("")
+            return
+        active = self.tabs.index(self.tabs.select())
+        count = self.issue_count if active else len(self.tree.get_children())
+        level = {"error": "Lỗi chặn", "warning": "Cảnh báo"}.get(self.severity_filter)
+        self.filter_status.set(f"{count} / {self.table_counts[active]} kết quả" + (f" · Mức: {level}" if level else ""))
+
+    def _update_export_state(self, stats=None):
+        if self.busy:
+            hint = "Đang đọc manifest. Chờ xử lý xong."
+        elif self.session is None:
+            hint = "Đọc lại manifest để xuất." if self.selected_path else "Mở manifest để xuất."
+        elif self.session.carrier != self.carrier.get():
+            hint = "Hãng đã đổi. Bấm Xử lý lại trước khi xuất."
+        elif self.session.metadata.get("settings_changed") or self.session.settings != self._read_settings():
+            hint = "Cấu hình đã đổi. Bấm Xử lý lại trước khi xuất."
+        elif stats["errors"]:
+            hint = f"Còn {stats['errors']} lỗi chặn xuất. Xem tab Cần kiểm tra."
+        else:
+            hint = ""
+        self.export_hint.set(hint)
+        self.export_button.configure(state="disabled" if hint else "normal")
+        self.open_button.configure(style="Primary.TButton" if hint else "TButton")
+
+    @staticmethod
+    def _selection_snapshot(table):
+        selection = table.selection()
+        children = table.get_children()
+        old_focus = selection[0] if selection and selection[0] in children else None
+        return old_focus, children.index(old_focus) if old_focus else 0
+
+    @staticmethod
+    def _restore_selection(table, key, position):
+        children = table.get_children()
+        if not children:
+            return
+        target = key if key in children else children[min(position, len(children) - 1)]
+        table.selection_set(target)
+        table.focus(target)
+        table.see(target)
+
     def refresh(self):
         if not self.session:
+            self._update_table_states()
+            self._update_export_state()
             return
         session = self.session
         issues = [item for item in session.validate() if item.get("severity") in {"error", "warning"}]
         stats = session.statistics()
-        file_errors = stats["file_errors"]
-        error_summary = f"{stats['errors'] - file_errors} lỗi chặn xuất trên {stats['error_records']} dòng"
-        if file_errors:
-            error_summary += f" + {file_errors} lỗi toàn file"
-        self.summary.set(f"{session.carrier}  |  {stats['bills']} B/L · {stats['containers']} container / {stats['active_records']} dòng  |  F: {stats['full']} · E: {stats['empty']} · Chưa rõ: {stats['unknown']}  |  {error_summary} · {stats['warnings']} cảnh báo · {stats['excluded']} dòng đã loại")
-        reconciliation = _reconciliation_description(session)
-        configuration = _runtime_description(session)
-        self.configuration.set(f"{configuration}\n{reconciliation}" if reconciliation else configuration)
+        for key, value in self.count_labels.items():
+            value.set(str(stats[key]))
+        self.table_counts = (len(session.records), len(issues))
+        self.summary.set(f"{session.carrier} · {stats['bills']} B/L · {stats['active_records']} dòng"
+                         + (f" · {stats['unknown']} chưa rõ F/E" if stats["unknown"] else "")
+                         + (f" · Sheet {_sheet_description(session)}"
+                            if len(session.metadata.get("available_sheets") or ()) > 1 else "")
+                         + "".join(" · " + note for note in _runtime_exceptions(session)))
+        # Reading settings stay in the settings dialog and the JSON; only reconciliation is shown here.
+        self._set_configuration(_reconciliation_description(session))
         self.tabs.tab(1, text=f"Cần kiểm tra ({len(issues)})")
-        current = self.tree.selection()
-        selected_issue = self.issue_tree.selection()
-        prior_issue_key = self.issue_keys.get(selected_issue[0]) if selected_issue else None
+        current, position = self._selection_snapshot(self.tree)
         self.tree.delete(*self.tree.get_children())
-        self.issue_tree.delete(*self.issue_tree.get_children())
+        active_issues = [item for item in issues if self.severity_filter in (None, item["severity"])]
         per_record = {}
         for item in issues:
             per_record.setdefault(str(item.get("record_id")), []).append(item)
+        filtered_records = {str(item.get("record_id")) for item in active_issues}
+        status_by_record = {}
+        for row in session.records:
+            rid = row["record_id"]
+            findings = per_record.get(rid, ())
+            if row.get("_excluded"):
+                status_by_record[rid] = ("Đã loại", "excluded")
+            elif findings:
+                errors = sum(item["severity"] == "error" for item in findings)
+                status_by_record[rid] = (f"{errors} lỗi", "error") if errors else (f"{len(findings)} cảnh báo", "warning")
+            elif row.get("_manual_review_reason"):
+                status_by_record[rid] = ("Đã đối chiếu", "")
+            else:
+                status_by_record[rid] = ("Đủ dữ liệu", "")
         rows = list(session.records)
-        if self.sort_field and self.sort_field != "status":
+        if self.sort_field:
             key = self.sort_field
+
             def sort_value(record):
+                if key == "status":
+                    return status_by_record[record["record_id"]][0].casefold()
                 if key != "Weight_Value":
                     return text_value(record.get(key)).casefold()
                 try:
                     return float(record.get(key) or 0)
                 except (TypeError, ValueError):
                     return float("inf")
+
             rows.sort(key=sort_value, reverse=self.sort_reverse)
         query = self.search.get().casefold().strip()
+        matches = set()
         for record in rows:
             rid = record["record_id"]
-            row_issues = per_record.get(rid, [])
-            excluded = record.get("_excluded", False)
-            if excluded and not self.show_excluded.get():
-                continue
-            if self.only_issues.get() and not row_issues:
-                continue
+            row_issues = per_record.get(rid, ())
             if query:
                 record_text = [text_value(value) for field, value in record.items()
                                if field not in {"raw", "rules", "Warning"}]
-                record_text.extend(text_value(item.get("message")) for item in row_issues)
+                record_text.extend(f"{issue_title(item)} {text_value(item.get('message'))}" for item in row_issues)
                 if query not in " ".join(record_text).casefold():
                     continue
-            error = any(i.get("severity") == "error" for i in row_issues)
-            label = "Đã loại" if excluded else "Cần xử lý" if error else "Cần kiểm tra" if row_issues else "Đã đối chiếu" if record.get("_manual_review_reason") else "Đủ dữ liệu"
-            tag = "excluded" if excluded else "error" if error else "warning" if row_issues else ""
-            weight = record.get("Weight_Value")
+            matches.add(rid)
+            if record.get("_excluded") and not self.show_excluded.get():
+                continue
+            if (self.only_issues.get() or self.severity_filter) and rid not in filtered_records:
+                continue
+            label, tag = status_by_record[rid]
             values = (label, record.get("Container_No", ""), seal_text(record.get("Seal_No")),
                       record.get("BL_No", ""), record.get("VTOS_Size", ""),
-                      record.get("Operator", ""), record.get("FE_Status", ""), text_value(weight),
+                      record.get("Operator", ""), record.get("FE_Status", ""),
+                      text_value(record.get("Weight_Value")) + WEIGHT_PAD if _present_text(record.get("Weight_Value")) else "",
                       record.get("Cleaned_Consignee_Name_For_Output", ""), record.get("Description", ""))
             self.tree.insert("", "end", iid=rid, values=values, tags=(tag,))
-        if current and self.tree.exists(current[0]):
-            self.tree.selection_set(current[0])
-        self.issue_records = {}
-        self.issue_keys = {}
-        records_by_id = {r["record_id"]: r for r in session.records}
-        for index, item in enumerate(issues):
-            rid = item.get("record_id")
-            record = records_by_id.get(str(rid), {}) if rid else {}
-            source = f"{item.get('source_sheet') or record.get('source_sheet') or ''}:{item.get('source_row') or record.get('source_row') or ''}"
-            iid = f"issue-{index}"
-            self.issue_records[iid] = str(rid) if rid else None
-            self.issue_keys[iid] = (str(rid), item.get("code"), item.get("message"))
-            self.issue_tree.insert("", "end", iid=iid, values=("Lỗi" if item.get("severity") == "error" else "Cảnh báo" if item.get("severity") == "warning" else "Thông tin",
-                                  record.get("Container_No", "Toàn file"), FIELD_LABELS.get(item.get("field"), item.get("field") or ""), item.get("message", ""), source), tags=(item.get("severity", ""),))
-            if self.issue_keys[iid] == prior_issue_key:
-                self.issue_tree.selection_set(iid)
-        can_export = (stats["errors"] == 0 and session.carrier == self.carrier.get() and not self.busy
-                      and not session.metadata.get("settings_changed") and session.settings == self._read_settings())
-        self.export_button.configure(state="normal" if can_export else "disabled")
+        self._fit_identifier_columns(session.records)
+        self._restore_selection(self.tree, current, position)
+        self._refresh_issues(active_issues, query, matches)
+        self._update_export_state(stats)
         self.review_button.configure(state="normal")
-        self._update_row_actions()
+        self._tab_changed()
         if stats["errors"]:
-            next_step = "Xem mục Cần kiểm tra để xử lý lỗi chặn xuất."
+            next_step = ""  # The reason beside the export button already points to the blocking errors.
         elif stats["warnings"]:
             next_step = "Xem cảnh báo trong mục Cần kiểm tra. Có thể xác nhận để tiếp tục xuất."
         else:
             next_step = "Có thể xuất. Mở từng dòng để xem bằng chứng từ nguồn."
-        self.status.set(f"Đã đọc {stats['detected_records']} bản ghi; đang giữ {stats['active_records']}. {next_step}")
+        self.status.set(f"Đã đọc {stats['detected_records']} bản ghi. {next_step}".strip())
+
+    def _refresh_issues(self, findings, query, matches):
+        tree = self.issue_tree
+        groups_open = {group: tree.item(group, "open") for group in tree.get_children()}
+        old_selection = tree.selection()
+        current = old_selection[0] if old_selection else None
+        old_key = self.issue_keys.get(current)
+        old_leaves = list(self.issue_items)
+        position = old_leaves.index(current) if current in old_leaves else 0
+        tree.delete(*tree.get_children())
+        self.issue_records = {}
+        self.issue_items = {}
+        self.issue_groups = {}
+        self.issue_locations = {}
+        self.issue_keys = {}
+        records = {row["record_id"]: row for row in self.session.records}
+        grouped = {}
+        for item in findings:
+            rid = item.get("record_id")
+            record = records.get(str(rid), {}) if rid else {}
+            source = issue_location(item, record, self.session.carrier, self.session.metadata)
+            label = "Lỗi" if item["severity"] == "error" else "Cảnh báo"
+            field = issue_field(item)
+            title = issue_title(item)
+            message = item["message"]
+            if query and str(rid) not in matches and query not in f"{title} {label} {field} {message} {source}".casefold():
+                continue
+            grouped.setdefault(item["code"], []).append((item, rid, record, label, issue_field(item, compact=True), source))
+        next_selection = None
+        for code, entries in grouped.items():
+            group = f"group-{code}"
+            title = issue_title(entries[0][0])
+            self.issue_groups[group] = (title, len(entries))
+            tree.insert("", "end", iid=group, text=f"{title} ({len(entries)})",
+                        open=groups_open.get(group, True), tags=("group",))
+            for item, rid, record, label, field, source in entries:
+                leaf = f"issue-{len(self.issue_items)}"
+                self.issue_records[leaf] = str(rid) if rid else None
+                self.issue_items[leaf] = item
+                self.issue_locations[leaf] = source
+                key = (str(rid), code, item["message"], source)
+                self.issue_keys[leaf] = key
+                tree.insert(group, "end", iid=leaf, text=record.get("Container_No") or ("Chưa có số" if rid else "Toàn file"),
+                            values=(label, field, source), tags=(item["severity"],))
+                if old_key == key:
+                    next_selection = leaf
+        leaves = list(self.issue_items)
+        self.issue_count = len(leaves)
+        if self.issue_count:
+            if current in self.issue_groups:
+                next_selection = current
+            if next_selection is None:
+                next_selection = leaves[min(position, len(leaves) - 1)]
+                if not tree.item(tree.parent(next_selection), "open"):
+                    next_selection = tree.parent(next_selection)
+            tree.selection_set(next_selection)
+            tree.focus(next_selection)
+            tree.see(next_selection)
 
     def sort_by(self, field):
         self.sort_reverse = not self.sort_reverse if self.sort_field == field else False
         self.sort_field = field
+        for key, label in self.data_headings.items():
+            indicator = (" ↓" if self.sort_reverse else " ↑") if key == field else ""
+            self.tree.heading(key, text=label + indicator)
         self.refresh()
 
     def selected_record_id(self, *, notify=True):
@@ -676,9 +1219,12 @@ class ManifestApp:
     def _update_row_actions(self, _=None):
         if not hasattr(self, "exclude_button"):
             return
-        state = "normal" if self.selected_record_id(notify=False) else "disabled"
+        rid = self.selected_record_id(notify=False)
+        state = "normal" if rid else "disabled"
         for button in (self.edit_button, self.ack_button, self.exclude_button):
             button.configure(state=state)
+        will_exclude = rid and not self.session.get_record(rid).get("_excluded")
+        self.exclude_button.configure(style="Danger.TButton" if will_exclude else "TButton")
 
     def _record_context(self, rid):
         record = self.session.get_record(rid)
@@ -690,29 +1236,36 @@ class ManifestApp:
         fragments = self.session.metadata.get("source_fragments") or []
         dialog = tk.Toplevel(self.root)
         dialog.title("Tra cứu các đoạn nguồn đã được ghi nhận")
-        dialog.geometry("1050x650")
-        dialog.minsize(840, 520)
         dialog.transient(self.root)
+        _fit_dialog(dialog, self.root, (980, 630), (510, 355))
         dialog.grab_set()
         body = ttk.Frame(dialog, padding=16)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text="Đây là tình trạng tại lần đọc nguồn, không phải số lỗi còn lại sau chỉnh sửa. Tab Cần kiểm tra phản ánh lỗi hiện tại.", wraplength=970, style="Muted.TLabel").pack(anchor="w", pady=(0, 10))
+        dialog.bind("<Escape>", lambda _: dialog.destroy())
+        _wrapped_label(body, text="Đây là tình trạng tại lần đọc nguồn, không phải số lỗi còn lại sau chỉnh sửa. Tab Cần kiểm tra phản ánh lỗi hiện tại.",
+                       style="Muted.TLabel").pack(anchor="w", pady=(0, GAP))
         if not fragments:
-            ttk.Label(body, text="Bộ đọc của phiên này chưa ghi danh sách đoạn nguồn. Vị trí và dữ liệu gốc của từng container vẫn có trong cửa sổ sửa.", wraplength=970).pack(anchor="w")
+            _wrapped_label(body, text="Bộ đọc của phiên này chưa ghi danh sách đoạn nguồn. Vị trí và dữ liệu gốc của từng container vẫn có trong cửa sổ sửa.").pack(anchor="w")
             return
         labels = {"parsed": "Đã nhận diện", "unresolved": "Cần đối chiếu lúc đọc", "ignored": "Bỏ qua có lý do", "corroborating": "Bằng chứng đối chiếu"}
         counts = {key: sum(isinstance(item, dict) and item.get("status") == key for item in fragments) for key in labels}
-        ttk.Label(body, text="  ·  ".join(f"{label}: {counts[key]}" for key, label in labels.items()), wraplength=970).pack(anchor="w", pady=(0, 10))
+        _wrapped_label(body, text="  ·  ".join(f"{label}: {counts[key]}" for key, label in labels.items()),
+                       style="Muted.TLabel").pack(anchor="w", pady=(0, GAP))
+        detail_frame = ttk.Frame(body)
+        detail_frame.pack(side="bottom", fill="x", pady=(GAP, 0))
+        detail = tk.Text(detail_frame, height=4, wrap="word", font=FONT, bg=SURFACE, fg=TEXT,
+                         highlightbackground=BORDER, highlightcolor=FOCUS, padx=GAP, pady=GAP)
+        scroll = ttk.Scrollbar(detail_frame, orient="vertical", command=detail.yview)
+        scroll.pack(side="right", fill="y")
+        detail.pack(side="left", expand=True, fill="x")
+        detail.configure(yscrollcommand=scroll.set)
         table_frame = ttk.Frame(body)
         table_frame.pack(fill="both", expand=True)
         table = ttk.Treeview(table_frame, columns=("source", "status", "reason", "text"), show="headings", selectmode="browse")
-        for name, label, width in (("source", "Vị trí nguồn", 140), ("status", "Tình trạng lúc đọc", 175), ("reason", "Lý do", 220), ("text", "Nguyên văn", 500)):
-            table.heading(name, text=label)
-            table.column(name, width=width, minwidth=80, stretch=False)
+        self._columns(table, (("source", "Vị trí nguồn", 116), ("status", "Tình trạng lúc đọc", 158),
+                              ("reason", "Lý do", 168), ("text", "Nguyên văn", 350)), stretchy={"text"})
         self._scrollbars(table_frame, table)
-        table.tag_configure("unresolved", background="#FFF6DD")
-        detail = tk.Text(body, height=6, wrap="word", font=("Segoe UI", 10), bg="white", relief="flat", padx=8, pady=8)
-        detail.pack(fill="x", pady=(10, 0))
+        table.tag_configure("unresolved", background=WARNING_BG)
         detail.insert("1.0", "Chọn một đoạn nguồn để xem đầy đủ nội dung.")
         detail.configure(state="disabled")
         indexed = {}
@@ -737,15 +1290,28 @@ class ManifestApp:
             detail.insert("1.0", f"Nguồn: {item.get('source_sheet', '')}, dòng {item.get('source_row', '')}\nLý do: {reason}\n\n{item.get('text', '')}")
             detail.configure(state="disabled")
         table.bind("<<TreeviewSelect>>", show_fragment)
+        table.bind("<Return>", lambda _: show_fragment())
+        rows = table.get_children()
+        if rows:
+            table.selection_set(rows[0])
+            table.focus(rows[0])
+        table.focus_set()
 
-    def open_issue(self, _=None):
-        selected = self.issue_tree.selection()
-        if selected:
-            rid = self.issue_records.get(selected[0])
-            if rid:
+    def open_issue(self, event=None):
+        key = self.issue_tree.focus()
+        if key in self.issue_groups:
+            if event is None or event.type != tk.EventType.ButtonPress:
+                self.issue_tree.item(key, open=not self.issue_tree.item(key, "open"))
+            return "break"
+        if key in self.issue_items:
+            rid = self.issue_records[key]
+            if rid and event is not None and event.type == tk.EventType.ButtonPress:
                 self.edit_record(rid)
-            else:
-                messagebox.showinfo("Thông tin toàn file", self.issue_tree.item(selected[0], "values")[3], parent=self.root)
+                return "break"
+            self.issue_detail_open = True
+            self._update_issue_panel_visibility()
+            self._issue_selected()
+        return "break"
 
     def edit_selected(self):
         rid = self.selected_record_id()
@@ -778,7 +1344,12 @@ class ManifestApp:
         source_canvas, source_tab = _scroll_area(source_page)
         _bind_dialog_scroll(dialog, [(edit_canvas, edit_tab), (source_canvas, source_tab)])
         context = f"B/L: {record.get('BL_No') or '(chưa có số)'}  |  {Path(record.get('source_file') or '').name}  |  Sheet {record.get('source_sheet', '')} · dòng {record.get('source_row', '')}"
-        _wrapped_label(edit_tab, text=context, font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 8))
+        _wrapped_label(edit_tab, text=context, font=FONT_BOLD).pack(anchor="w", pady=(0, 8))
+        if record.get("_excluded"):
+            reason = next((entry.get("reason", "") for entry in reversed(self.session.corrections)
+                           if entry.get("record_id") == rid and entry.get("action") == "exclude"), "")
+            if reason:
+                _wrapped_label(edit_tab, text=f"Đã loại · {reason}", style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
         for finding in review_issues:
             blocking = finding.get("severity") == "error"
             label = "Lỗi chặn xuất" if blocking else "Cảnh báo"
@@ -868,25 +1439,26 @@ class ManifestApp:
             button_text = f"Điền và xác nhận {len(candidate_fields)} trường"
             ttk.Button(picker, text=button_text, command=use_candidate).pack(anchor="e", pady=(5, 0))
 
-        _wrapped_label(source_tab, text=context, font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 8))
+        _wrapped_label(source_tab, text=context, font=FONT_BOLD).pack(anchor="w", pady=(0, 8))
         _wrapped_label(source_tab, text="Bảng này xem trước giá trị của các ô đang sửa. Các lỗi chưa xử lý vẫn chặn xuất file.", style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
         preview_state = _wrapped_label(source_tab, text="", style="Muted.TLabel")
         preview_state.pack(anchor="w")
         source_raw = record.get("raw", {})
         original_text = source_raw.get("source_cell") or source_raw.get("container_cell") or source_raw.get("text")
         if original_text:
-            source_text = tk.Text(source_tab, height=3, wrap="word", font=("Segoe UI", 10), bg="white", relief="solid", borderwidth=1, padx=8, pady=5)
+            source_text = tk.Text(source_tab, height=3, wrap="word", font=FONT, bg=SURFACE, fg=TEXT, relief="solid", borderwidth=1, padx=8, pady=5)
             source_text.pack(fill="x", pady=(0, 8))
             source_text.insert("1.0", "Nguyên văn nguồn: " + text_value(original_text))
             source_text.configure(state="disabled")
         comparison_frame = ttk.Frame(source_tab)
         comparison_frame.pack(fill="both", expand=True)
         comparison = ttk.Treeview(comparison_frame, columns=("field", "source", "output"), show="headings", height=12)
-        for name, label, width in (("field", "Cột trong file nhập Cảng", 175), ("source", "Bằng chứng từ nguồn", 340), ("output", "Giá trị sẽ xuất", 330)):
-            comparison.heading(name, text=label)
-            comparison.column(name, width=width, minwidth=100, stretch=True)
+        self._columns(comparison, (("field", "Cột trong file nhập Cảng", 175),
+                                   ("source", "Bằng chứng từ nguồn", 270),
+                                   ("output", "Giá trị sẽ xuất", 260)),
+                      stretchy={"source", "output"})
         self._scrollbars(comparison_frame, comparison)
-        comparison.tag_configure("review", background="#FFF6DD")
+        comparison.tag_configure("review", background=WARNING_BG)
         source_fields = {"Số BL": "BL_No", "Số Vận Đơn": "BL_No", "Số Container": "Container_No", "Số niêm chì": "Seal_No", "Số niêm chì 1": "Seal_No", "Chủ hàng": "Cleaned_Consignee_Name_For_Output", "Kích cỡ": "Size_Type", "Kích cỡ VTOS": "Size_Type", "Loại Container": "Size_Type", "Hãng khai thác": "Operator", "F/E": "FE_Status", "TL hàng": "Weight_Value", "Trọng lượng (Tấn)": "Weight_Value", "Hàng hóa": "Description"}
         def update_preview():
             # Only this record is copied. Engine validation and exporter rules
@@ -917,7 +1489,7 @@ class ManifestApp:
         ttk.Button(source_tab, text="Cập nhật xem trước theo các ô đang sửa", command=update_preview).pack(anchor="e", pady=6)
         advanced = ttk.Frame(source_tab)
         advanced_visible = False
-        details = tk.Text(advanced, height=7, wrap="word", font=("Consolas", 9), bg="white", relief="flat", padx=8, pady=6)
+        details = tk.Text(advanced, height=7, wrap="word", font=FONT_MONO, bg=SURFACE, fg=TEXT, relief="flat", padx=8, pady=6)
         details.pack(fill="both", expand=True)
         details.insert("1.0", json.dumps({"Nguồn": source_raw, "Quy tắc": record.get("rules", []), "Vấn đề": record_issues}, ensure_ascii=False, indent=2, default=str))
         details.configure(state="disabled")
@@ -1023,11 +1595,22 @@ class ManifestApp:
                 review_path = result.get("review")
                 if review_path:
                     self.dirty = False
+                self.export_directory = Path(result["excel"]).resolve().parent
+                self.export_folder_button.grid()
                 self.status.set(f"Đã xuất: {Path(path).name}  |  {stats['active_records']} dòng, {stats['containers']} container.")
                 review_message = f"\nĐối chiếu để mở lại phiên: {review_path}" if review_path else "\nChưa lưu đối chiếu trong lần xuất này; dùng Lưu đối chiếu để giữ phiên làm việc."
                 messagebox.showinfo("Đã xuất file", f"Excel nhập Cảng: {result['excel']}{review_message}\n\nGiữ đúng mẫu 16 cột của {self.session.carrier}.", parent=self.root)
             except Exception as exc:
                 messagebox.showerror("Không xuất được", str(exc), parent=self.root)
+
+    def open_export_folder(self):
+        if self.export_directory is None:
+            return
+        try:
+            os.startfile(str(self.export_directory))
+        except (AttributeError, OSError) as exc:
+            messagebox.showerror("Không mở được thư mục",
+                                 f"Mở thủ công thư mục {self.export_directory}.\n\n{exc}", parent=self.root)
 
     def save_review(self):
         if not self.session:
@@ -1049,25 +1632,29 @@ class ManifestApp:
         existing = self._read_settings()
         dialog = tk.Toplevel(self.root)
         dialog.title("Cấu hình đọc manifest")
-        dialog.geometry("660x520")
-        dialog.resizable(False, False)
         dialog.transient(self.root)
+        _fit_dialog(dialog, self.root, (660, 400), (420, 290))
         dialog.grab_set()
-        body = ttk.Frame(dialog, padding=20)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"Hãng: {carrier}", font=("Segoe UI", 12, "bold")).pack(anchor="w")
+        outer = ttk.Frame(dialog, padding=PAD)
+        outer.pack(fill="both", expand=True)
+        actions = ttk.Frame(outer)
+        actions.pack(side="bottom", fill="x", pady=(GAP, 0))
+        canvas, body = _scroll_area(outer)
+        _bind_dialog_scroll(dialog, [(canvas, body)])
+        ttk.Label(body, text=f"Hãng: {carrier}", font=FONT_BOLD).pack(anchor="w")
         choices = {"Theo mẫu hiện tại (mặc định)": "legacy", "Dấu phẩy thập phân: 25.000,50": "decimal_comma", "Dấu chấm thập phân: 25,000.50": "decimal_dot"}
         current = existing.get("number_format", "legacy")
         choice = tk.StringVar(value=next(k for k, v in choices.items() if v == current))
         ttk.Label(body, text="Quy ước số của dữ liệu dạng chữ").pack(anchor="w", pady=(14, 4))
-        ttk.Combobox(body, textvariable=choice, values=list(choices), state="readonly", width=48).pack(fill="x")
-        ttk.Label(body, text="Trọng lượng manifest gồm vỏ container và hàng bên trong.").pack(anchor="w", pady=(14, 4))
-        ttk.Label(body, text="Sheet cần xử lý (có thể nhập đúng tên sheet)").pack(anchor="w", pady=(14, 4))
+        format_box = ttk.Combobox(body, textvariable=choice, values=list(choices), state="readonly", width=32)
+        format_box.pack(fill="x")
+        _wrapped_label(body, text="Trọng lượng manifest gồm vỏ container và hàng bên trong.").pack(anchor="w", pady=(GAP, 0))
+        _wrapped_label(body, text="Sheet cần xử lý (có thể nhập đúng tên sheet)").pack(anchor="w", pady=(GAP, 4))
         automatic = "Theo quy tắc nhận diện của hãng"
         available = self.session.metadata.get("available_sheets", []) if self.session else []
         sheet_choice = tk.StringVar(value=existing.get("selected_sheet") or automatic)
         ttk.Combobox(body, textvariable=sheet_choice, values=[automatic, *available], state="normal").pack(fill="x")
-        ttk.Label(body, text="Quy ước dấu thập phân áp dụng cho các ô dạng chữ. Bấm Xử lý lại để dùng cấu hình mới. Các chỉnh sửa của phiên cũ nằm trong bản đối chiếu đã lưu.", wraplength=590, style="Muted.TLabel").pack(anchor="w", pady=(16, 6))
+        _wrapped_label(body, text="Quy ước dấu thập phân áp dụng cho các ô dạng chữ. Bấm Xử lý lại để dùng cấu hình mới. Các chỉnh sửa của phiên cũ nằm trong bản đối chiếu đã lưu.", style="Muted.TLabel").pack(anchor="w", pady=(GAP, 0))
         def save():
             updated = copy.deepcopy(existing)
             updated["number_format"] = choices[choice.get()]
@@ -1107,7 +1694,10 @@ class ManifestApp:
                 self.refresh()
                 self.status.set("Cấu hình đọc đã đổi. Lưu đối chiếu nếu cần giữ các sửa đổi, rồi bấm Xử lý lại để áp dụng trước khi xuất.")
             dialog.destroy()
-        ttk.Button(body, text="Lưu cấu hình", style="Primary.TButton", command=save).pack(anchor="e", pady=(12, 0))
+        ttk.Button(actions, text="Lưu cấu hình", style="Primary.TButton", command=save).pack(side="right")
+        dialog.bind("<Return>", lambda _: save())
+        dialog.bind("<Escape>", lambda _: dialog.destroy())
+        format_box.focus_set()
 
     def help(self):
         messagebox.showinfo("Hướng dẫn nhanh",
@@ -1127,6 +1717,7 @@ class ManifestApp:
 
 
 def main():
+    _enable_dpi_awareness()
     root = tk.Tk()
     ManifestApp(root)
     root.mainloop()

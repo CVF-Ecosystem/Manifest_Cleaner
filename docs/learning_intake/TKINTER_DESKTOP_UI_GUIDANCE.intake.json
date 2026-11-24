@@ -1,0 +1,43 @@
+{
+  "acceptance": "NOT_ACCEPTED_GENERATION_ONLY",
+  "candidateControl": "Bổ sung ví dụ kiểm Tkinter trong hướng dẫn UI hiện có nếu parent nhận thấy không trùng.",
+  "chainJoins": [
+    {
+      "earliestControlPoint": "Thiết kế layout và checklist trước khi sửa.",
+      "gap": "Thiếu ví dụ áp dụng cho Tkinter Windows.",
+      "join": "CVF Ops / Industrial -> kiểm UI tại project"
+    }
+  ],
+  "claimLimits": "Một app Windows Tk trên máy phát triển, worker proof, chưa thử EXE hoặc máy Cảng.",
+  "contentSha256": "cd04c0a7c94701c823d2046ef916cbbfec2d1fd0c8d8f5f82bbbb91490835fd0",
+  "dedupCandidates": [
+    "cvf-engineering-frontend-ui",
+    "DESIGN.md §12 Ops / Industrial"
+  ],
+  "defectClass": "RULE_GAP",
+  "expected": "Có ví dụ kiểm theo widget native cho thao tác luôn nhìn thấy ở minsize, DPI và phím điều hướng.",
+  "findingId": "TKINTER_DESKTOP_UI_GUIDANCE",
+  "learningLane": "DOCUMENTATION_ONLY_LEARNING",
+  "negativeEvidence": [
+    {
+      "description": "Hồ sơ worker ghi khoảng trống, ảnh mẫu và phép kiểm Tkinter. Chưa có kiểm máy Cảng.",
+      "locator": "docs/reviews/learnings/TKINTER_DESKTOP_UI_GUIDANCE.md"
+    }
+  ],
+  "observed": "Nguyên tắc Ops / Industrial áp dụng được nhưng hướng dẫn hiện có chưa chỉ rõ cách kiểm geometry, DPI và focus của Tkinter.",
+  "parentDisposition": "PENDING_PARENT_ADMISSION",
+  "parentLinks": {
+    "admissionRecord": null,
+    "checker": null,
+    "goldenProof": null,
+    "workOrder": null
+  },
+  "parentOwner": "docs/reference/CVF_FINDING_TO_GOVERNANCE_LEARNING_TRIGGER_STANDARD.md",
+  "profileId": "cvf.downstreamGateProfile@1.4.0",
+  "proposedDisposition": "DESIGN_REVIEW_REQUIRED",
+  "schemaVersion": "cvf.downstreamFindingIntake@1.0.0",
+  "sourceClaimStatus": "UNVERIFIED_UNTIL_PROJECT_EVIDENCE_IS_SEPARATELY_ADMITTED",
+  "sourceProject": "Manifest_Cleaner",
+  "sourceSha": "c9cb81f282d4c1c5d8ad0ebef6a999e1ba42025a",
+  "title": "Khoảng trống hướng dẫn giao diện Tkinter trên Windows"
+}

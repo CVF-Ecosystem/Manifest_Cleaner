@@ -46,4 +46,6 @@ Active state: `CVF_SESSION/ACTIVE_SESSION_STATE.json`
 
 Initial active handoff: `CVF_SESSION/handoffs/AGENT_HANDOFF_V1_2026-11-24.md`
 
+Đọc [hồ sơ học Tkinter](docs/reviews/learnings/TKINTER_DESKTOP_UI_GUIDANCE.md) trước công việc desktop UI tiếp theo.
+
 Provider-local files may assist execution but are not project source authority.

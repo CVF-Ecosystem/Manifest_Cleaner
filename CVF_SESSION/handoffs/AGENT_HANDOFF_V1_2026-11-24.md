@@ -124,3 +124,40 @@ Operator yêu cầu commit bản 1.2.6. Orchestrator ghi chuyển vai sang COMMI
 
 Operator đổi thứ tự sau commit 6db5432: không build EXE 1.2.6 riêng. Bước tiếp theo là tranche 1.2.7 giao diện trên nền 1.2.6. Sau khi 1.2.7 qua review độc lập mới build một EXE duy nhất, rồi kiểm luồng Windows trên bản đó.
 
+
+## 1.2.7 giao diện
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER, project REVIEW, tranche BUILD sau pre-dispatch. Pinned Core ../.Controlled-Vibe-Framework-CVF tại b6d5a51a1e90c1c03426baa3d355834089ac652a. Work order docs/work_orders/WO_MC_LEGACY_COMPAT.md, MC54. Rủi ro R1 vì chỉ dùng mẫu tổng hợp trong samples/, trần project R2. Activation CURRENT_ASSESSED, Doctor 29/29, BOOTSTRAP_MIGRATION_PENDING. Live evidence required YES cho tuyên bố quản trị CVF. Handoff này active, không có checkpoint đang chờ. Bước tiếp theo là pre-dispatch, đo giao diện hiện tại, sửa giao diện và trả kết quả cho REVIEWER độc lập. Nguồn thiết kế do operator chỉ định dùng để tham chiếu, ngoài Core đã ghim.
+
+Đo trước bằng Win32 PrintWindow trên mẫu tổng hợp. Lần chạy tập trung đầu tiên trên mã mới mất khoảng 2,9 giây, 16 lỗi từ hai điểm của fixture: fake widget trả None cho winfo_fpixels và đối tượng app dựng qua __new__ chưa có state giao diện mới. Cửa sổ Tk thật đã mở mẫu VIMC và lưu ảnh. Audit kiểm fixture và trace riêng từng điểm trước lượt sửa: bổ sung hành vi geometry/font và state vào fixture, không thêm nhánh giả lập vào mã chạy. Harness cũ gặp invalid command name ..._poll khi hủy nhiều root liên tiếp, cần hủy lịch after được đăng ký trước khi đóng root. Ảnh bước đầu cũng cho thấy viền nút và chiều cao tab cần hiệu chỉnh theo style clam.
+
+Lượt tập trung thứ hai mất khoảng 5,7 giây, còn hai lỗi. Trace cho thấy fake notebook không trả index và bản chuyển vùng tra nguồn đã dời chỗ sử dụng detail mà chưa tạo widget. Xác nhận hai nguyên nhân qua đọc đúng hàm, sửa thiết lập fake notebook và khôi phục vùng đọc nguồn có scrollbar, rồi kiểm lại với Windows Tk thật. Ảnh bảng chính sáu cấu hình đã chụp được ở lượt này.
+
+Kiểm vòng đời harness tạo nhiều app trên một Tk root phát hiện callback Configure giữ nhãn đã hủy. Lệnh mất khoảng 7,8 giây và gọi được các nút, nhưng log TclError nên bằng chứng chưa sạch. Audit theo trace: nhãn đếm đặt trực tiếp trên root, binding trên root sống lâu hơn nhãn và chạy từ các Configure của con. Cho nhãn cùng binding nằm trong frame được hủy cùng nhau, lọc event theo đúng parent và chạy lại harness có kiểm log.
+
+Các trace hình học, focus và bốn hộp thoại sáng đã chạy đúng sau sửa binding. Probe trạng thái đầu tiên trả AssertionError và TypeError khi so giá trị Tcl/dọn timer, tổng khoảng 1,2 giây. Đọc riêng mode, số liệu và nhãn xác nhận state đúng. Probe sửa để đổi mode sang chuỗi và hủy root, chạy lại đạt, xác nhận mở, đang đọc, lỗi và hai cột giãn.
+
+Worker return 1.2.7. Mã Tk bố trí lại main và bốn hộp thoại, kích hoạt ngữ cảnh Per-Monitor V2 trước Tk. Chạy ảnh và geometry trên Windows 125%, mô phỏng thêm 100/150% bằng Tk. Hồ sơ và 12 ảnh tổng hợp ở docs/reviews/ui-1.2.7/README.md. 277 test và 108 SHA-256 đạt. Giữ project ở REVIEW, bản mới nằm trong working tree c9cb81f để REVIEWER độc lập. Chưa có bản đóng gói trong lượt này.
+
+### 1.2.7 bổ sung danh sách và chi tiết
+
+CVF Agent Declaration. IMPLEMENTATION_WORKER, MC54, docs/work_orders/WO_MC_LEGACY_COMPAT.md, cùng tranche 1.2.7 và project REVIEW. Core b6d5a51a1e90c1c03426baa3d355834089ac652a tại ../.Controlled-Vibe-Framework-CVF, CURRENT_ASSESSED, live evidence YES cho tuyên bố quản trị CVF, không có checkpoint. R2 chỉ vì chạy đọc năm manifest thật tại dist, ảnh và hồi quy chia sẻ chỉ dùng mẫu tổng hợp. Thiết kế do operator giao, kèm chỉ dẫn gốc SHA-256 802b773bd8bc2aeb19fe0e29e589fac85001e11af4a6f6e45e4a634ef05b3341. Chạy gate, chụp baseline, sửa UI và trả bằng chứng cho REVIEWER.
+
+Kiểm tập trung đầu sau bổ sung test mất 8,2 giây, phát hiện hai nguyên nhân độc lập. `TypeError: bad operand type for unary +: '_patch'` xuất hiện ba ca do ký tự nối dòng lọt vào bản vá test. Clipboard mất số 0 đầu vì `Treeview.item()` chuyển chuỗi số thành int qua tiện ích Python. Đã tái hiện VIMC 001235 thành 1235. Lượt sửa tiếp đọc từng ô qua API chuỗi Tk và dùng with có ngoặc cho test. So lại giá trị TSV và XML của ba hãng trước worker return.
+
+Lượt kiểm tập trung có test minsize mất 5,1 giây. Cả ba tỷ lệ trả `AssertionError: 0 is not true : .!notebook.!frame2.!frame2.!frame.!frame2.!text`. Probe Tk mất 2,4 giây, xác nhận panel được mở nhưng chỉ còn 51/61/83 px cho tiêu đề, nội dung cuộn và hàng nút. Điều chỉnh chiều cao tối thiểu để thấy vùng nội dung và kiểm lại cả ba tỷ lệ. Cửa sổ tiếp tục giới hạn theo màn hình.
+
+Worker return bổ sung 1.2.7. Activation CURRENT_ASSESSED và pre-dispatch PASS 7/7. Mã trình bày 84 tiêu đề, nhóm theo mã, chi tiết có nguồn, bộ lọc mức, Ctrl+C và mở thư mục kết quả. Kiểm phát hành PASS 281 test và 137 đường dẫn SHA-256. Năm manifest thật chạy chỉ đọc 788 dòng, 0 lỗi chặn, 3 cảnh báo, khớp trước bổ sung và SHA-256 nguồn. Ba mẫu tổng hợp giữ nguyên byte nội dung ô Excel và thông báo trong JSON sau luồng GUI. 24 ảnh bổ sung lấy từ samples. Thiết kế, bảng ánh xạ, giới hạn hủy và kế hoạch thử tại Cảng có trong hồ sơ. Log và biên nhận gate bổ sung ở .cvf/runtime/v127/supplement. Chuyển REVIEWER độc lập, HEAD c9cb81f282d4c1c5d8ad0ebef6a999e1ba42025a, không commit hoặc build EXE.
+
+### Review độc lập 1.2.7
+
+CVF Agent Declaration. Manifest_Cleaner, Core ../.Controlled-Vibe-Framework-CVF tại b6d5a51a1e90c1c03426baa3d355834089ac652a, REVIEW, REVIEWER độc lập với worker 1.2.7, rủi ro R2 do đọc manifest thật cục bộ, không có checkpoint đang chờ, activation CURRENT_ASSESSED.
+
+Kết quả và reviewer-local repair ghi tại docs/reviews/ui-1.2.7/README.md, mục Review độc lập. reviewerLocalRepairBasis: cột định danh cắt B/L và seal thật, cách sửa xác định từ số đo. unchangedObjective YES, unchangedDesign YES, unchangedPaths YES, unchangedAuthority YES, unchangedEffects YES, unchangedCommitOwner YES, evidenceDetermined YES. Đổi manifest_cleaner/gui.py, tests/test_gui_v110.py, hồ sơ review và checksum. Chưa commit và chưa build EXE.
+
+Operator yêu cầu sửa hết các điểm còn lại của review 1.2.7 và bỏ dòng "Đang dùng" trên màn chính. Agent review ghi chuyển vai sang REPAIR_WORKER cho lượt sửa giao diện R1, trong cùng work order MC54, không đổi engine, exporter hay đầu ra. Chi tiết ở docs/reviews/ui-1.2.7/README.md, mục Sửa theo yêu cầu operator. Operator xác nhận không cần thử giao diện riêng trên máy ở Cảng vì EXE chạy offline như nhau. Nghiệm thu nhập Cảng của M32 vẫn mở. Chưa commit và chưa build EXE.
+
+## Commit và build 1.2.7
+
+Operator yêu cầu commit 1.2.7 rồi build EXE. Orchestrator ghi chuyển vai sang COMMIT_STEWARD và SESSION_SYNC_STEWARD, cập nhật IMPLEMENTATION_STATUS, chạy pre-commit trên phần đã stage và commit cục bộ. Sau commit, build EXE duy nhất từ đúng commit đó vào dist/1.2.7/ManifestCleaner, giữ nguyên các bản build cũ. Kết quả build và chạy thử ghi ở docs/reviews/ui-1.2.7/README.md.
+

@@ -34,7 +34,7 @@ Machine intake stays at docs/learning_intake/<findingId>.intake.json via the pin
 
 ## Record Index
 
-No reusable finding recorded yet. Replace this sentence with linked source records when available.
+- [TKINTER_DESKTOP_UI_GUIDANCE](TKINTER_DESKTOP_UI_GUIDANCE.md) ghi khoảng trống hướng dẫn Tkinter. Kiểm tại project đã có, chờ nhận định của reviewer và CVF.
 
 ## Claim Boundary
 

@@ -150,6 +150,27 @@
       "path": "docs/reviews/LEGACY_COMPAT_REVIEW.md",
       "status": "ACTIVE",
       "description": "Observed compatibility for paired legacy manifests and the VINAFCO replay."
+    },
+    {
+      "id": "truth-ui-1-2-7",
+      "family": "implementation_truth",
+      "path": "docs/reviews/ui-1.2.7/README.md",
+      "status": "ACTIVE",
+      "description": "Manifest Cleaner 1.2.7 desktop implementation worker evidence."
+    },
+    {
+      "id": "decision-tkinter-ui",
+      "family": "continuity",
+      "path": "docs/UI_DESIGN_DECISIONS.md",
+      "status": "ACTIVE",
+      "description": "Project decisions for Windows Tkinter interface."
+    },
+    {
+      "id": "truth-tkinter-ui-learning",
+      "family": "implementation_truth",
+      "path": "docs/reviews/learnings/TKINTER_DESKTOP_UI_GUIDANCE.md",
+      "status": "ACTIVE",
+      "description": "Tkinter desktop guidance gap candidate and local evidence."
     }
   ]
 }

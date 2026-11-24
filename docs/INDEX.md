@@ -8,6 +8,7 @@ Machine-readable source: `docs/catalog/ARTIFACT_REGISTRY.json`
 - Initial agent handoff.: `CVF_SESSION/handoffs/AGENT_HANDOFF_V1_2026-11-24.md`
 - Manifest Cleaner roadmap and current evidence locator.: `ROADMAP.md`
 - Project continuity front door.: `CVF_SESSION_MEMORY.md`
+- Project decisions for Windows Tkinter interface.: `docs/UI_DESIGN_DECISIONS.md`
 - CVF enforcement manifest.: `.cvf/manifest.json`
 - CVF governance policy.: `.cvf/policy.json`
 - Closed schema reference for the Artifact Registry.: `docs/catalog/schemas/ARTIFACT_REGISTRY.schema.json`
@@ -17,6 +18,8 @@ Machine-readable source: `docs/catalog/ARTIFACT_REGISTRY.json`
 - Machine implementation-truth surface.: `IMPLEMENTATION_STATUS.json`
 - Observed compatibility for paired legacy manifests and the VINAFCO replay.: `docs/reviews/LEGACY_COMPAT_REVIEW.md`
 - Observed results and remaining work for Manifest Cleaner 1.2.0.: `docs/reviews/ROADMAP_1_2_REVIEW.md`
+- Tkinter desktop guidance gap candidate and local evidence.: `docs/reviews/learnings/TKINTER_DESKTOP_UI_GUIDANCE.md`
+- Manifest Cleaner 1.2.7 desktop implementation worker evidence.: `docs/reviews/ui-1.2.7/README.md`
 - Generated documentation index.: `docs/INDEX.md`
 - Generated human module catalog.: `docs/catalog/MODULE_CATALOG.md`
 
