@@ -5,10 +5,10 @@ Status: ACTIVE
 ## Current State
 
 - Project: Manifest_Cleaner
-- Current mode: BUILD
-- Active phase: BUILD
+- Current mode: REVIEW
+- Active phase: REVIEW
 - Active role: ORCHESTRATOR
-- Next allowed move: Implement the admitted roadmap work order in disjoint slices. M42 is awaiting operator business inputs.
+- Next allowed move: Retain local 1.2.0 evidence and review M32/M42 when an independent Windows environment and operator business inputs are available.
 - Parked operator checkpoint: none
 
 ## Seven-Step Control Chain
@@ -53,4 +53,8 @@ Initial checkout of the disposable bootstrap Core stopped at a Windows path leng
 
 Project Manifest_Cleaner, pinned Core b6d5a51a, BUILD, Orchestrator, risk ceiling R2, live evidence required for provider claims. Independent reviewer accepted the actual invocations and independence for the exact packet. Pre-dispatch passed seven controls and activation is CURRENT_ASSESSED. Work order docs/work_orders/WO_MC_ROADMAP.md. No parked operator checkpoint for selected work. Next move is implementation in disjoint slices.
 
-Material-SHA marker: pending implementation and terminal review.
+Material-SHA marker: 9c7e68eb76facead1a90e0ce2be5aed0fbf769d4.
+
+## Bàn giao 1.2.0
+
+Implementation workers returned their changes and focused results. Astra 6.2 Medium independently reviewed the product logic and rechecked all material findings after repair. Orchestrator integrated the verified revision, ran Windows build and EXE flow, then recorded role transitions as commit steward and session-sync steward. Project returns to ORCHESTRATOR in REVIEW. Use ROADMAP.md and docs/reviews/ROADMAP_1_2_REVIEW.md. M32/M42 remain open.

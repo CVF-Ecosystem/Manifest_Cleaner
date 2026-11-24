@@ -1,4 +1,4 @@
-﻿# Project Documentation Index
+# Project Documentation Index
 
 Machine-readable source: `docs/catalog/ARTIFACT_REGISTRY.json`
 
@@ -6,6 +6,7 @@ Machine-readable source: `docs/catalog/ARTIFACT_REGISTRY.json`
 
 - Active session/phase/role state.: `CVF_SESSION/ACTIVE_SESSION_STATE.json`
 - Initial agent handoff.: `CVF_SESSION/handoffs/AGENT_HANDOFF_V1_2026-11-24.md`
+- Manifest Cleaner roadmap and current evidence locator.: `ROADMAP.md`
 - Project continuity front door.: `CVF_SESSION_MEMORY.md`
 - CVF enforcement manifest.: `.cvf/manifest.json`
 - CVF governance policy.: `.cvf/policy.json`
@@ -14,6 +15,7 @@ Machine-readable source: `docs/catalog/ARTIFACT_REGISTRY.json`
 - Standard-library catalog validation and rendering functions.: `scripts/lib/downstream_catalog/CvfDownstreamCatalogLib.ps1`
 - Executable catalog manager (--check / --write).: `scripts/manage_cvf_downstream_catalog.ps1`
 - Machine implementation-truth surface.: `IMPLEMENTATION_STATUS.json`
+- Observed results and remaining work for Manifest Cleaner 1.2.0.: `docs/reviews/ROADMAP_1_2_REVIEW.md`
 - Generated documentation index.: `docs/INDEX.md`
 - Generated human module catalog.: `docs/catalog/MODULE_CATALOG.md`
 

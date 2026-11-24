@@ -1,16 +1,26 @@
 {
   "schemaVersion": "1.0",
   "projectName": "Manifest_Cleaner",
-  "overallStatus": "IN_PROGRESS",
-  "currentPhase": "BUILD",
-  "completedCapabilities": [],
+  "overallStatus": "IMPLEMENTED_PENDING_ACCEPTANCE",
+  "currentPhase": "REVIEW",
+  "completedCapabilities": [
+    "M01",
+    "M11",
+    "M12",
+    "M21",
+    "M22",
+    "M31",
+    "M41"
+  ],
   "activeWorkOrders": [
     "docs/work_orders/WO_MC_ROADMAP.md"
   ],
   "knownLimitations": [
-    "M42 requires operator business inputs. Port import acceptance is separate."
+    "M32 verified on this Windows machine. Clean/offline machine and Port import acceptance remain pending.",
+    "M42 awaits a carrier and business-accepted source and expected output."
   ],
   "evidence": [
+    "docs/reviews/ROADMAP_1_2_REVIEW.md",
     "docs/reviews/activation-roadmap/pre-dispatch-admitted.json"
   ],
   "updatedAt": "2026-11-24"
