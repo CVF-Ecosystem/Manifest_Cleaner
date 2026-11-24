@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 
 from ...common import is_explicit_empty, issue, normalize_text, parse_weight, read_workbook, text_value
+from .. import CARRIER_PROFILES
 from .mappings import CARGO_TYPE_MAPPING, SIZE_TO_ISO, SIZE_TO_VTOS
 from .parsers import (
     CONTAINER_CANDIDATE, STOP_KEYWORDS_PATTERN, is_valid_container,
@@ -75,7 +76,7 @@ def refresh_derived_fields(record, settings=None):
         base_cargo = base_cargo or "GENERAL"
         result["Cargo_Type"] = ("EMPTY" if base_cargo == "GENERAL" else f"EMPTY {base_cargo}") if result.get("FE_Status") == "E" else base_cargo
     if not result.get("Operator"):
-        result["Operator"] = "VMC"
+        result["Operator"] = CARRIER_PROFILES["VIMC"].operator()
     return result
 
 
@@ -227,7 +228,7 @@ def _base_record(group, entry, segment_index, source_file, sheet, parsed, status
         "BL_No": group["BL_No"], "Master_BL_Group_ID": group["BL_No"],
         "Container_No": parsed.get("container_no", ""), "Seal_No": parsed.get("seal_no"),
         "Size_Type": parsed.get("size_type") or "", "VTOS_Size": "",
-        "Operator": "SVM" if (own_owner or owner) == "SOC" else "VMC",
+        "Operator": CARRIER_PROFILES["VIMC"].operator((own_owner or owner) == "SOC"),
         "FE_Status": status or "", "Weight_Value": weight_result["value"] if weight_result is not None else None,
         "Weight_Unit": "TONS" if weight_result is not None else None,
         "Weight_Kind": settings.get("weight_kind", "unknown"), "Description": description,

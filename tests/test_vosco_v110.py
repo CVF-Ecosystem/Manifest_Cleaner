@@ -32,6 +32,53 @@ class Vosco110Tests(unittest.TestCase):
         book.close()
         return path
 
+    def test_adjacent_column_audit_detects_detail_but_not_narrative_or_trailer(self):
+        book = Workbook()
+        sheet = book.active
+        row = [""] * 19
+        row[0], row[1], row[5], row[10], row[14], row[18] = ("(C)", "TEST", "VOSCO123456",
+            "ABCU1234567/001234 40HC-C", "CARGO", "25 TONS")
+        sheet.append(row)
+        shifted = [""] * 19
+        shifted[11], shifted[14], shifted[18] = "ABCU1234568/001235 40HC-C", "CARGO", "25 TONS"
+        sheet.append(shifted)
+        narrative = [""] * 19
+        narrative[11], narrative[18] = "Reference ABCU1234569/001236 40HC-C", "25 TONS"
+        sheet.append(narrative)
+        trailer = [""] * 19
+        trailer[0], trailer[11], trailer[18] = "TOTAL", "ABCU1234570/001237 40HC-C", "25 TONS"
+        sheet.append(trailer)
+        path = self.root / "adjacent.xlsx"
+        book.save(path)
+        book.close()
+        result = parse_manifest(path)
+        findings = [i for i in result["issues"] if i["code"] == "VOSCO_ADJACENT_CONTAINER_CANDIDATE"]
+        self.assertEqual(len(result["records"]), 1)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual((findings[0]["source_row"], findings[0]["source_column"], findings[0]["severity"]), (2, 12, "error"))
+        self.assertTrue(any(f["source_row"] == 2 and f["source_column"] == 12 and f["status"] == "unresolved"
+                            for f in result["metadata"]["source_fragments"]))
+
+    def test_adjacent_audit_starts_at_bill_and_ignores_total_in_cargo_text(self):
+        book = Workbook()
+        sheet = book.active
+        leading = [""] * 19
+        leading[0], leading[1], leading[5], leading[11] = "(C)", "TEST", "VOSCO123456", CONTAINERS.splitlines()[0]
+        sheet.append(leading)
+        main = [""] * 19
+        main[10], main[14], main[18] = CONTAINERS.splitlines()[1], "TOTAL QUALITY STEEL", "25 TONS"
+        sheet.append(main)
+        shifted = [""] * 19
+        shifted[9] = "ABCU1234569/001236 40HC-C"
+        sheet.append(shifted)
+        path = self.root / "adjacent_before_and_after.xlsx"
+        book.save(path)
+        book.close()
+        session = process_manifest(path, "VOSCO")
+        self.assertEqual(len(session.records), 1)
+        findings = [i for i in session.validate() if i["code"] == "VOSCO_ADJACENT_CONTAINER_CANDIDATE"]
+        self.assertEqual([(i["source_row"], i["source_column"]) for i in findings], [(1, 12), (3, 10)])
+
     def test_port_metadata_before_between_after_goods_never_shifts_cargo(self):
         for description, expected_source_lines in (
             ("PORT HAIPHONG\nRICE\nSTEEL", [2, 3]),

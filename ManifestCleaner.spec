@@ -3,14 +3,11 @@
 # also copies the user-facing guide/example beside the executable. The GUI
 # intentionally reads/writes settings.json beside sys.executable when frozen.
 from pathlib import Path
+from runpy import run_path
 
 root = Path(SPECPATH)
-hiddenimports = [
-    'manifest_cleaner.carriers.vosco.adapter',
-    'manifest_cleaner.carriers.vimc.adapter',
-    'manifest_cleaner.carriers.vinafco.adapter',
-    'openpyxl', 'xlrd', 'xlsxwriter',
-]
+profiles = run_path(str(root / 'manifest_cleaner' / 'carriers' / '__init__.py'))['CARRIER_PROFILES']
+hiddenimports = [profile.adapter for profile in profiles.values()] + ['openpyxl', 'xlrd', 'xlsxwriter']
 a = Analysis([str(root / 'app.py')], pathex=[str(root)], binaries=[],
              datas=[(str(root / 'START_HERE.html'), '.'), (str(root / 'settings.example.json'), '.')],
              hiddenimports=hiddenimports, hookspath=[], hooksconfig={}, runtime_hooks=[], excludes=[])

@@ -11,6 +11,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from . import __version__
+from .carriers import CARRIER_PROFILES
 from .common import parse_weight, text_value
 from .engine import CARRIERS, EDITABLE_FIELDS, FIELD_LABELS, ReviewSourceError, load_review, load_settings, process_manifest, validate_carrier_settings
 from .exporter import export_port_bundle, preview_record_for_export
@@ -84,6 +85,25 @@ def _runtime_description(session):
     return f"Đang dùng: {number}  |  Trọng lượng: {weight}  |  Sheet: {sheets}  |  Bộ quy tắc: {profile}"
 
 
+def _reconciliation_description(session):
+    result = session.metadata.get("reconciliation")
+    if not result:
+        return ""
+    source = result.get("source_total")
+    parsed = result.get("parsed_total")
+    difference = result.get("total_difference")
+    if source is None or difference is None:
+        reason = result.get("reason") or "Chưa xác định được tổng số container từ nguồn."
+        return f"Đối soát lúc đọc: đọc được {parsed} container. {reason}"
+    delta = f"{difference:+d}" if difference else "0"
+    text = f"Đối soát lúc đọc: nguồn khai {source} · đọc được {parsed} · chênh lệch {delta}"
+    if result.get("size_differences"):
+        text += " · Có kích cỡ lệch. Xem mục Cần kiểm tra."
+    if result.get("reason"):
+        text += f" · {result['reason']}"
+    return text
+
+
 class ManifestApp:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -97,9 +117,10 @@ class ManifestApp:
         self.events = queue.Queue()
         self.dirty = False
         self.selected_path = None
+        self.read_override = None
         self.sort_field = None
         self.sort_reverse = False
-        self.carrier = tk.StringVar(value="VOSCO")
+        self.carrier = tk.StringVar(value=CARRIERS[0])
         self.search = tk.StringVar()
         self.only_issues = tk.BooleanVar(value=False)
         self.show_excluded = tk.BooleanVar(value=False)
@@ -142,7 +163,8 @@ class ManifestApp:
         header = tk.Frame(self.root, bg=NAVY)
         header.pack(fill="x")
         tk.Label(header, text="MANIFEST CLEANER", font=("Segoe UI", 22, "bold"), fg="white", bg=NAVY).pack(anchor="w", padx=24, pady=(17, 2))
-        tk.Label(header, text="VOSCO  ·  VIMC  ·  VINAFCO     |     Chuẩn hóa dữ liệu để nhập hệ thống Cảng", font=("Segoe UI", 11), fg="#D6E5EF", bg=NAVY).pack(anchor="w", padx=25, pady=(0, 18))
+        carrier_list = "  ·  ".join(CARRIERS)
+        tk.Label(header, text=f"{carrier_list}     |     Chuẩn hóa dữ liệu để nhập hệ thống Cảng", font=("Segoe UI", 11), fg="#D6E5EF", bg=NAVY).pack(anchor="w", padx=25, pady=(0, 18))
         toolbar = ttk.Frame(self.root, padding=(20, 16))
         toolbar.pack(fill="x")
         ttk.Label(toolbar, text="Hãng tàu", font=("Segoe UI", 10, "bold")).pack(side="left", padx=(0, 10))
@@ -275,7 +297,7 @@ class ManifestApp:
         self.session = session
         self.selected_path = Path(session.metadata["source_path"])
         self.carrier.set(session.carrier)
-        self.settings[session.carrier] = copy.deepcopy(session.settings)
+        self.read_override = (session.carrier, self.selected_path, copy.deepcopy(session.settings))
         self.dirty = False
         self.search.set("")
         self.only_issues.set(False)
@@ -286,13 +308,27 @@ class ManifestApp:
 
     def reprocess(self):
         if self.selected_path and not self.busy and self._confirm_discard():
-            self._start(self.selected_path)
+            self._start(self.selected_path, read_settings=self._read_settings())
 
-    def _start(self, path: Path):
+    def _read_settings(self):
+        carrier = self.carrier.get()
+        override = getattr(self, "read_override", None)
+        if override and override[:2] == (carrier, self.selected_path):
+            return dict(override[2])
+        return dict(self.settings[carrier])
+
+    def _start(self, path: Path, *, sheet=None, read_settings=None):
         self.busy = True
         self.session = None
         self.dirty = False
         self.selected_path = path
+        carrier = self.carrier.get()
+        self.read_override = None
+        if read_settings is not None or sheet:
+            settings = dict(read_settings if read_settings is not None else self.settings[carrier])
+            if sheet:
+                settings["selected_sheet"] = sheet
+            self.read_override = (carrier, path, settings)
         self.file_label.set(path.name)
         self.summary.set("Đang đọc dữ liệu và áp dụng quy tắc hãng tàu…")
         self.configuration.set("Đang xác định cấu hình hiệu lực và các sheet trong file…")
@@ -307,8 +343,7 @@ class ManifestApp:
         self.carrier_box.configure(state="disabled")
         self._update_row_actions()
         self.progress.start(15)
-        carrier = self.carrier.get()
-        settings = dict(self.settings[carrier])
+        settings = self._read_settings()
         def work():
             try:
                 result = process_manifest(path, carrier, settings=settings,
@@ -335,8 +370,7 @@ class ManifestApp:
                     self.reload_button.configure(state="normal")
                     self.carrier_box.configure(state="readonly")
                     if kind == "done":
-                        self.session = value
-                        self.refresh()
+                        self._complete_read(value)
                     else:
                         self.summary.set("Chưa xử lý được manifest. File gốc được giữ nguyên.")
                         self.status.set(value)
@@ -344,6 +378,66 @@ class ManifestApp:
         except queue.Empty:
             pass
         self.root.after(100, self._poll)
+
+    def _complete_read(self, session):
+        self.session = session
+        self.refresh()
+        candidates = session.metadata.get("table_candidates") or []
+        if not candidates:
+            return
+        sheet = self._choose_sheet(candidates)
+        if sheet:
+            self._start(self.selected_path, sheet=sheet, read_settings=self._read_settings())
+        else:
+            self.status.set("Chưa chọn sheet. Bấm Xử lý lại để chọn bảng của manifest này.")
+
+    def _choose_sheet(self, candidates):
+        by_name = {candidate["source_sheet"]: candidate for candidate in candidates}
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Chọn sheet manifest")
+        dialog.geometry("740x390")
+        dialog.minsize(550, 320)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        body = ttk.Frame(dialog, padding=18)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text="Tìm thấy nhiều bảng. Chọn sheet cần xử lý.").pack(anchor="w")
+        selected = tk.StringVar(dialog)
+        choice = ttk.Combobox(body, textvariable=selected, values=tuple(by_name), state="readonly")
+        choice.pack(fill="x", pady=8)
+        header = tk.StringVar(dialog, value="Chọn tên sheet để xem dòng tiêu đề và mẫu dữ liệu.")
+        ttk.Label(body, textvariable=header).pack(anchor="w")
+        preview = tk.Text(body, height=6, wrap="word", state="disabled", padx=6, pady=6)
+        preview.pack(fill="both", expand=True, pady=(6, 0))
+        actions = ttk.Frame(body)
+        actions.pack(fill="x", pady=(10, 0))
+        picked = None
+
+        def confirm():
+            nonlocal picked
+            if selected.get() in by_name:
+                picked = selected.get()
+                dialog.destroy()
+
+        use = ttk.Button(actions, text="Dùng sheet này", command=confirm, state="disabled", style="Primary.TButton")
+        use.pack(side="right")
+        ttk.Button(actions, text="Hủy", command=dialog.destroy).pack(side="right", padx=(0, 8))
+
+        def show_preview(_=None):
+            candidate = by_name[selected.get()]
+            header.set(f"Dòng tiêu đề: {candidate['header_row']}")
+            preview.configure(state="normal")
+            preview.delete("1.0", "end")
+            for row in candidate.get("preview_rows", []):
+                preview.insert("end", f"Dòng {row['source_row']}: {row['text']}\n")
+            preview.configure(state="disabled")
+            use.configure(state="normal")
+
+        choice.bind("<<ComboboxSelected>>", show_preview)
+        dialog.bind("<Escape>", lambda _: dialog.destroy())
+        choice.focus_set()
+        self.root.wait_window(dialog)
+        return picked
 
     def refresh(self):
         if not self.session:
@@ -359,7 +453,9 @@ class ManifestApp:
         if file_errors:
             error_summary += f" + {file_errors} lỗi toàn file"
         self.summary.set(f"{session.carrier}  |  {stats['bills']} B/L · {stats['containers']} container / {stats['active_records']} dòng  |  F: {stats['full']} · E: {stats['empty']} · Chưa rõ: {stats['unknown']}  |  {error_summary} · {stats['warnings']} cảnh báo · {stats['excluded']} dòng đã loại")
-        self.configuration.set(_runtime_description(session))
+        reconciliation = _reconciliation_description(session)
+        configuration = _runtime_description(session)
+        self.configuration.set(f"{configuration}\n{reconciliation}" if reconciliation else configuration)
         self.tabs.tab(1, text=f"Cần kiểm tra ({len(issues)})")
         current = self.tree.selection()
         selected_issue = self.issue_tree.selection()
@@ -416,7 +512,7 @@ class ManifestApp:
             if self.issue_keys[iid] == prior_issue_key:
                 self.issue_tree.selection_set(iid)
         can_export = (stats["errors"] == 0 and session.carrier == self.carrier.get() and not self.busy
-                      and not session.metadata.get("settings_changed") and session.settings == self.settings[self.carrier.get()])
+                      and not session.metadata.get("settings_changed") and session.settings == self._read_settings())
         self.export_button.configure(state="normal" if can_export else "disabled")
         self.review_button.configure(state="normal")
         self._update_row_actions()
@@ -694,7 +790,7 @@ class ManifestApp:
         if self.session.carrier != self.carrier.get():
             messagebox.showinfo("Hãng tàu đã đổi", "Xử lý lại manifest theo hãng vừa chọn trước khi xuất.", parent=self.root)
             return
-        if self.session.metadata.get("settings_changed") or self.session.settings != self.settings[self.carrier.get()]:
+        if self.session.metadata.get("settings_changed") or self.session.settings != self._read_settings():
             messagebox.showinfo("Quy ước đã đổi", "Xử lý lại manifest để áp dụng quy ước mới trước khi xuất.", parent=self.root)
             return
         stats = self.session.statistics()
@@ -742,7 +838,7 @@ class ManifestApp:
         if self.busy:
             return
         carrier = self.carrier.get()
-        existing = copy.deepcopy(self.settings[carrier])
+        existing = self._read_settings()
         dialog = tk.Toplevel(self.root)
         dialog.title("Cấu hình đọc manifest")
         dialog.geometry("660x520")
@@ -759,7 +855,7 @@ class ManifestApp:
         ttk.Combobox(body, textvariable=choice, values=list(choices), state="readonly", width=48).pack(fill="x")
         ttk.Label(body, text="Ý nghĩa trọng lượng trong nguồn").pack(anchor="w", pady=(14, 4))
         weight_choices = {value: key for key, value in WEIGHT_LABELS.items()}
-        default_weight_kind = "gross" if carrier == "VINAFCO" else "unknown"
+        default_weight_kind = CARRIER_PROFILES[carrier].weight_kind
         weight_choice = tk.StringVar(value=WEIGHT_LABELS[existing.get("weight_kind", default_weight_kind)])
         ttk.Combobox(body, textvariable=weight_choice, values=list(weight_choices), state="readonly").pack(fill="x")
         ttk.Label(body, text="Sheet cần xử lý (có thể nhập đúng tên sheet)").pack(anchor="w", pady=(14, 4))
@@ -785,12 +881,22 @@ class ManifestApp:
             if updated == existing:
                 dialog.destroy()
                 return
-            self.settings[carrier] = updated
+            # Only persist the fields changed here, not settings held by a
+            # saved review or the sheet picked for this specific workbook.
+            defaults = dict(self.settings[carrier])
+            for key in ("number_format", "weight_kind", "selected_sheet"):
+                if updated.get(key) != existing.get(key):
+                    if key in updated:
+                        defaults[key] = updated[key]
+                    else:
+                        defaults.pop(key, None)
+            self.settings[carrier] = defaults
             try:
                 self.config_path.write_text(json.dumps(self.settings, ensure_ascii=False, indent=2), encoding="utf-8")
             except OSError:
                 messagebox.showwarning("Cấu hình", "Đã áp dụng trong phiên này; thư mục ứng dụng không cho lưu cấu hình lâu dài.", parent=dialog)
             if self.session and self.session.carrier == carrier:
+                self.read_override = (carrier, self.selected_path, updated)
                 self.export_button.configure(state="disabled")
                 self.status.set("Quy ước số đã đổi. Bấm Xử lý lại để áp dụng trước khi xuất.")
                 self.session.metadata["settings_changed"] = True

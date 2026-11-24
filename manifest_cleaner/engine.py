@@ -16,20 +16,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__
+from .carriers import CARRIERS, CARRIER_PROFILES, MAPPING_SETTINGS, TARE_SETTINGS
 from .common import inspect_workbook_source, issue, text_value
 
-CARRIERS = ("VOSCO", "VIMC", "VINAFCO")
 EDITABLE_FIELDS = ("BL_No", "Container_No", "Seal_No", "Cleaned_Consignee_Name_For_Output",
                    "Size_Type", "Operator", "FE_Status", "Weight_Value", "Description")
 FIELD_LABELS = {"BL_No": "Số B/L", "Container_No": "Số container", "Seal_No": "Số niêm chì",
                 "Cleaned_Consignee_Name_For_Output": "Chủ hàng", "Size_Type": "Kích cỡ khai báo",
                 "VTOS_Size": "Kích cỡ VTOS", "Operator": "Hãng khai thác", "FE_Status": "F/E",
                 "Weight_Value": "Trọng lượng (tấn)", "Description": "Hàng hóa", "Cargo_Type": "Loại hàng"}
-DEFAULT_SETTINGS = {
-    "VOSCO": {"number_format": "legacy", "weight_kind": "unknown", "default_weight_unit": "TONS"},
-    "VIMC": {"number_format": "legacy", "weight_kind": "unknown"},
-    "VINAFCO": {"number_format": "legacy", "weight_kind": "gross", "default_weight_unit": "TONS"},
-}
+DEFAULT_SETTINGS = {code: profile.defaults() for code, profile in CARRIER_PROFILES.items()}
 REVIEW_FORMAT = "manifest-cleaner-review-v2"
 
 
@@ -56,37 +52,20 @@ def validate_carrier_settings(carrier: str, supplied: dict | None = None) -> dic
         raise ValueError("Hãng tàu trong cấu hình không được hỗ trợ.")
     if supplied is not None and not isinstance(supplied, dict):
         raise ValueError(f"Cấu hình {carrier} phải là một đối tượng JSON.")
+    profile = CARRIER_PROFILES[carrier]
     data = copy.deepcopy(supplied or {})
-    sheet_alias = {"VOSCO": "sheet_name", "VINAFCO": "target_sheet_name"}.get(carrier)
+    sheet_alias = profile.sheet_alias
     if sheet_alias and sheet_alias in data:
         if "selected_sheet" not in data:
             data["selected_sheet"] = data[sheet_alias]
         data.pop(sheet_alias)
-    common = {"number_format", "weight_kind", "selected_sheet"}
-    mappings = {"size_to_iso", "size_to_vtos", "cargo_type_mapping"}
-    vinafco_numbers = {
-        "tare_20ft", "tare_40ft", "tare_45ft", "tare_20rf", "tare_40rf", "tare_45rf",
-        "min_payload", "safety_margin", "cargo_weight_empty_threshold",
-        "tare_20ft_empty_vgm", "tare_40ft_empty_vgm", "tare_20rf_empty_vgm", "tare_40rf_empty_vgm",
-        "min_payload_for_f_vgm", "safety_margin_tons",
-    }
-    allowed = set(common)
-    if carrier in {"VOSCO", "VINAFCO"}:
-        allowed.add("default_weight_unit")
-    if carrier in {"VIMC", "VINAFCO"}:
-        allowed |= mappings
-    if carrier == "VINAFCO":
-        allowed |= vinafco_numbers | {
-            "operator_soc", "operator_coc", "default_weight_unit_if_missing", "peek_rows",
-            "size_type_to_cargo_type_base",
-            *("col_" + name for name in ("party_raw", "bill_no", "container_no", "seal", "type", "comm", "gw", "remarks")),
-        }
+    allowed = DEFAULT_SETTINGS[carrier].keys() | {"selected_sheet"} | profile.extra_settings
     unknown = set(data) - allowed
     if unknown:
         raise ValueError(f"Cấu hình {carrier} có tên chưa hỗ trợ: " + ", ".join(sorted(unknown)))
     # Legacy unit aliases must take effect before merging the default value.
-    if carrier == "VINAFCO" and "default_weight_unit_if_missing" in data and "default_weight_unit" not in data:
-        data["default_weight_unit"] = data["default_weight_unit_if_missing"]
+    if profile.weight_unit_alias in data and "default_weight_unit" not in data:
+        data["default_weight_unit"] = data[profile.weight_unit_alias]
     result = {**copy.deepcopy(DEFAULT_SETTINGS[carrier]), **data}
     if not isinstance(result["number_format"], str) or result["number_format"] not in {"legacy", "decimal_comma", "decimal_dot"}:
         raise ValueError(f"Quy ước số không hợp lệ cho {carrier}.")
@@ -100,18 +79,18 @@ def validate_carrier_settings(carrier: str, supplied: dict | None = None) -> dic
             result.pop("selected_sheet")
     units = {"KG": "KGS", "KGS": "KGS", "KILOGRAM": "KGS", "KILOGRAMS": "KGS",
              "T": "TONS", "MT": "TONS", "TON": "TONS", "TONS": "TONS", "TONNE": "TONS", "TONNES": "TONS"}
-    for key in ("default_weight_unit", "default_weight_unit_if_missing"):
-        if key in result:
+    for key in ("default_weight_unit", profile.weight_unit_alias):
+        if key is not None and key in result:
             unit = text_value(result[key]).upper()
             if unit not in units:
                 raise ValueError(f"{key} phải là kg hoặc tấn.")
             result[key] = units[unit]
-    for key in mappings | {"size_type_to_cargo_type_base"}:
+    for key in MAPPING_SETTINGS | {"size_type_to_cargo_type_base"}:
         if key in result:
             if not isinstance(result[key], dict) or any(not isinstance(k, str) or not k.strip() or
                     not isinstance(v, str) or not v.strip() for k, v in result[key].items()):
                 raise ValueError(f"{key} phải là bảng ánh xạ gồm mã và giá trị chữ không rỗng.")
-    for key in vinafco_numbers:
+    for key in TARE_SETTINGS:
         if key in result:
             if isinstance(result[key], bool):
                 raise ValueError(f"{key} phải là số không âm.")
@@ -135,8 +114,8 @@ def validate_carrier_settings(carrier: str, supplied: dict | None = None) -> dic
 
 def _adapter(carrier: str):
     if carrier not in CARRIERS:
-        raise ValueError("Chọn hãng tàu VOSCO, VIMC hoặc VINAFCO.")
-    return importlib.import_module(f"manifest_cleaner.carriers.{carrier.lower()}.adapter")
+        raise ValueError("Chọn hãng tàu: " + ", ".join(CARRIERS) + ".")
+    return importlib.import_module(CARRIER_PROFILES[carrier].adapter)
 
 
 def load_settings(path: str | Path | None = None) -> dict:
@@ -233,8 +212,7 @@ class ManifestSession:
             validate_size = getattr(_adapter(self.carrier), "is_supported_size_type", None)
             if _present(record.get("Size_Type")) and validate_size and not validate_size(record["Size_Type"], self.settings):
                 add("UNKNOWN_SIZE_TYPE", "Kích cỡ chưa có trong bảng quy đổi của hãng; điền mã đã biết hoặc bổ sung mapping có kiểm tra.", field_name="Size_Type")
-            default_operators = {"VOSCO": {"VOC", "SVC"}, "VIMC": {"VMC", "SVM"}, "VINAFCO": {"VFC", "SVF"}}
-            allowed_operators = set(default_operators[self.carrier]) | {str(self.settings[k]).upper() for k in ("operator_soc", "operator_coc") if self.settings.get(k)}
+            allowed_operators = set(CARRIER_PROFILES[self.carrier].operators) | {str(self.settings[k]).upper() for k in ("operator_soc", "operator_coc") if self.settings.get(k)}
             if _present(record.get("Operator")) and text_value(record.get("Operator")).upper() not in allowed_operators:
                 add("UNKNOWN_OPERATOR", "Mã hãng khai thác chưa có trong cấu hình của hãng đang chọn.", field_name="Operator")
             bl = text_value(record.get("BL_No"))
@@ -531,8 +509,9 @@ def process_manifest(path: str | Path, carrier: str, *, settings: dict | None = 
     if selected and selected not in source_info["available_sheets"]:
         raise ValueError(f"Không tìm thấy sheet '{selected}'. Có các sheet: " + ", ".join(source_info["available_sheets"]))
     adapter_settings = copy.deepcopy(chosen_settings)
-    if selected and carrier in {"VOSCO", "VINAFCO"}:
-        adapter_settings["sheet_name" if carrier == "VOSCO" else "target_sheet_name"] = selected
+    sheet_alias = CARRIER_PROFILES[carrier].sheet_alias
+    if selected and sheet_alias:
+        adapter_settings[sheet_alias] = selected
     result = adapter.parse_manifest(source, settings=adapter_settings, progress=progress)
     if source_sha256(source) != initial_hash:
         raise ValueError("File nguồn đã thay đổi trong khi đang xử lý. Hãy đóng file và đọc lại.")

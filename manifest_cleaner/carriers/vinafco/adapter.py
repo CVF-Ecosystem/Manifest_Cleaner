@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,9 @@ _WEIGHT_UNITS = {
     "TONNE": "TONS", "TONNES": "TONS",
 }
 _FOOTER_LABELS = {"TOTAL", "GRAND TOTAL", "TONG CONG", "TONG SO"}
+_SUMMARY_HEADERS = {"LOAICONT": "size", "SOLUONG": "quantity", "GHICHU": "remarks"}
+_SUMMARY_OTHER_LABELS = {"TEU", "TEUS", "TRONG TAI", "GROSS WEIGHT", "TOTAL WEIGHT"}
+_SUMMARY_SIZE = re.compile(r"(?:20|40|45)[A-Z]{2,3}|[24][0-9][A-Z][0-9]")
 
 
 def _size(value: Any) -> str:
@@ -203,6 +207,109 @@ def _has_container_attributes(raw: dict) -> bool:
     return any(raw[name] for name in ("type", "seal", "gw", "comm"))
 
 
+def _container_key(value: str) -> str:
+    return re.sub(r"[\s-]+", "", value).upper()
+
+
+def _summary_header(row: tuple) -> dict:
+    matches = {}
+    for col_idx, value in enumerate(row):
+        if not text_value(value):
+            continue
+        key = _SUMMARY_HEADERS.get(_header(value))
+        # A side-by-side heading may share a row with real container detail.
+        # Only an exclusively structural heading can classify the entire row.
+        if not key or key in matches:
+            return {}
+        matches[key] = col_idx
+    return matches if len(matches) == len(_SUMMARY_HEADERS) else {}
+
+
+def _summary_entry(row: tuple, columns: dict, detail_columns: dict, cfg: dict):
+    """Require each summary row to fit its own columns and vocabulary."""
+    if any(text_value(value) for idx, value in enumerate(row) if idx not in columns.values()):
+        return None
+    if _CONTAINER.fullmatch(_container_key(text_value(row[detail_columns["container_no"]]))):
+        return None
+    raw_label = row[columns["size"]]
+    label = normalize_text(raw_label).rstrip(" :;=")
+    quantity = text_value(row[columns["quantity"]])
+    remarks = text_value(row[columns["remarks"]])
+    numeric = re.fullmatch(r"[+-]?[0-9]+(?:[.,][0-9]+)?", quantity)
+    if quantity and not numeric and normalize_text(quantity) not in {"-", "–", "—", "N/A"}:
+        return None
+    integer = re.fullmatch(r"([0-9]{1,15})(?:[.,]0+)?", quantity)
+    count = int(integer[1]) if integer else None
+    size = _size(raw_label)
+    if size in cfg["size_to_vtos"] or _SUMMARY_SIZE.fullmatch(size):
+        return "size", size, count
+    if label in _FOOTER_LABELS:
+        return "total", None, count
+    if label in _SUMMARY_OTHER_LABELS and numeric:
+        return "other_metric", None, None
+    # A number alone can also be a damaged detail row if it lands in the
+    # detail weight/seal/type/description columns. Keep it for review there.
+    if not label and not remarks and numeric and columns["quantity"] not in {
+        detail_columns.get(field) for field in ("type", "seal", "gw", "comm")
+    }:
+        return "unlabeled_metric", None, None
+    return None
+
+
+def _scan_summaries(sheet_name: str, frame, header_idx: int, detail_columns: dict, cfg: dict):
+    """Identify bounded summary blocks, including moved blocks on the same sheet."""
+    blocks = []
+    summary_rows = {}
+    for row_idx, values in enumerate(frame.iloc[header_idx + 1:].itertuples(index=False, name=None), header_idx + 1):
+        if row_idx + 1 in summary_rows:
+            continue
+        columns = _summary_header(values)
+        if not columns:
+            continue
+        entries = []
+        for idx, row in enumerate(frame.iloc[row_idx + 1:].itertuples(index=False, name=None), row_idx + 1):
+            if not any(text_value(value) for value in row):
+                continue
+            parsed = _summary_entry(row, columns, detail_columns, cfg)
+            if not parsed:
+                break
+            kind, size, count = parsed
+            if not entries and kind not in ("size", "total"):
+                break
+            entries.append({"kind": kind, "size": size, "count": count, "source_row": idx + 1,
+                            "source_column": columns["quantity"] + 1, "label_column": columns["size"] + 1})
+        if not any(entry["kind"] in ("size", "total") and entry["count"] is not None for entry in entries):
+            continue
+        blocks.append({"source_sheet": sheet_name, "header_row": row_idx + 1,
+                       "end_row": entries[-1]["source_row"], "columns": {key: index + 1 for key, index in columns.items()},
+                       "entries": entries})
+        summary_rows[row_idx + 1] = "header"
+        summary_rows.update({entry["source_row"]: entry["kind"] for entry in entries})
+    return blocks, summary_rows
+
+
+def _candidate_preview(frame, header_idx: int, columns: dict, summary_rows: dict, cfg: dict) -> list:
+    preview = []
+    for idx in range(header_idx + 1, len(frame)):
+        if idx + 1 in summary_rows:
+            continue
+        row = frame.iloc[idx]
+        mapping, _, _ = _map_header(row.tolist(), cfg)
+        if "container_no" in mapping and len(mapping) >= 4:
+            continue
+        raw = _raw_row(row, columns)
+        if _is_footer(raw) or not (raw["container_no"] or (
+            _has_container_attributes(raw) and not _PARTY.match(raw["party_raw"])
+        )):
+            continue
+        fields = ("container_no", "type", "bill_no", "seal", "gw", "comm", "party_raw")
+        text = " | ".join(" ".join(raw[field].split()) for field in fields if raw[field])
+        preview.append({"source_row": idx + 1, "text": text if len(text) <= 180 else text[:177] + "..."})
+        if len(preview) == 3:
+            break
+    return preview
+
+
 def _locate_table(sheets, cfg: dict, explicitly_selected: bool):
     candidates = []
     selected = text_value(cfg.get("target_sheet_name"))
@@ -212,8 +319,11 @@ def _locate_table(sheets, cfg: dict, explicitly_selected: bool):
         for idx in range(min(len(frame), cfg["peek_rows"])):
             mapping, duplicates, weight_unit = _map_header(frame.iloc[idx].tolist(), cfg)
             if "container_no" in mapping and len(mapping) >= 4:
+                blocks, summary_rows = _scan_summaries(sheet_name, frame, idx, mapping, cfg)
                 has_data = False
                 for j in range(idx + 1, len(frame)):
+                    if j + 1 in summary_rows:
+                        continue
                     data_row = frame.iloc[j]
                     repeated, _, _ = _map_header(data_row.tolist(), cfg)
                     if "container_no" in repeated and len(repeated) >= 4:
@@ -225,9 +335,106 @@ def _locate_table(sheets, cfg: dict, explicitly_selected: bool):
                         has_data = True
                         break
                 if has_data:
-                    candidates.append((sheet_name, frame, idx, mapping, duplicates, weight_unit))
+                    candidates.append((sheet_name, frame, idx, mapping, duplicates, weight_unit, blocks, summary_rows))
                 break
     return candidates
+
+
+def _reconcile(records: list, metadata: dict, blocks: list, issues: list) -> None:
+    sizes_by_container = defaultdict(set)
+    container_bills = set()
+    unresolved_rows = []
+    for record in records:
+        container = record["Container_No"]
+        if not _CONTAINER.fullmatch(container):
+            unresolved_rows.append(record["source_row"])
+            continue
+        sizes_by_container[container].add(_size(record["Size_Type"]))
+        if record["BL_No"]:
+            container_bills.add((container, record["BL_No"]))
+
+    parsed_sizes = defaultdict(int)
+    unknown_sizes = 0
+    for sizes in sizes_by_container.values():
+        if len(sizes) == 1 and "" not in sizes:
+            parsed_sizes[next(iter(sizes))] += 1
+        else:
+            unknown_sizes += 1
+
+    source_total = None
+    source_sizes = {}
+    size_entries = {}
+    totals = []
+    total_difference = None
+    size_differences = {}
+    reasons = []
+    if not blocks:
+        reasons.append("Không tìm thấy bảng tổng hợp có tiêu đề và số liệu nhận diện được.")
+    elif len(blocks) > 1:
+        reasons.append("Sheet có nhiều bảng tổng hợp và chưa xác định được phạm vi của từng bảng.")
+    else:
+        block = blocks[0]
+        for entry in block["entries"]:
+            if entry["kind"] == "size":
+                size_entries.setdefault(entry["size"], []).append(entry)
+            elif entry["kind"] == "total":
+                totals.append(entry)
+        source_total = totals[0]["count"] if len(totals) == 1 else None
+        source_sizes = {size: rows[0]["count"] for size, rows in size_entries.items()
+                        if len(rows) == 1 and rows[0]["count"] is not None}
+        if source_total is None:
+            reasons.append("Bảng tổng hợp thiếu một dòng TOTAL có số container xác định được.")
+        if not source_sizes or len(source_sizes) != len(size_entries):
+            reasons.append("Bảng tổng hợp thiếu số lượng theo kích cỡ hoặc có mã kích cỡ lặp.")
+        if any(record["source_row"] > block["end_row"] for record in records):
+            reasons.append("Có dòng chi tiết sau bảng tổng hợp nên chưa xác định được phạm vi đối soát.")
+        elif "unparsed_after_header_row" not in metadata and not unresolved_rows:
+            if source_total is not None:
+                total_difference = len(sizes_by_container) - source_total
+            if unknown_sizes:
+                reasons.append("Có container thiếu kích cỡ hoặc được ghi với nhiều mã kích cỡ.")
+            elif source_sizes and len(source_sizes) == len(size_entries):
+                size_differences = {
+                    size: parsed_sizes.get(size, 0) - source_sizes.get(size, 0)
+                    for size in sorted(parsed_sizes.keys() | source_sizes.keys())
+                    if parsed_sizes.get(size, 0) != source_sizes.get(size, 0)
+                }
+    if "unparsed_after_header_row" in metadata:
+        reasons.append("Vùng chi tiết chưa được đọc hết vì tiêu đề thay đổi.")
+    if unresolved_rows:
+        reasons.append("Một số dòng chi tiết chưa có mã container hợp lệ.")
+    mismatch = bool(total_difference or size_differences)
+    metadata["reconciliation"] = {
+        "status": "unavailable" if reasons else "mismatch" if mismatch else "matched",
+        "reason": " ".join(reasons) or None,
+        "source_sheet": metadata["source_sheet"],
+        "source_total": source_total,
+        "source_size_counts": dict(sorted(source_sizes.items())),
+        "parsed_total": len(sizes_by_container),
+        "parsed_size_counts": dict(sorted(parsed_sizes.items())),
+        "parsed_container_bl_pairs": len(container_bills),
+        "unresolved_container_rows": unresolved_rows,
+        "total_difference": total_difference,
+        "size_differences": size_differences,
+        "summary_blocks": blocks,
+    }
+    if not mismatch:
+        return
+    block = blocks[0]
+    first_mismatch = block["header_row"]
+    if total_difference:
+        first_mismatch = totals[0]["source_row"]
+    else:
+        mismatched_entries = size_entries.get(next(iter(size_differences)))
+        if mismatched_entries:
+            first_mismatch = mismatched_entries[0]["source_row"]
+    finding = issue("VINAFCO_SUMMARY_MISMATCH",
+        "Số container đọc được không khớp bảng tổng hợp VINAFCO. Kiểm tra số container duy nhất và số theo kích cỡ.",
+        severity="warning", source_sheet=block["source_sheet"], source_row=first_mismatch)
+    finding["details"] = {"source_total": source_total, "parsed_total": len(sizes_by_container),
+                          "total_difference": total_difference, "size_differences": size_differences,
+                          "summary_header_row": block["header_row"]}
+    issues.append(finding)
 
 
 def _clean_name(value: str) -> str:
@@ -320,8 +527,13 @@ def parse_manifest(path, *, settings=None, progress=None) -> dict:
         issues.append(issue("VINAFCO_MULTIPLE_TABLES",
             f"File có nhiều bảng manifest ({names}). Hãy chọn sheet cần xử lý để tránh bỏ sót hoặc cộng trùng dữ liệu.", severity="error"))
         metadata["candidate_sheets"] = [c[0] for c in candidates]
+        metadata["table_candidates"] = [
+            {"source_sheet": name, "header_row": idx + 1,
+             "preview_rows": _candidate_preview(frame, idx, mapping, summary_rows, cfg)}
+            for name, frame, idx, mapping, _, _, _, summary_rows in candidates
+        ]
         return result
-    sheet_name, frame, header_idx, columns, duplicate_columns, default_unit = candidates[0]
+    sheet_name, frame, header_idx, columns, duplicate_columns, default_unit, blocks, summary_rows = candidates[0]
     metadata.update({"source_sheet": sheet_name, "header_row": header_idx + 1,
                      "weight_kind": cfg["weight_kind"], "number_format": cfg["number_format"],
                      "column_mapping": dict(columns)})
@@ -401,6 +613,14 @@ def parse_manifest(path, *, settings=None, progress=None) -> dict:
 
     for row_idx in range(header_idx + 1, len(frame)):
         row = frame.iloc[row_idx]
+        summary_kind = summary_rows.get(row_idx + 1)
+        if summary_kind:
+            if summary_kind == "header":
+                finalize()
+                group = None
+                collecting = None
+            fragment(row_idx, row, "corroborating", f"container_summary_{summary_kind}")
+            continue
         repeated, repeated_duplicates, repeated_unit = _map_header(row.tolist(), cfg)
         if "container_no" in repeated and len(repeated) >= 4:
             if repeated != columns or repeated_duplicates or repeated_unit != default_unit:
@@ -425,7 +645,7 @@ def parse_manifest(path, *, settings=None, progress=None) -> dict:
         party = raw["party_raw"]
         marker = _PARTY.match(party)
         container_raw = raw["container_no"]
-        cont_compact = re.sub(r"[\s-]+", "", container_raw).upper()
+        cont_compact = _container_key(container_raw)
         valid_container = bool(_CONTAINER.fullmatch(cont_compact))
         footer = _is_footer(raw)
         if footer:
@@ -513,6 +733,7 @@ def parse_manifest(path, *, settings=None, progress=None) -> dict:
                 ["FE_Status", "Weight_Value"] if code == "VINAFCO_FE_CONFLICT" else None)
         group["records"].append(record)
     finalize()
+    _reconcile(records, metadata, blocks, issues)
     metadata["records_detected"] = len(records)
     metadata["coverage"] = {"source_fragments": len(fragments),
         **{f"{status}_fragments": sum(item["status"] == status for item in fragments)

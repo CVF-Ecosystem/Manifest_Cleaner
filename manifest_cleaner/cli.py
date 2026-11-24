@@ -10,8 +10,31 @@ from .engine import CARRIERS, load_review, load_settings, process_manifest
 from .exporter import export_port_bundle
 
 
+def _write_text(stream, message):
+    """Use the caller's stream and encoding, replacing only unencodable text."""
+    try:
+        stream.write(message)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, "encoding", None) or "ascii"
+        stream.write(message.encode(encoding, errors="backslashreplace").decode(encoding))
+
+
+def _write_json(stream, data, **options):
+    """Use JSON escapes when the stream cannot represent the original text."""
+    try:
+        stream.write(json.dumps(data, ensure_ascii=False, **options) + "\n")
+    except UnicodeEncodeError:
+        stream.write(json.dumps(data, ensure_ascii=True, **options) + "\n")
+
+
+class _SafeArgumentParser(argparse.ArgumentParser):
+    def _print_message(self, message, file=None):
+        if message:
+            _write_text(file or sys.stderr, message)
+
+
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Xử lý một manifest của một hãng tàu, không phân loại theo tên tàu.")
+    parser = _SafeArgumentParser(description="Xử lý một manifest của một hãng tàu, không phân loại theo tên tàu.")
     parser.add_argument("input", type=Path, nargs="?", help="File manifest XLS/XLSX/XLSM")
     parser.add_argument("--carrier", choices=CARRIERS)
     parser.add_argument("--resume", type=Path, help="Mở lại phiên đối chiếu v2 đã lưu, giữ các chỉnh sửa")
@@ -48,9 +71,9 @@ def main(argv=None) -> int:
             session = process_manifest(args.input, args.carrier, settings=config)
             session.metadata["settings_source"] = str(args.settings.resolve()) if args.settings else "defaults"
         stats = session.statistics()
-        print(json.dumps({"carrier": session.carrier, "session_id": session.metadata.get("session_id"),
+        _write_json(sys.stdout, {"carrier": session.carrier, "session_id": session.metadata.get("session_id"),
                           "effective_settings": session.settings, "used_sheets": session.metadata.get("used_sheets", []),
-                          "statistics": stats, "issues": session.validate()}, ensure_ascii=False, indent=2))
+                          "statistics": stats, "issues": session.validate()}, indent=2)
         if args.output:
             if stats["errors"]:
                 review_target = None if args.no_review else (args.review or args.output.with_suffix(".review.json"))
@@ -75,12 +98,12 @@ def main(argv=None) -> int:
                 )
             result = export_port_bundle(session, args.output, overwrite=args.overwrite,
                                         include_review=not args.no_review, review_path=args.review)
-            print(json.dumps({name: str(value) if value else None for name, value in result.items()}, ensure_ascii=False))
+            _write_json(sys.stdout, {name: str(value) if value else None for name, value in result.items()})
         elif args.review:
             session.save_review(args.review, overwrite=args.overwrite)
         return 2 if stats["errors"] else 0
     except Exception as exc:
-        print(f"Lỗi: {exc}", file=sys.stderr)
+        _write_text(sys.stderr, f"Lỗi: {exc}\n")
         return 1
 
 

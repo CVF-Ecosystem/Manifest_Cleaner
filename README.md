@@ -1,10 +1,12 @@
-# Manifest Cleaner Unified 1.1.1
+# Manifest Cleaner Unified 1.2.0
 
 Ứng dụng **local**, xử lý **một manifest của một hãng tàu mỗi phiên**, hỗ trợ đối chiếu dữ liệu và xuất Excel theo mẫu nhập hệ thống quản lý container của Cảng.
 
 **Bắt đầu:** giải nén toàn bộ thư mục, dùng Python 3.12 64-bit và chạy `START.cmd`. Mở [START_HERE.html](START_HERE.html) để xem hướng dẫn tiếng Việt dùng được offline.
 
-**Bản vá hiện tại:** [Hướng dẫn 1.1.1 và đề xuất hoàn thiện](docs/V1_1_1_GUIDE.html). Bản này sửa lỗi CLI ghi đè JSON trong khi Excel cũ được giữ lại sau một lần xuất thất bại. [Release notes](docs/RELEASE_NOTES_V1_1_1.md) nêu hành vi cụ thể; [bàn giao agent local](docs/LOCAL_AGENT_V111.md) có bước kiểm tra và đề xuất đọc Excel linh hoạt hơn. Các đề xuất được đánh dấu rõ, chưa triển khai trong bản vá.
+**Thay đổi 1.2.0:** VINAFCO có thể chọn sheet ngay khi phát hiện nhiều bảng và đối soát phần chi tiết với bảng tổng hợp. VOSCO báo ứng viên container lệch cột trong vùng hỗ trợ. CLI hỗ trợ chuyển hướng đầu ra Windows có mã hóa cũ. [Ghi chú bản 1.2.0](docs/RELEASE_NOTES_V1_2.md) mô tả hành vi và phạm vi kiểm chứng.
+
+**Bản nền 1.1.1:** [Hướng dẫn 1.1.1](docs/V1_1_1_GUIDE.html) và [ghi chú bản vá](docs/RELEASE_NOTES_V1_1_1.md) mô tả việc bảo vệ cặp Excel/JSON khi xuất thất bại.
 
 **Lịch sử 1.1.0:** [Tổng hợp nâng cấp](docs/RELEASE_NOTES_V1_1.html) gồm ma trận F01–F09 và kết quả kiểm thử tại lần phát hành đó.
 

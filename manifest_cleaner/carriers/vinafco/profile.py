@@ -4,6 +4,8 @@ These are port import mappings, not a claim that every value is an ISO code.
 They are deliberately local to this carrier profile.
 """
 
+from .. import CARRIER_PROFILES
+
 SIZE_TO_VTOS = {
     "20DC": "20DC", "20GP": "20DC", "40DC": "40DC", "40GP": "40HC",
     "40HC": "40HC", "40HQ": "40HC", "45GP": "45HC", "45HC": "45HC",
@@ -46,9 +48,10 @@ HEADER_ALIASES = {
     "remarks": ["REMARKS", "REMARK", "NOTES"],
 }
 
+_CARRIER = CARRIER_PROFILES["VINAFCO"]
 DEFAULTS = {
-    "operator_soc": "SVF", "operator_coc": "VFC",
-    "default_weight_unit": "TONS", "number_format": "legacy", "weight_kind": "gross",
+    **_CARRIER.defaults(),
+    "operator_soc": _CARRIER.operator(True), "operator_coc": _CARRIER.operator(),
     "peek_rows": 80, "tare_20ft": 2.3, "tare_40ft": 3.8, "tare_45ft": 4.5,
     "tare_20rf": 3.0, "tare_40rf": 4.8, "tare_45rf": 4.0,
     "min_payload": 0.1, "safety_margin": 0.1, "cargo_weight_empty_threshold": 0.05,

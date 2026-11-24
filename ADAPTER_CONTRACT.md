@@ -50,6 +50,8 @@ Excel custom properties contain app version, carrier, session ID and source hash
 
 ## Maintenance and tests
 
+Register an additional carrier in `manifest_cleaner/carriers/__init__.py`. Its profile declares the adapter module, operator codes, default and optional settings, and the existing port layout and formatting rules it uses. Engine validation, the GUI carrier selector, CLI choices and PyInstaller discover that registry. If the carrier needs new output semantics, extend the exporter with a separately verified contract. Validate against an independently accepted input and expected output before adding it to release coverage.
+
 Use unittest; tests may build synthetic workbooks. Frozen golden expectations in `tests/fixtures/golden_v110` were authored separately from parser/exporter outputs. Do not regenerate them from application output. `scripts/create_samples.py` generates interactive demo outputs and is deliberately separate from the independent golden corpus.
 
 Change business mappings only with an explicit source/business decision and a regression case. Run the relevant tests while developing and the full suite before packaging. See `docs/VALIDATION_REPORT.md` for the actual release run and `docs/WINDOWS_RELEASE_CHECKLIST.md` for work that still requires a Windows/port environment.

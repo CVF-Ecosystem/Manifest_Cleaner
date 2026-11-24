@@ -16,6 +16,7 @@ from ...common import (
     is_explicit_empty, issue, normalize_text, parse_weight, read_workbook,
     text_value,
 )
+from .. import CARRIER_PROFILES
 from .mappings import (
     SAFETY_MARGIN_TONS, SIZE_TO_VTOS, TANK_TARE_WEIGHTS_TONS, TARE_WEIGHTS_TONS,
 )
@@ -37,6 +38,9 @@ BL_HEADERS = {
     "BILL OF LADING NO", "B/L NUMBER", "BL NUMBER", "SO BL", "SO B/L",
 }
 WEIGHT_HEADERS = {"WEIGHT", "GROSS WEIGHT", "TRONG LUONG", "KGS", "TONS"}
+_CARRIER = CARRIER_PROFILES["VOSCO"]
+_ADJACENT_CONTAINER = re.compile(r"^[A-Z]{4}\d{7}(?:/[A-Z0-9-]*)?\s+\d{2}[A-Z0-9]{1,4}(?:-[CS])?$", re.I)
+_FOOTER_MARKER = re.compile(r"(?:TOTAL|GRAND TOTAL|TONG CONG|TONG SO)(?:\s*[:=]\s*.*|\s+\d.*)?")
 
 
 def _cell(row, column):
@@ -164,14 +168,14 @@ def refresh_derived_fields(record, settings=None):
         if supported and result.get("FE_Status") in {"F", "E"} else ""
     )
     if not result.get("Operator"):
-        result["Operator"] = "SVC" if result.get("raw", {}).get("is_soc") else "VOC"
+        result["Operator"] = _CARRIER.operator(bool(result.get("raw", {}).get("is_soc")))
     return result
 
 
 def parse_manifest(path, *, settings=None, progress=None):
     """Read one VOSCO file into records, issues and source metadata."""
     settings = dict(settings or {})
-    weight_kind = settings.get("weight_kind", "unknown")
+    weight_kind = settings.get("weight_kind", _CARRIER.weight_kind)
     if weight_kind not in ("gross", "cargo", "unknown"):
         raise ValueError("weight_kind của VOSCO chỉ nhận gross, cargo hoặc unknown.")
     source_file = Path(path).name
@@ -183,7 +187,7 @@ def parse_manifest(path, *, settings=None, progress=None):
         "source_baseline": "e5a78dd0444349990b08992ceb57758aa074dcb8",
         "available_sheets": [name for name, _ in sheets],
         "layout": "VOSCO A/B/F/K/O/S; header rows detected from content",
-        "weight_kind": settings.get("weight_kind", "unknown"),
+        "weight_kind": weight_kind,
     }
     if not sheets:
         return {"records": [], "issues": [issue(
@@ -242,7 +246,7 @@ def parse_manifest(path, *, settings=None, progress=None):
                 candidate = re.split(r"[\s/]", raw_line, maxsplit=1)[0]
                 explicit_soc = bool(re.search(r"-S\s*$", raw_line, re.IGNORECASE))
                 parsed = {"no": candidate, "seal": None, "type": None,
-                          "operator": "SVC" if explicit_soc else "VOC",
+                          "operator": _CARRIER.operator(explicit_soc),
                           "is_soc": explicit_soc, "_unparsed": True}
             valid.append((number, raw_line, parsed))
         if not valid:
@@ -403,6 +407,39 @@ def parse_manifest(path, *, settings=None, progress=None):
                 "reason": "unparsed" if parsed.get("_unparsed") else "container_record_requires_review" if unresolved else "container_record",
             })
 
+    # Reuse the established detail boundary and bill blocks while scanning
+    # J/L independently. Missing BL or weight does not hide a valid candidate.
+    by_source = {(record["source_row"], record["Container_No"]): record for record in records}
+    last_detail_row = max((row for row, _ in by_source), default=first_data_index)
+    for row_number in range(first_data_index + 1, len(rows) + 1):
+        row = rows[row_number - 1]
+        if row_number > last_detail_row and any(
+            _FOOTER_MARKER.fullmatch(normalize_text(_cell(row, column)))
+            for column in (COL_MARKER, COL_BL)
+        ):
+            break
+        if not contexts[row_number - 1]["Master_BL_Group_ID"]:
+            continue
+        for column in (COL_CONTAINER - 1, COL_CONTAINER + 1):
+            for line_number, raw_line in enumerate(_cell(row, column).splitlines(), start=1):
+                line = raw_line.strip()
+                parsed = parse_container_line(line.upper()) if _ADJACENT_CONTAINER.fullmatch(line) else None
+                if not parsed or not is_supported_size_type(parsed.get("type")):
+                    continue
+                linked = by_source.get((row_number, parsed["no"]))
+                entry = issue("VOSCO_ADJACENT_CONTAINER_CANDIDATE",
+                    f"Có ứng viên container tại dòng {row_number}, cột {column + 1}, ngoài cột K; cần đối chiếu nguồn.",
+                    severity="warning" if linked else "error", source_sheet=sheet,
+                    source_row=row_number, record_id=linked["record_id"] if linked else None)
+                entry["source_column"] = column + 1
+                entry["details"] = {"reason": "adjacent_to_container_column", "source_line": line_number}
+                issues.append(entry)
+                source_fragments.append({"source_sheet": sheet, "source_row": row_number,
+                    "source_column": column + 1, "source_line": line_number, "text": line,
+                    "record_id": linked["record_id"] if linked else None,
+                    "status": "corroborating" if linked else "unresolved",
+                    "reason": "adjacent_column_candidate"})
+
     if records:
         # This is the last transformation used by the operational VOSCO export.
         # It does not replace every E description with EMPTY.
@@ -432,7 +469,7 @@ def parse_manifest(path, *, settings=None, progress=None):
     metadata.update({"record_count": len(records), "detected_container_count": candidate_count,
                      "first_container_row": min((r["source_row"] for r in records), default=None),
                      "source_fragments": source_fragments,
-                     "coverage_scope": "Candidate container lines in column K, excluded non-cargo description lines and quantity evidence in column O on candidate rows; parse-time snapshot, not a whole-workbook accuracy measure.",
+                     "coverage_scope": "Candidate container lines in column K, bounded adjacent-column audit and description evidence; parse-time snapshot, not a whole-workbook accuracy measure.",
                      "coverage": {"source_fragments": len(source_fragments),
                                   **{f"{status}_fragments": sum(item["status"] == status for item in source_fragments)
                                      for status in ("parsed", "unresolved", "ignored", "corroborating")}}})

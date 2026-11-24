@@ -16,17 +16,12 @@ import xlsxwriter
 
 from .common import text_value
 from . import __version__
+from .carriers import CARRIER_PROFILES
 from .engine import ManifestSession, assert_source_unchanged, source_sha256
-
-COMMON_COLUMNS = ["STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ",
-                  "Kích cỡ VTOS", "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng",
-                  "Hàng hóa", "Loại hàng", "Độ chính xác (%)", "Ghi chú"]
-VIMC_COLUMNS = ["STT", "Số Vận Đơn", "Số Container", "Số niêm chì", "Số niêm chì 1", "Chủ hàng",
-                "Kích cỡ", "Loại Container", "Hãng khai thác", "Loại hàng", "F/E", "Trọng lượng (Tấn)",
-                "Hàng hóa", "Số lượng", "Độ chính xác (%)", "Ghi chú"]
 
 
 def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_record: dict | None = None) -> tuple[list[str], list[list]]:
+    profile = CARRIER_PROFILES[session.carrier].export
     issues = session.validate()
     errors = [i for i in issues if i.get("severity") == "error"]
     if errors and not allow_errors:
@@ -39,7 +34,9 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_re
             records = records + [extra_record]
     quantities = defaultdict(set)
     def quantity_key(record):
-        return text_value(record.get("Master_BL_Group_ID") or record.get("BL_No")) if session.carrier in {"VIMC", "VINAFCO"} else text_value(record.get("BL_No"))
+        if profile.group_quantity_by_master_bl and record.get("Master_BL_Group_ID"):
+            return text_value(record["Master_BL_Group_ID"])
+        return text_value(record.get("BL_No"))
     for record in records:
         quantities[quantity_key(record)].add(text_value(record.get("Container_No")))
     by_record = defaultdict(list)
@@ -49,7 +46,7 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_re
             by_record[str(item["record_id"])].append(item)
         else:
             general.append(item)
-    columns = VIMC_COLUMNS if session.carrier == "VIMC" else COMMON_COLUMNS
+    columns = profile.columns
     rows = []
     for index, record in enumerate(records, 1):
         local_issues = by_record[record["record_id"]] + general
@@ -70,18 +67,20 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_re
                 if not allow_errors:
                     raise ValueError("Trọng lượng không hợp lệ.")
                 weight = None
-            # Preserve source behavior: VIMC/VINAFCO round at export to 2 decimals.
-            if weight is not None and session.carrier in {"VIMC", "VINAFCO"}:
-                weight = float(pd.Series([weight], dtype="float64").round(2).iloc[0])
+            if weight is not None and profile.weight_digits is not None:
+                weight = float(pd.Series([weight], dtype="float64").round(profile.weight_digits).iloc[0])
+        description = text_value(record.get("Description"))
+        if record.get("FE_Status") == "E" and profile.empty_description is not None:
+            description = profile.empty_description
         values = {"STT": index, "Số lượng": len(quantities[quantity_key(record)]),
                   "Số BL": text_value(record.get("BL_No")), "Số Vận Đơn": text_value(record.get("BL_No")),
                   "Số Container": text_value(record.get("Container_No")), "Hãng khai thác": text_value(record.get("Operator")),
-                  "Kích cỡ": text_value(record.get("VTOS_Size") if session.carrier == "VIMC" else record.get("Size_Type")),
+                  "Kích cỡ": text_value(record.get(profile.primary_size_field)),
                   "Kích cỡ VTOS": text_value(record.get("VTOS_Size")), "Loại Container": text_value(record.get("VTOS_Size")),
                   "F/E": text_value(record.get("FE_Status")), "TL hàng": weight, "Trọng lượng (Tấn)": weight,
                   "Số niêm chì": text_value(record.get("Seal_No")), "Số niêm chì 1": text_value(record.get("Seal_No")),
                   "Chủ hàng": text_value(record.get("Cleaned_Consignee_Name_For_Output")),
-                  "Hàng hóa": "EMPTY" if session.carrier != "VOSCO" and record.get("FE_Status") == "E" else text_value(record.get("Description")),
+                  "Hàng hóa": description,
                   "Loại hàng": text_value(record.get("Cargo_Type")), "Độ chính xác (%)": confidence,
                   "Ghi chú": " | ".join(remarks)}
         row = [values[c] for c in columns]
@@ -129,7 +128,7 @@ def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: 
             sheet = book.add_worksheet("Processed_Manifest")
             header = book.add_format({"bold": True, "bg_color": "#173D5B", "font_color": "#FFFFFF", "border": 1})
             text_format = book.add_format({"num_format": "@"})
-            numeric_format = book.add_format({"num_format": "0.00" if session.carrier != "VOSCO" else "0.####"})
+            numeric_format = book.add_format({"num_format": CARRIER_PROFILES[session.carrier].export.weight_format})
             empty_format = book.add_format({"bg_color": "#DAEEF3"})
             seal_format = book.add_format({"bg_color": "#FFF3BF"})
             for col_index, label in enumerate(columns):

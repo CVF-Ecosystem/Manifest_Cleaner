@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 from .mappings import SIZE_TO_VTOS
 from ...common import parse_weight
+from .. import CARRIER_PROFILES
 
 
 # --- Regex Patterns ---
@@ -121,7 +122,7 @@ def parse_container_line(line: str) -> Optional[Dict[str, Any]]:
     if size_type and not re.fullmatch(r"\d{2}[A-Z0-9]{1,4}", size_type):
         size_type = None
 
-    operator = "SVC" if is_soc else "VOC"
+    operator = CARRIER_PROFILES["VOSCO"].operator(is_soc)
     
     return {
         "no": container_no,

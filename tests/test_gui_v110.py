@@ -18,7 +18,7 @@ from openpyxl import load_workbook
 from manifest_cleaner import gui
 from manifest_cleaner.engine import EDITABLE_FIELDS, load_review, load_settings, process_manifest
 from manifest_cleaner.exporter import build_port_rows
-from scripts.create_samples import create_vimc
+from scripts.create_samples import create_vimc, create_vinafco
 
 
 class Variable:
@@ -155,6 +155,65 @@ class GUIRegressionTests(unittest.TestCase):
             dialog.buttons["Lưu chỉnh sửa / xác nhận"]()
             return dialog
 
+    def test_ambiguous_vinafco_sheet_prompts_and_restarts_only_on_explicit_choice(self):
+        path = create_vinafco(self.folder / "multiple.xlsx")
+        with path.open("rb") as source:
+            book = load_workbook(source)
+            book.copy_worksheet(book.active).title = "Bản phụ"
+            book.save(path.with_suffix(".tmp.xlsx"))
+            book.close()
+        path.with_suffix(".tmp.xlsx").replace(path)
+        session = process_manifest(path, "VINAFCO")
+        self.assertFalse(session.records)
+        names = session.metadata["candidate_sheets"]
+        self.assertEqual(len(names), 2)
+        app = self.app(session)
+        with patch.object(app, "_start") as restart, patch.object(app, "_choose_sheet", return_value=None) as choose:
+            app._complete_read(session)
+            candidates = choose.call_args.args[0]
+            self.assertEqual([item["source_sheet"] for item in candidates], names)
+            self.assertTrue(all(candidate["header_row"] > 0 and candidate["preview_rows"] for candidate in candidates))
+            restart.assert_not_called()
+            self.assertIn("Chưa chọn sheet", app.status.get())
+            choose.return_value = "Bản phụ"
+            app._complete_read(session)
+            restart.assert_called_once_with(path, sheet="Bản phụ", read_settings=app.settings["VINAFCO"])
+        selected = process_manifest(path, "VINAFCO", settings={"selected_sheet": "Bản phụ"})
+        with patch.object(app, "_choose_sheet") as choose:
+            app._complete_read(selected)
+            choose.assert_not_called()
+        self.assertTrue(selected.records)
+        app.read_override = ("VINAFCO", path, selected.settings)
+        self.assertEqual(app._read_settings(), selected.settings)
+        self.assertNotIn("selected_sheet", app.settings["VINAFCO"])
+        self.assertFalse(app.config_path.exists())
+        review = self.folder / "chosen.review.json"
+        selected.save_review(review)
+        with patch.object(gui.filedialog, "askopenfilename", return_value=str(review)):
+            app.choose_review()
+        self.assertEqual(app._read_settings()["selected_sheet"], "Bản phụ")
+        with fake_dialog() as dialog:
+            app.number_settings()
+            dialog.strings[0].set("Dấu chấm thập phân: 25,000.50")
+            dialog.buttons["Lưu cấu hình"]()
+        self.assertEqual(app._read_settings()["selected_sheet"], "Bản phụ")
+        self.assertNotIn("selected_sheet", load_settings(app.config_path)["VINAFCO"])
+        app.selected_path = self.folder / "other.xlsx"
+        self.assertNotIn("selected_sheet", app._read_settings())
+
+    def test_reconciliation_display_distinguishes_unavailable_from_zero_difference(self):
+        session = self.session()
+        session.metadata["reconciliation"] = {
+            "source_total": 57, "parsed_total": 57, "total_difference": 0, "size_differences": {},
+        }
+        self.assertIn("nguồn khai 57 · đọc được 57 · chênh lệch 0", gui._reconciliation_description(session))
+        session.metadata["reconciliation"].update(
+            source_total=None, parsed_total=4, total_difference=None, reason="Thiếu nhãn TOTAL.",
+        )
+        display = gui._reconciliation_description(session)
+        self.assertIn("Thiếu nhãn TOTAL.", display)
+        self.assertNotIn("chênh lệch 0", display)
+
     def test_seal_edit_does_not_clear_unrelated_fe_conflict(self):
         session = self.session(status="COC EMPTY")
         app = self.app(session)
@@ -263,7 +322,7 @@ class GUIRegressionTests(unittest.TestCase):
         error.assert_not_called()
         self.assertEqual(app.session.records[0]["Seal_No"], "009999")
         self.assertTrue(app.session.corrections)
-        self.assertEqual(app.settings["VIMC"], app.session.settings)
+        self.assertEqual(app._read_settings(), app.session.settings)
         self.assertFalse(app.dirty)
 
     def test_resume_can_relocate_unchanged_original_file(self):

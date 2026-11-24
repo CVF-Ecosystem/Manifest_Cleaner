@@ -3,6 +3,9 @@ from contextlib import redirect_stderr, redirect_stdout
 import hashlib
 import io
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -19,6 +22,44 @@ class Cli110Tests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.folder = Path(self.temporary.name)
+
+    def test_cli_redirected_cp1252_and_utf8_streams(self):
+        for encoding, args, expected in (("cp1252", ["--help"], 0),
+                                         ("cp1252", [], 2),
+                                         ("cp1252", ["missing.xlsx", "--carrier", "VIMC"], 1),
+                                         ("utf-8", ["--help"], 0)):
+            with self.subTest(encoding=encoding, args=args):
+                env = dict(os.environ, PYTHONIOENCODING=encoding, PYTHONUTF8="0", PYTHONDONTWRITEBYTECODE="1")
+                result = subprocess.run([sys.executable, "-m", "manifest_cleaner.cli", *args],
+                                        capture_output=True, env=env)
+                self.assertEqual(result.returncode, expected, result.stderr)
+                self.assertNotIn(b"UnicodeEncodeError", result.stderr)
+                output = (result.stdout + result.stderr).decode(encoding)
+                self.assertTrue(output)
+                if encoding == "utf-8" and args == ["--help"]:
+                    self.assertIn("Xử lý", output)
+
+    def test_cp1252_redirected_json_preserves_exit_and_parseable_output(self):
+        source = self.source()
+        env = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0", PYTHONDONTWRITEBYTECODE="1")
+        result = subprocess.run([sys.executable, "-m", "manifest_cleaner.cli", str(source), "--carrier", "VIMC"],
+                                capture_output=True, env=env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.decode("cp1252"))
+        self.assertEqual(payload["carrier"], "VIMC")
+
+    def test_cp1252_json_round_trips_non_bmp_output_path(self):
+        source = self.source()
+        output = self.folder / "port_😀.xlsx"
+        env = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0", PYTHONDONTWRITEBYTECODE="1")
+        result = subprocess.run([sys.executable, "-m", "manifest_cleaner.cli", str(source),
+                                 "--carrier", "VIMC", "--output", str(output)],
+                                capture_output=True, env=env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        text = result.stdout.decode("cp1252")
+        _, end = json.JSONDecoder().raw_decode(text)
+        exported = json.loads(text[end:].strip())
+        self.assertEqual(Path(exported["excel"]), output.resolve())
 
     def invoke(self, *args):
         stdout, stderr = io.StringIO(), io.StringIO()

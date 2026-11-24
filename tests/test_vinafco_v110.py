@@ -188,6 +188,169 @@ class Vinafco110Tests(unittest.TestCase):
         self.assertEqual(result["records"], [])
         self.assertIn("VINAFCO_AMBIGUOUS_COLUMNS", {i["code"] for i in result["issues"]})
 
+    def summary(self, entries, *, offset=1):
+        return [[""] * offset + list(entry) for entry in [
+            ("LOẠI CONT", "SỐ LƯỢNG", "GHI CHÚ"), *entries,
+        ]]
+
+    def test_moved_summary_preserves_missing_id_and_records_source_coordinates(self):
+        path = self.workbook([
+            self.container(), self.container("", seal="001235", gw=26),
+            *self.summary([("20DC", 2), ("TOTAL:", 2), ("TEUS:", 2)], offset=9),
+        ])
+        session = process_manifest(path, "VINAFCO")
+        self.assertEqual([record["source_row"] for record in session.records], [4, 5])
+        self.assertEqual(session.records[1]["raw"]["seal"], "001235")
+        self.assertEqual(session.records[1]["Container_No"], "")
+        reconciliation = session.metadata["reconciliation"]
+        self.assertEqual(reconciliation["unresolved_container_rows"], [5])
+        block, = reconciliation["summary_blocks"]
+        self.assertEqual((block["source_sheet"], block["header_row"], block["end_row"]), ("MANIFEST", 6, 9))
+        self.assertEqual(block["columns"], {"size": 10, "quantity": 11, "remarks": 12})
+        self.assertEqual(block["entries"][0]["source_row"], 7)
+        self.assertEqual(block["entries"][0]["source_column"], 11)
+        fragments = session.metadata["source_fragments"]
+        self.assertEqual([f["source_row"] for f in fragments if f["reason"].startswith("container_summary_")],
+                         [6, 7, 8, 9])
+        findings = {finding["code"]: finding for finding in session.validate()}
+        self.assertEqual(findings["VINAFCO_CONTAINER_MISSING"]["source_row"], 5)
+        self.assertEqual(reconciliation["status"], "unavailable")
+        self.assertIsNone(reconciliation["total_difference"])
+        self.assertEqual(reconciliation["size_differences"], {})
+
+    def test_matching_valid_count_cannot_reconcile_with_an_unresolved_id(self):
+        path = self.workbook([
+            self.container(), self.container("", seal="001235"),
+            *self.summary([("20DC", 1), ("TOTAL", 1)]),
+        ])
+        result = parse_manifest(path)
+        reconciliation = result["metadata"]["reconciliation"]
+        self.assertEqual(reconciliation["status"], "unavailable")
+        self.assertIn("mã container", reconciliation["reason"])
+        self.assertEqual((reconciliation["source_total"], reconciliation["parsed_total"]), (1, 1))
+        self.assertEqual(reconciliation["unresolved_container_rows"], [5])
+        self.assertIsNone(reconciliation["total_difference"])
+        self.assertEqual(reconciliation["size_differences"], {})
+
+    def test_sidecar_summary_header_cannot_hide_detail_on_the_same_row(self):
+        for number in ("MSCU7654321", ""):
+            with self.subTest(number=number):
+                sidecar = self.summary([("20DC", 1), ("TOTAL", 1)], offset=len(self.fields))
+                detail_with_header = self.container(number, seal="001235") + sidecar[0][len(self.fields):]
+                result = parse_manifest(self.workbook([self.container(), detail_with_header, *sidecar[1:]]))
+                self.assertEqual([r["source_row"] for r in result["records"]], [4, 5])
+                self.assertEqual(result["records"][1]["Container_No"], number)
+                self.assertEqual(result["records"][1]["raw"]["seal"], "001235")
+                reconciliation = result["metadata"]["reconciliation"]
+                self.assertEqual(reconciliation["summary_blocks"], [])
+                self.assertEqual(reconciliation["status"], "unavailable")
+                self.assertIsNone(reconciliation["total_difference"])
+
+    def test_total_mismatch_warns_at_the_labeled_total(self):
+        path = self.workbook([self.container(), *self.summary([("20DC", 2), ("TOTAL:", 2)])])
+        session = process_manifest(path, "VINAFCO")
+        reconciliation = session.metadata["reconciliation"]
+        self.assertEqual(reconciliation["status"], "mismatch")
+        self.assertEqual(reconciliation["total_difference"], -1)
+        self.assertEqual(reconciliation["size_differences"], {"20DC": -1})
+        warning = next(i for i in session.validate() if i["code"] == "VINAFCO_SUMMARY_MISMATCH")
+        self.assertEqual((warning["severity"], warning["source_sheet"], warning["source_row"]),
+                         ("warning", "MANIFEST", 7))
+        self.assertIsNone(warning["record_id"])
+
+    def test_reconciliation_counts_unique_containers_and_container_bill_pairs(self):
+        path = self.workbook([
+            self.container(number="mscu-1234567"), self.container(),
+            self.row(party_raw="(S) OTHER", bill_no="BL-002"), self.row(party_raw="(C) OTHER"),
+            self.container(), self.container(number="MSCU7654321", type="40RF"),
+            *self.summary([("20DC", 1), ("40RF", 1), ("TOTAL", 2)]),
+        ])
+        result = parse_manifest(path)
+        reconciliation = result["metadata"]["reconciliation"]
+        self.assertEqual(len(result["records"]), 4)
+        self.assertEqual(reconciliation["parsed_total"], 2)
+        self.assertEqual(reconciliation["parsed_container_bl_pairs"], 3)
+        self.assertEqual(reconciliation["source_size_counts"], {"20DC": 1, "40RF": 1})
+        self.assertEqual(reconciliation["parsed_size_counts"], {"20DC": 1, "40RF": 1})
+        self.assertEqual(reconciliation["status"], "matched")
+        self.assertEqual(reconciliation["total_difference"], 0)
+
+    def test_size_mismatch_warns_at_the_source_row_and_does_not_block_export(self):
+        path = self.workbook([self.container(), *self.summary([("20DC", 0), ("40HC", 1), ("TOTAL", 1)])])
+        session = process_manifest(path, "VINAFCO")
+        reconciliation = session.metadata["reconciliation"]
+        self.assertEqual(reconciliation["status"], "mismatch")
+        self.assertEqual(reconciliation["total_difference"], 0)
+        self.assertEqual(reconciliation["size_differences"], {"20DC": 1, "40HC": -1})
+        warning = next(i for i in session.validate() if i["code"] == "VINAFCO_SUMMARY_MISMATCH")
+        self.assertEqual((warning["severity"], warning["source_row"]), ("warning", 6))
+        self.assertEqual(len(build_port_rows(session)[1]), 1)
+
+    def test_unlabeled_trailer_is_evidence_without_an_inferred_total(self):
+        path = self.workbook([
+            self.container(), *self.summary([("20DC", 1), ("", 1), ("", 1), ("", 25.3)]),
+        ])
+        result = parse_manifest(path)
+        self.assertEqual(len(result["records"]), 1)
+        reconciliation = result["metadata"]["reconciliation"]
+        self.assertEqual(reconciliation["status"], "unavailable")
+        self.assertIsNone(reconciliation["source_total"])
+        self.assertIsNone(reconciliation["total_difference"])
+        self.assertEqual(reconciliation["source_size_counts"], {"20DC": 1})
+        block, = reconciliation["summary_blocks"]
+        self.assertEqual(block["end_row"], 9)
+        self.assertEqual([entry["kind"] for entry in block["entries"]],
+                         ["size", "unlabeled_metric", "unlabeled_metric", "unlabeled_metric"])
+
+    def test_detail_continues_after_summary_without_reconciling_cross_scope(self):
+        for second_summary in (False, True):
+            with self.subTest(second_summary=second_summary):
+                summary = self.summary([("20DC", 1), ("TOTAL", 1)])
+                path = self.workbook([
+                    self.container(), *summary, self.headers(),
+                    self.row(party_raw="(S) NEXT", bill_no="BL-002"),
+                    self.row(party_raw="(C) NEXT"), self.container("MSCU7654321"),
+                    *(summary if second_summary else []),
+                ])
+                result = parse_manifest(path)
+                self.assertEqual([r["source_row"] for r in result["records"]], [4, 11])
+                self.assertEqual([r["BL_No"] for r in result["records"]], ["BL-001", "BL-002"])
+                reconciliation = result["metadata"]["reconciliation"]
+                self.assertEqual(reconciliation["status"], "unavailable")
+                self.assertIsNone(reconciliation["total_difference"])
+                self.assertEqual(reconciliation["size_differences"], {})
+                self.assertEqual(len(reconciliation["summary_blocks"]), 2 if second_summary else 1)
+                self.assertNotIn("VINAFCO_SUMMARY_MISMATCH", {i["code"] for i in result["issues"]})
+
+    def test_multiple_sheet_candidates_expose_preview_rows_and_skip_summary_only_sheet(self):
+        from openpyxl import load_workbook
+
+        path = self.workbook([self.container()])
+        book = load_workbook(path)
+        other = book.create_sheet("Other")
+        other.append(["Title"])
+        other.append(self.headers())
+        for _ in range(4):
+            other.append(self.container("MSCU7654321", comm="X" * 250))
+        summary_only = book.create_sheet("Summary Only")
+        summary_only.append(self.headers())
+        for row in self.summary([("20DC", 1), ("TOTAL", 1)]):
+            summary_only.append(row)
+        book.save(path)
+        book.close()
+        result = parse_manifest(path)
+        self.assertEqual(result["records"], [])
+        self.assertEqual(result["metadata"]["candidate_sheets"], ["MANIFEST", "Other"])
+        candidates = result["metadata"]["table_candidates"]
+        self.assertEqual([(c["source_sheet"], c["header_row"]) for c in candidates], [("MANIFEST", 1), ("Other", 2)])
+        preview = candidates[1]["preview_rows"]
+        self.assertEqual([r["source_row"] for r in preview], [3, 4, 5])
+        self.assertIn("MSCU7654321", preview[0]["text"])
+        self.assertTrue(all(len(r["text"]) <= 180 for r in preview))
+        chosen = process_manifest(path, "VINAFCO", settings={"selected_sheet": "Other"})
+        self.assertEqual(chosen.metadata["source_sheet"], "Other")
+        self.assertEqual(len(chosen.records), 4)
+
 
 if __name__ == "__main__":
     unittest.main()
