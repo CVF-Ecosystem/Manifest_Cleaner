@@ -1,0 +1,25 @@
+{
+  "action": {
+    "packet": "docs/work_orders/WO_MC_ROADMAP.md",
+    "sha256": "bf4443d7872942d0980b3d0f61710289c0bc4aecab439d280ce7417da91bc677",
+    "criteria": [
+      "M11",
+      "M12",
+      "M21",
+      "M22",
+      "M31",
+      "M32",
+      "M41"
+    ]
+  },
+  "controlId": "CVF-DG-COV-01",
+  "purpose": "INVOCATION",
+  "reviewer": "Independent activation reviewer, Astra 6.2 Medium",
+  "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
+  "decision": "ACCEPTED",
+  "reason": "Bound authority, selected criteria and owned M42 remainder were checked.",
+  "diagnostic": {
+    "path": "docs/reviews/activation-roadmap/pre-dispatch-diagnostic.json",
+    "sha256": "8b85f3f620094643eb214d8a0dd0a51ca30afcd5131a1c95820e75ea94a3334f"
+  }
+}

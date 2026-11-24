@@ -1,19 +1,17 @@
-﻿{
-    "schemaVersion":  "1.0",
-    "projectName":  "Manifest_Cleaner",
-    "overallStatus":  "BOOTSTRAPPED",
-    "currentPhase":  "INTAKE",
-    "completedCapabilities":  [
-
-                              ],
-    "activeWorkOrders":  [
-
-                         ],
-    "knownLimitations":  [
-                             "Project implementation status has not yet been assessed."
-                         ],
-    "evidence":  [
-
-                 ],
-    "updatedAt":  "2026-11-24"
+{
+  "schemaVersion": "1.0",
+  "projectName": "Manifest_Cleaner",
+  "overallStatus": "IN_PROGRESS",
+  "currentPhase": "BUILD",
+  "completedCapabilities": [],
+  "activeWorkOrders": [
+    "docs/work_orders/WO_MC_ROADMAP.md"
+  ],
+  "knownLimitations": [
+    "M42 requires operator business inputs. Port import acceptance is separate."
+  ],
+  "evidence": [
+    "docs/reviews/activation-roadmap/pre-dispatch-admitted.json"
+  ],
+  "updatedAt": "2026-11-24"
 }

@@ -1,0 +1,1 @@
+python -X utf8 -B ../.Controlled-Vibe-Framework-CVF/scripts/lib/downstream_governance/cvf_downstream_gate_runner.py run --trusted --phase pre-dispatch --project-root . --packet docs/work_orders/WO_MC_ROADMAP.md --receipt-dir .cvf/runtime/first-diagnostic

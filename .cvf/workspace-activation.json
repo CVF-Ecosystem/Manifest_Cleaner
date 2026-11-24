@@ -1,0 +1,340 @@
+{
+  "schemaVersion": "cvf.workspaceActivation@1.0.0",
+  "identity": {
+    "projectRootSha256": "60763948643abd11885cadfe33bccdc3e76a83379337bacf86f464d41abf1941",
+    "manifestSha256": "c36b269f3e4cdc29ee8c0bcec64f6d80c6b91fa3c11bb4e3128543c0e9d2308d",
+    "policySha256": "3c85076e217be9647ad721c37ce98f7ae9d4d17c8d23ed7ee3a71cc8717f9054",
+    "lockSha256": "685711f0b05588922df1d6745a2956b9a0d0778deb571f4f05f709f7b5c9e0a5",
+    "coreCommit": "b6d5a51a1e90c1c03426baa3d355834089ac652a",
+    "profileId": "cvf.downstreamGateProfile@1.4.0",
+    "profileSha256": "cef123ab02f3c4610e14c8b610ef9f2c00d8312d28ff8b72bd3968cb70d09998",
+    "deliveryFingerprint": "75076f8f12fe6840c8aa104c6b61a2a849510dbee00639b2bd182659ef9f5146",
+    "sourceRoute": "PINNED_CORE"
+  },
+  "sourcePolicy": "CORE_ONLY",
+  "reviewer": "Independent activation reviewer, Astra 6.2 Medium",
+  "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
+  "actions": [
+    {
+      "packet": "docs/work_orders/WO_MC_ROADMAP.md",
+      "sha256": "bf4443d7872942d0980b3d0f61710289c0bc4aecab439d280ce7417da91bc677",
+      "criteria": [
+        "M11",
+        "M12",
+        "M21",
+        "M22",
+        "M31",
+        "M32",
+        "M41"
+      ]
+    }
+  ],
+  "supplemental": [
+    {
+      "id": "SUPPLEMENTAL_ASSESSMENT",
+      "mode": "NOT_INSPECTED",
+      "sourceSha256": null,
+      "owner": "Orchestrator",
+      "actions": [
+        "Supplemental-dependent work is held outside this packet"
+      ],
+      "disposition": "HELD",
+      "independenceEvidence": [
+        {
+          "path": "docs/reviews/activation-roadmap/SUPPLEMENTAL_ASSESSMENT.json",
+          "sha256": "9ee2c4dc08c52de9a54f8e84341f056cb58973920124662586798cdc2d5948fd"
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "id": "CVF-DG-INST-01",
+      "owner": "Orchestrator",
+      "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
+      "reason": "Installed bundle, profile and runner match the verified pinned Core.",
+      "actions": [
+        "docs/work_orders/WO_MC_ROADMAP.md"
+      ],
+      "actionBindings": [
+        {
+          "packet": "docs/work_orders/WO_MC_ROADMAP.md",
+          "sha256": "bf4443d7872942d0980b3d0f61710289c0bc4aecab439d280ce7417da91bc677",
+          "criteria": [
+            "M11",
+            "M12",
+            "M21",
+            "M22",
+            "M31",
+            "M32",
+            "M41"
+          ]
+        }
+      ],
+      "criteria": [
+        "M11",
+        "M12",
+        "M21",
+        "M22",
+        "M31",
+        "M32",
+        "M41"
+      ],
+      "disposition": "APPLIED",
+      "evidence": {
+        "path": "docs/reviews/activation-roadmap/pre-dispatch-diagnostic.json",
+        "sha256": "8b85f3f620094643eb214d8a0dd0a51ca30afcd5131a1c95820e75ea94a3334f"
+      },
+      "configuredInvocation": {
+        "path": "docs/reviews/activation-roadmap/trusted-invocation.txt",
+        "sha256": "3a55ad2f46104692e1b76f7ebe2d1955b38fa87769e86fd0bbd3303b9841cc4c"
+      },
+      "invocationEvidence": [
+        {
+          "path": "docs/reviews/activation-roadmap/CVF-DG-INST-01.json",
+          "sha256": "39d8ae303295d8776868a2e535ad5465247d6c8e1bf1f8f96054046d83021709"
+        }
+      ]
+    },
+    {
+      "id": "CVF-DG-CONT-01",
+      "owner": "Orchestrator",
+      "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
+      "reason": "Project memory, active state, handoff and order agree.",
+      "actions": [
+        "docs/work_orders/WO_MC_ROADMAP.md"
+      ],
+      "actionBindings": [
+        {
+          "packet": "docs/work_orders/WO_MC_ROADMAP.md",
+          "sha256": "bf4443d7872942d0980b3d0f61710289c0bc4aecab439d280ce7417da91bc677",
+          "criteria": [
+            "M11",
+            "M12",
+            "M21",
+            "M22",
+            "M31",
+            "M32",
+            "M41"
+          ]
+        }
+      ],
+      "criteria": [
+        "M11",
+        "M12",
+        "M21",
+        "M22",
+        "M31",
+        "M32",
+        "M41"
+      ],
+      "disposition": "APPLIED",
+      "evidence": {
+        "path": "docs/reviews/activation-roadmap/pre-dispatch-diagnostic.json",
+        "sha256": "8b85f3f620094643eb214d8a0dd0a51ca30afcd5131a1c95820e75ea94a3334f"
+      },
+      "configuredInvocation": {
+        "path": "docs/reviews/activation-roadmap/trusted-invocation.txt",
+        "sha256": "3a55ad2f46104692e1b76f7ebe2d1955b38fa87769e86fd0bbd3303b9841cc4c"
+      },
+      "invocationEvidence": [
+        {
+          "path": "docs/reviews/activation-roadmap/CVF-DG-CONT-01.json",
+          "sha256": "85fe6c52f842b6a73c4005a2cd68d79f50d06ce2f013f06f780ddab0e69c6cad"
+        }
+      ]
+    },
+    {
+      "id": "CVF-DG-RANGE-01",
+      "owner": "Orchestrator",
+      "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
+      "reason": "Reviewed initial Git baseline and actual worktree scope, six candidates and zero deletions.",
+      "actions": [
+        "docs/work_orders/WO_MC_ROADMAP.md"
+      ],
+      "actionBindings": [
+        {
+          "packet": "docs/work_orders/WO_MC_ROADMAP.md",
+          "sha256": "bf4443d7872942d0980b3d0f61710289c0bc4aecab439d280ce7417da91bc677",
+          "criteria": [
+            "M11",
+            "M12",
+            "M21",
+            "M22",
+            "M31",
+            "M32",
+            "M41"
+          ]
+        }
+      ],
+      "criteria": [
+        "M11",
+        "M12",
+        "M21",
+        "M22",
+        "M31",
+        "M32",
+        "M41"
+      ],
+      "disposition": "APPLIED",
+      "evidence": {
+        "path": "docs/reviews/activation-roadmap/pre-dispatch-diagnostic.json",
+        "sha256": "8b85f3f620094643eb214d8a0dd0a51ca30afcd5131a1c95820e75ea94a3334f"
+      },
+      "configuredInvocation": {
+        "path": "docs/reviews/activation-roadmap/trusted-invocation.txt",
+        "sha256": "3a55ad2f46104692e1b76f7ebe2d1955b38fa87769e86fd0bbd3303b9841cc4c"
+      },
+      "invocationEvidence": [
+        {
+          "path": "docs/reviews/activation-roadmap/CVF-DG-RANGE-01.json",
+          "sha256": "f0c38efb992d4187ff3fe7d9dfb7d3a8bffae14565adff6a9a4a2851a2384a7a"
+        }
+      ]
+    },
+    {
+      "id": "CVF-DG-APPL-01",
+      "owner": "Orchestrator",
+      "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
+      "reason": "READY order and required gate-to-role closeability graph were checked.",
+      "actions": [
+        "docs/work_orders/WO_MC_ROADMAP.md"
+      ],
+      "actionBindings": [
+        {
+          "packet": "docs/work_orders/WO_MC_ROADMAP.md",
+          "sha256": "bf4443d7872942d0980b3d0f61710289c0bc4aecab439d280ce7417da91bc677",
+          "criteria": [
+            "M11",
+            "M12",
+            "M21",
+            "M22",
+            "M31",
+            "M32",
+            "M41"
+          ]
+        }
+      ],
+      "criteria": [
+        "M11",
+        "M12",
+        "M21",
+        "M22",
+        "M31",
+        "M32",
+        "M41"
+      ],
+      "disposition": "APPLIED",
+      "evidence": {
+        "path": "docs/reviews/activation-roadmap/pre-dispatch-diagnostic.json",
+        "sha256": "8b85f3f620094643eb214d8a0dd0a51ca30afcd5131a1c95820e75ea94a3334f"
+      },
+      "configuredInvocation": {
+        "path": "docs/reviews/activation-roadmap/trusted-invocation.txt",
+        "sha256": "3a55ad2f46104692e1b76f7ebe2d1955b38fa87769e86fd0bbd3303b9841cc4c"
+      },
+      "invocationEvidence": [
+        {
+          "path": "docs/reviews/activation-roadmap/CVF-DG-APPL-01.json",
+          "sha256": "695bd6f4846c0b7a87b6a0b67f7fd4aa8f6db2d83440e333a9676492497a8fa8"
+        }
+      ]
+    },
+    {
+      "id": "CVF-DG-ROUTE-01",
+      "owner": "Orchestrator",
+      "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
+      "reason": "INITIAL dispatch was checked for the exact packet.",
+      "actions": [
+        "docs/work_orders/WO_MC_ROADMAP.md"
+      ],
+      "actionBindings": [
+        {
+          "packet": "docs/work_orders/WO_MC_ROADMAP.md",
+          "sha256": "bf4443d7872942d0980b3d0f61710289c0bc4aecab439d280ce7417da91bc677",
+          "criteria": [
+            "M11",
+            "M12",
+            "M21",
+            "M22",
+            "M31",
+            "M32",
+            "M41"
+          ]
+        }
+      ],
+      "criteria": [
+        "M11",
+        "M12",
+        "M21",
+        "M22",
+        "M31",
+        "M32",
+        "M41"
+      ],
+      "disposition": "APPLIED",
+      "evidence": {
+        "path": "docs/reviews/activation-roadmap/pre-dispatch-diagnostic.json",
+        "sha256": "8b85f3f620094643eb214d8a0dd0a51ca30afcd5131a1c95820e75ea94a3334f"
+      },
+      "configuredInvocation": {
+        "path": "docs/reviews/activation-roadmap/trusted-invocation.txt",
+        "sha256": "3a55ad2f46104692e1b76f7ebe2d1955b38fa87769e86fd0bbd3303b9841cc4c"
+      },
+      "invocationEvidence": [
+        {
+          "path": "docs/reviews/activation-roadmap/CVF-DG-ROUTE-01.json",
+          "sha256": "9c19701e53112bb507736c2735d5bc9ab618a88cf019d445ddbb2e2cf7847c2d"
+        }
+      ]
+    },
+    {
+      "id": "CVF-DG-COV-01",
+      "owner": "Orchestrator",
+      "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
+      "reason": "Bound authority, selected criteria and owned M42 remainder were checked.",
+      "actions": [
+        "docs/work_orders/WO_MC_ROADMAP.md"
+      ],
+      "actionBindings": [
+        {
+          "packet": "docs/work_orders/WO_MC_ROADMAP.md",
+          "sha256": "bf4443d7872942d0980b3d0f61710289c0bc4aecab439d280ce7417da91bc677",
+          "criteria": [
+            "M11",
+            "M12",
+            "M21",
+            "M22",
+            "M31",
+            "M32",
+            "M41"
+          ]
+        }
+      ],
+      "criteria": [
+        "M11",
+        "M12",
+        "M21",
+        "M22",
+        "M31",
+        "M32",
+        "M41"
+      ],
+      "disposition": "APPLIED",
+      "evidence": {
+        "path": "docs/reviews/activation-roadmap/pre-dispatch-diagnostic.json",
+        "sha256": "8b85f3f620094643eb214d8a0dd0a51ca30afcd5131a1c95820e75ea94a3334f"
+      },
+      "configuredInvocation": {
+        "path": "docs/reviews/activation-roadmap/trusted-invocation.txt",
+        "sha256": "3a55ad2f46104692e1b76f7ebe2d1955b38fa87769e86fd0bbd3303b9841cc4c"
+      },
+      "invocationEvidence": [
+        {
+          "path": "docs/reviews/activation-roadmap/CVF-DG-COV-01.json",
+          "sha256": "5dcefee63fe131daabeb3a3867707e70637f8bf7e2d7f8476979a801d4ccc1b9"
+        }
+      ]
+    }
+  ]
+}

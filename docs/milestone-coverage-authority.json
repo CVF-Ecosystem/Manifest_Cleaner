@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "cvf.milestoneAuthority@1.0.0",
+  "milestones": {
+    "MC1": {
+      "path": "docs/roadmaps/MANIFEST_CLEANER.md",
+      "heading": "## Mốc và tiêu chí nghiệm thu"
+    }
+  }
+}
