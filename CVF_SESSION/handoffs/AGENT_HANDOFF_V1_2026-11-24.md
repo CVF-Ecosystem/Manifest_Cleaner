@@ -70,3 +70,9 @@ ORCHESTRATOR, BUILD, pinned Core b6d5a51a, risk ceiling R2, live provider eviden
 ## Bàn giao 1.2.1
 
 Sol và Terra bàn giao hai bản sửa parser, cùng kiểm tra hồi quy bằng dữ liệu giả lập. Astra kiểm độc lập bản cuối và xác nhận kết quả MC51–MC53 theo dữ liệu có sẵn. Orchestrator kiểm bộ nguồn, EXE Windows và xuất Excel thử, rồi ghi các vai trò commit steward và session-sync steward. Chi tiết tại docs/reviews/LEGACY_COMPAT_REVIEW.md. Project quay lại ORCHESTRATOR trong REVIEW. Trọng lượng thiếu, xung đột F/E của VOSCO và thử nghiệm tại Cảng cần bằng chứng nghiệp vụ tiếp theo.
+
+## Hiển thị seal trên bảng Container
+
+CVF Agent Declaration. Manifest_Cleaner, Core ../.Controlled-Vibe-Framework-CVF at b6d5a51a1e90c1c03426baa3d355834089ac652a. Active handoff and project REVIEW phase rehydrated, ORCHESTRATOR active, risk ceiling R2, live provider evidence required if claimed, no parked operator checkpoint. Bootstrap read model absent. Operator reported the missing column in the 1.2.1 delivery. Scoped GUI correction uses synthetic data at R1 under MC54 and the existing work order. Review and pre-dispatch checks passed before the bounded BUILD. Next move is to render the existing Seal_No field, verify it in native Tk and package a separate EXE.
+
+Bản 1.2.2 đưa Số niêm chì ngay sau Số container. Tk trên Windows đã được kiểm với mẫu giả lập cả ba hãng, gồm seal có số 0 đầu và sau chỉnh sửa. Astra kiểm độc lập cột mới và chạy xuất Excel VIMC 16 cột với hai trường seal dạng chuỗi. 229 unittest và 94 SHA-256 nguồn đạt. EXE tại dist/1.2.2/ManifestCleaner khởi động và đóng bình thường. SHA-256 EXE ba8963ad9e0e8cbadf448ba9ab408835816a08a65db549f33abc04310c9e0563. Đã kiểm lại SHA-256 của EXE 1.2.1. Project quay lại REVIEW và giữ các mục nghiệm thu đang mở.

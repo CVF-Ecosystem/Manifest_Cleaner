@@ -155,6 +155,25 @@ class GUIRegressionTests(unittest.TestCase):
             dialog.buttons["Lưu chỉnh sửa / xác nhận"]()
             return dialog
 
+    def test_container_grid_shows_current_seal_with_leading_zeros(self):
+        session = self.session()
+        app = self.app(session)
+        app.sort_field = None
+        app.refresh = gui.ManifestApp.refresh.__get__(app)
+        with fake_dialog(), patch.multiple(gui.tk, Frame=Widget, Label=Widget), patch.object(gui.ttk, "Progressbar", Widget):
+            app._build()
+            app.refresh()
+
+        fields = app.tree.options["columns"]
+        seal_index = fields.index("Seal_No")
+        self.assertEqual(fields[seal_index - 1:seal_index + 2], ("Container_No", "Seal_No", "BL_No"))
+        rid = session.records[0]["record_id"]
+        self.assertEqual(app.tree.rows[rid][seal_index], "001235")
+
+        session.update_record(rid, {"Seal_No": "000017"}, "Đối chiếu seal")
+        app.refresh()
+        self.assertEqual(app.tree.rows[rid][seal_index], "000017")
+
     def test_ambiguous_vinafco_sheet_prompts_and_restarts_only_on_explicit_choice(self):
         path = create_vinafco(self.folder / "multiple.xlsx")
         with path.open("rb") as source:

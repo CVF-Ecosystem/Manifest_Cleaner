@@ -200,9 +200,10 @@ class ManifestApp:
         self.tabs.add(data_tab, text="Container")
         self.tabs.add(issues_tab, text="Cần kiểm tra")
         self.tabs.bind("<<NotebookTabChanged>>", self._update_row_actions)
-        fields = ("status", "Container_No", "BL_No", "VTOS_Size", "Operator", "FE_Status", "Weight_Value", "Cleaned_Consignee_Name_For_Output", "Description")
+        fields = ("status", "Container_No", "Seal_No", "BL_No", "VTOS_Size", "Operator", "FE_Status",
+                  "Weight_Value", "Cleaned_Consignee_Name_For_Output", "Description")
         self.tree = ttk.Treeview(data_tab, columns=fields, show="headings", selectmode="browse")
-        widths = {"status": 115, "Container_No": 140, "BL_No": 155, "VTOS_Size": 105, "Operator": 95,
+        widths = {"status": 115, "Container_No": 140, "Seal_No": 125, "BL_No": 155, "VTOS_Size": 105, "Operator": 95,
                   "FE_Status": 55, "Weight_Value": 125, "Cleaned_Consignee_Name_For_Output": 220, "Description": 300}
         for name in fields:
             label = "Trạng thái" if name == "status" else FIELD_LABELS.get(name, name)
@@ -493,7 +494,8 @@ class ManifestApp:
             label = "Đã loại" if excluded else "Cần sửa" if error else "Cần kiểm tra" if row_issues else "Đã đối chiếu" if record.get("_manual_review_reason") else "Đủ dữ liệu"
             tag = "excluded" if excluded else "error" if error else "warning" if row_issues else ""
             weight = record.get("Weight_Value")
-            values = (label, record.get("Container_No", ""), record.get("BL_No", ""), record.get("VTOS_Size", ""),
+            values = (label, record.get("Container_No", ""), text_value(record.get("Seal_No")),
+                      record.get("BL_No", ""), record.get("VTOS_Size", ""),
                       record.get("Operator", ""), record.get("FE_Status", ""), text_value(weight),
                       record.get("Cleaned_Consignee_Name_For_Output", ""), record.get("Description", ""))
             self.tree.insert("", "end", iid=rid, values=values, tags=(tag,))
