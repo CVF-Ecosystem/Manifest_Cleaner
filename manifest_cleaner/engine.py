@@ -197,6 +197,9 @@ class ManifestSession:
             output.append(item)
         by_container_bl = defaultdict(list)
         by_container = defaultdict(list)
+        adapter = _adapter(self.carrier)
+        compact_identifier = getattr(adapter, "is_corroborated_compact_identifier", None)
+        validate_size = getattr(adapter, "is_supported_size_type", None)
         for record in active.values():
             rid = record["record_id"]
             def add(code, message, severity="error", field_name=None):
@@ -208,8 +211,12 @@ class ManifestSession:
                     add("MISSING_" + name.upper(), "Thiếu " + FIELD_LABELS.get(name, name) + ".", field_name=name)
             container = text_value(record.get("Container_No")).upper()
             if container and not re.fullmatch(r"[A-Z]{4}\d{7}", container):
-                add("INVALID_CONTAINER", "Số container phải gồm 4 chữ cái và 7 chữ số.", field_name="Container_No")
-            validate_size = getattr(_adapter(self.carrier), "is_supported_size_type", None)
+                if compact_identifier and compact_identifier(record):
+                    add("VIMC_LEGACY_COMPACT_CONTAINER",
+                        "Mã container ngắn trùng khớp trong dòng chi tiết và MARKS của vận đơn VIMC. Đã giữ nguyên mã nguồn.",
+                        "warning", "Container_No")
+                else:
+                    add("INVALID_CONTAINER", "Số container phải gồm 4 chữ cái và 7 chữ số.", field_name="Container_No")
             if _present(record.get("Size_Type")) and validate_size and not validate_size(record["Size_Type"], self.settings):
                 add("UNKNOWN_SIZE_TYPE", "Kích cỡ chưa có trong bảng quy đổi của hãng; điền mã đã biết hoặc bổ sung mapping có kiểm tra.", field_name="Size_Type")
             allowed_operators = set(CARRIER_PROFILES[self.carrier].operators) | {str(self.settings[k]).upper() for k in ("operator_soc", "operator_coc") if self.settings.get(k)}

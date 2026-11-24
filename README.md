@@ -1,16 +1,18 @@
-# Manifest Cleaner Unified 1.2.0
+# Manifest Cleaner Unified 1.2.1
 
 Ứng dụng **local**, xử lý **một manifest của một hãng tàu mỗi phiên**, hỗ trợ đối chiếu dữ liệu và xuất Excel theo mẫu nhập hệ thống quản lý container của Cảng.
 
 **Bắt đầu:** giải nén toàn bộ thư mục, dùng Python 3.12 64-bit và chạy `START.cmd`. Mở [START_HERE.html](START_HERE.html) để xem hướng dẫn tiếng Việt dùng được offline.
 
-**Thay đổi 1.2.0:** VINAFCO có thể chọn sheet ngay khi phát hiện nhiều bảng và đối soát phần chi tiết với bảng tổng hợp. VOSCO báo ứng viên container lệch cột trong vùng hỗ trợ. CLI hỗ trợ chuyển hướng đầu ra Windows có mã hóa cũ. [Ghi chú bản 1.2.0](docs/RELEASE_NOTES_V1_2.md) mô tả hành vi và phạm vi kiểm chứng.
+**Bản 1.2.1** đọc đúng khối người nhận và dòng tổng SOC của VIMC trong mẫu BS2622S-TT. VOSCO giữ ký hiệu giao nhận trong bằng chứng nguồn và tính số lượng từ các dòng container. [Kết quả đối chiếu manifest thực tế](docs/reviews/LEGACY_COMPAT_REVIEW.md).
+
+**Bản 1.2.0** bổ sung chọn sheet VINAFCO, đối soát bảng tổng hợp với phần chi tiết, rà ứng viên container lệch cột ở VOSCO và sửa chuyển hướng đầu ra CLI Windows. [Ghi chú bản 1.2.0](docs/RELEASE_NOTES_V1_2.md).
 
 **Bản nền 1.1.1:** [Hướng dẫn 1.1.1](docs/V1_1_1_GUIDE.html) và [ghi chú bản vá](docs/RELEASE_NOTES_V1_1_1.md) mô tả việc bảo vệ cặp Excel/JSON khi xuất thất bại.
 
 **Lịch sử 1.1.0:** [Tổng hợp nâng cấp](docs/RELEASE_NOTES_V1_1.html) gồm ma trận F01–F09 và kết quả kiểm thử tại lần phát hành đó.
 
-Gói này gồm **mã nguồn, launcher, dữ liệu thử và bộ hướng dẫn đóng gói**. Chưa kèm EXE Windows đã được build và nghiệm thu. Phạm vi kiểm chứng cuối cùng được ghi tại [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md).
+Gói mã nguồn gồm launcher, dữ liệu thử và hướng dẫn đóng gói. Bản EXE Windows dùng nguyên thư mục do PyInstaller tạo. [Quy trình kiểm trước khi sử dụng tại Cảng](docs/WINDOWS_RELEASE_CHECKLIST.md).
 
 ## Phạm vi và hợp đồng dữ liệu
 

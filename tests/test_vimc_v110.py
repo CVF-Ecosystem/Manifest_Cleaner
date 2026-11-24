@@ -5,7 +5,7 @@ import unittest
 
 from openpyxl import Workbook
 
-from manifest_cleaner.engine import process_manifest
+from manifest_cleaner.engine import load_review, process_manifest
 from manifest_cleaner.carriers.vimc.adapter import parse_manifest
 from manifest_cleaner.carriers.vimc.parsers import split_container_segments
 from manifest_cleaner.exporter import build_port_rows
@@ -22,11 +22,11 @@ class Vimc110Tests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
-    def workbook(self, rows, other_sheets=None):
+    def workbook(self, rows, other_sheets=None, *, header=HEADER):
         book = Workbook()
         sheet = book.active
         sheet.title = "Manifest"
-        sheet.append(HEADER)
+        sheet.append(header)
         for row in rows:
             sheet.append(row)
         for name, extra_rows in (other_sheets or {}).items():
@@ -119,6 +119,114 @@ class Vimc110Tests(unittest.TestCase):
         self.assertEqual(result["records"][0]["Consignee"], "FIRST COMPANY")
         self.assertEqual(result["records"][1]["Consignee"], "")
         self.assertTrue(any(i["code"] == "VIMC_CONSIGNEE_MISSING" for i in result["issues"]))
+
+    def test_first_scoped_party_block_can_use_column_a_when_header_is_in_b(self):
+        path = self.workbook([
+            ["B/L NO:", "", "BL-1", "", ""], [PARTY, "", "", "", GOOD],
+            ["B/L NO:", "", "BL-2", "", ""], ["NO EXPLICIT ROLE", "", "", "", ""],
+            ["2) UNRELATED TEXT", "", "", "", "DEMU2222222 123456 20GP 25 STEEL"],
+            ["B/L NO:", "", "BL-3", "", ""],
+            ["2) CONFLICTING A", "2) MAPPED CONSIGNEE", "", "", "DEMU3333333 123456 20GP 25 STEEL"],
+        ], header=["", HEADER[0], "B/L", HEADER[1], HEADER[3]])
+        result = parse_manifest(path)
+        a, missing, b = result["records"]
+        self.assertEqual(result["metadata"]["profile_version"], "vimc-1.2")
+        self.assertEqual([record["Cleaned_Consignee_Name_For_Output"] for record in (a, missing, b)],
+                         ["TEST CONSIGNEE", "", "MAPPED CONSIGNEE"])
+        evidence = next(entry for entry in a["raw"]["party_evidence"] if entry["role"] == "Consignee")
+        self.assertEqual((evidence["source_row"], evidence["source_column"], evidence["source_line"]), (3, 1, 2))
+        self.assertEqual(a["Notify"], a["Consignee"])
+        self.assertEqual(a["Weight_Value"], 20)
+        self.assertEqual(a["raw"]["source_column"], 5)
+
+    def test_trailing_owner_total_is_scoped_without_reassigning_fe(self):
+        path = self.workbook([
+            ["B/L NO:", "", "BL-1", "SOC LADEN"], [PARTY, "", "", ""], ["", "", "", GOOD],
+            ["B/L NO:", "", "BL-2", ""], [PARTY, "", "", ""],
+            ["", "", "", "DEMU2222222 123456 20GP 25 STEEL\nDEMU3333333 123456 20GP 24 STEEL\nTOTAL: 02X20GP SOC LADEN"],
+            ["B/L NO:", "", "BL-3", ""], [PARTY, "", "", GOOD],
+        ])
+        records = process_manifest(path, "VIMC").records
+        self.assertEqual([(r["Operator"], r["FE_Status"]) for r in records],
+                         [("SVM", "F"), ("SVM", "F"), ("SVM", "F"), ("VMC", "F")])
+        evidence = records[1]["raw"]["ownership_total"]
+        self.assertEqual((evidence["source_row"], evidence["source_column"], evidence["source_line"]), (7, 4, 3))
+        self.assertEqual((evidence["owner"], evidence["quantity"], evidence["size_type"]), ("SOC", 2, "20GP"))
+        self.assertNotIn("ownership_total", records[-1]["raw"])
+
+    def test_trailing_owner_total_requires_order_quantity_type_and_consistent_fe(self):
+        cases = [
+            [GOOD, "TOTAL: 02X20GP SOC LADEN"],
+            [GOOD, "TOTAL: 01X40HC SOC LADEN"],
+            [GOOD, "TOTAL: 01X20GP SOC EMPTY"],
+            ["TOTAL: 01X20GP SOC LADEN", GOOD],
+            [GOOD, "TOTAL: 01X20GP SOC LADEN", "TOTAL: 01X20GP COC LADEN"],
+            [GOOD + " COC", "TOTAL: 01X20GP SOC LADEN"],
+        ]
+        for lines in cases:
+            with self.subTest(lines=lines):
+                path = self.workbook([["B/L NO:", "", "BL-1", ""], [PARTY, "", "", ""],
+                                      *[["", "", "", line] for line in lines]])
+                record, = process_manifest(path, "VIMC").records
+                self.assertEqual((record["Operator"], record["FE_Status"]), ("VMC", "F"))
+                self.assertNotIn("ownership_total", record["raw"])
+
+    def test_compact_id_preserved_only_when_separate_marks_corrobates_same_bill(self):
+        compact = "DEMU1234"
+        detail = f"{compact} 123456 20GP 25 STEEL"
+        path = self.workbook([["B/L NO:", "", "BL-1", ""], [PARTY, "", "", ""],
+                              ["", f"{compact}/20GP", "", detail]])
+        session = process_manifest(path, "VIMC")
+        self.assertEqual([(i["code"], i["severity"]) for i in session.validate()],
+                         [("VIMC_LEGACY_COMPACT_CONTAINER", "warning")])
+        columns, rows = build_port_rows(session)
+        self.assertEqual(rows[0][columns.index("Số Container")], compact)
+        self.assertEqual(session.metadata["coverage"]["unresolved_fragments"], 0)
+        review = self.root / "review.json"
+        session.save_review(review)
+        resumed = load_review(review)
+        self.assertEqual(build_port_rows(resumed), (columns, rows))
+        record, = resumed.records
+        for override in ({"Container_No": "DEMU4321"}, {"BL_No": "BL-2"}):
+            with self.subTest(override=override):
+                edited = load_review(review)
+                edited.update_record(record["record_id"], override, "Test manual override")
+                self.assertIn("INVALID_CONTAINER", {i["code"] for i in edited.validate()})
+                with self.assertRaises(ValueError):
+                    build_port_rows(edited)
+
+    def test_compact_id_without_independent_marks_remains_blocking(self):
+        compact = "DEMU1234"
+        detail = f"{compact} 123456 20GP 25 STEEL"
+        cases = [
+            [["", "", "", detail]],
+            [["", f"{compact}/20GP", "", "EMPTY"]],
+            [["", "", "", detail], ["B/L NO:", "", "BL-2", ""],
+             [PARTY, f"{compact}/20GP", "", "EMPTY"]],
+        ]
+        for rows in cases:
+            with self.subTest(rows=rows):
+                path = self.workbook([["B/L NO:", "", "BL-1", ""], [PARTY, "", "", ""], *rows])
+                session = process_manifest(path, "VIMC")
+                self.assertIn("INVALID_CONTAINER", {i["code"] for i in session.validate()})
+                with self.assertRaises(ValueError):
+                    build_port_rows(session)
+
+    def test_compact_id_needs_an_exact_marks_line_with_the_same_size(self):
+        compact = "DEMU1234"
+        detail = f"{compact} 123456 20GP 25 STEEL"
+        for marks in (f"REFERENCE ONLY - {compact} NOT A CONTAINER", f"REFERENCE ONLY - {compact}/20GP",
+                      f"{compact}/20GP REFERENCE ONLY", f"{compact}/40HC", compact):
+            with self.subTest(marks=marks):
+                path = self.workbook([["B/L NO:", "", "BL-1", ""], [PARTY, "", "", ""], ["", marks, "", detail]])
+                session = process_manifest(path, "VIMC")
+                self.assertEqual(len(session.records), 1)
+                self.assertEqual(session.records[0]["raw"]["marks_evidence"][0]["text"], marks)
+                codes = {i["code"] for i in session.validate()}
+                self.assertIn("INVALID_CONTAINER", codes)
+                self.assertNotIn("VIMC_LEGACY_COMPACT_CONTAINER", codes)
+                with self.assertRaises(ValueError):
+                    build_port_rows(session)
 
     def test_selected_sheet_limits_scope_and_invalid_sheet_is_clear(self):
         other_rows = [HEADER, ["B/L NO:", "", "BL-2", "COC LADEN"], [PARTY, "", "", ""],

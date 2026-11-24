@@ -62,12 +62,22 @@ def _is_container_header(line):
     )
 
 
+# Explicit delivery-mode annotations observed in the source container column.
+# Treat only complete labels as metadata; malformed/unknown text remains an
+# unresolved container candidate, preserving the existing review safeguard.
+_DELIVERY_MODE_LABELS = {"DOOR-DOOR", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY"}
+
+
+def _is_delivery_mode(line):
+    return line.strip().upper() in _DELIVERY_MODE_LABELS
+
+
 def _parsed_lines(value):
     """Keep each original container line alongside its parsed record."""
     output = []
     for number, line in enumerate(value.splitlines(), start=1):
         stripped = line.strip()
-        if not stripped or _is_container_header(stripped):
+        if not stripped or _is_container_header(stripped) or _is_delivery_mode(stripped):
             continue
         parsed = parse_container_line(stripped)
         output.append((number, stripped, parsed))
@@ -99,6 +109,47 @@ def _weight_slots(value, settings):
             number_format=settings.get("number_format", "legacy"),
         )))
     return slots
+
+
+def _aligned_grid_preamble(line):
+    return _is_delivery_mode(line) or line.strip().upper() == "FCL/FCL"
+
+
+def _aligned_partial_weights(container_cell, description_cell, weight_cell, valid, settings):
+    """Recover a contiguous prefix only when three physical line grids agree."""
+    if not all(isinstance(cell, str) for cell in (container_cell, description_cell, weight_cell)):
+        return None
+    container_lines = container_cell.splitlines()
+    description_lines = description_cell.splitlines()
+    weight_lines = weight_cell.splitlines()
+    # This source form has a delivery-mode annotation in physical line 1 and
+    # corresponding blank slots in both other cells. Do not guess elsewhere.
+    if (not container_lines or not _aligned_grid_preamble(container_lines[0])
+            or not description_lines or description_lines[0].strip()
+            or not weight_lines or weight_lines[0].strip()):
+        return None
+    if (len(valid) < 2 or len(container_lines) != len(valid) + 1
+            or len({parsed.get("no") for _, _, parsed in valid}) != len(valid)):
+        return None
+    if any(number != index + 2 or parsed.get("_unparsed")
+           for index, (number, _, parsed) in enumerate(valid)):
+        return None
+    kinds = {item["source_line"]: item["kind"] for item in classify_description_lines(description_cell)}
+    if any(kinds.get(number) != "cargo" for number, _, _ in valid):
+        return None
+    present = weight_lines[1:]
+    # Only a contiguous, entirely parseable prefix and missing trailing slots
+    # can be associated; blank/interspersed/extra values remain ambiguous.
+    if not 0 < len(present) <= len(valid) or any(not line.strip() for line in present):
+        return None
+    parsed = [parse_weight(line, default_unit=settings.get("default_weight_unit", "TONS"),
+                           number_format=settings.get("number_format", "legacy")) for line in present]
+    if any(weight is None for weight in parsed):
+        return None
+    count = len(present)
+    return (parsed + [None] * (len(valid) - count),
+            present + [""] * (len(valid) - count),
+            list(range(2, count + 2)) + [None] * (len(valid) - count))
 
 
 def _scan_contexts(rows, sheet, first_data_index=0):
@@ -182,7 +233,7 @@ def parse_manifest(path, *, settings=None, progress=None):
     sheets = read_workbook(path)
     issues, records, source_fragments = [], [], []
     metadata = {
-        "carrier": "VOSCO", "adapter_version": "1.1.0", "profile_version": "vosco-1.1.0",
+        "carrier": "VOSCO", "adapter_version": "1.1.1", "profile_version": "vosco-1.1.1",
         "source_file": source_file,
         "source_baseline": "e5a78dd0444349990b08992ceb57758aa074dcb8",
         "available_sheets": [name for name, _ in sheets],
@@ -237,6 +288,12 @@ def parse_manifest(path, *, settings=None, progress=None):
         description_cell = _cell(row, COL_DESCRIPTION)
         weight_cell = _cell(row, COL_WEIGHT)
         native_weight_value = row[COL_WEIGHT] if COL_WEIGHT < len(row) else ""
+        for line_number, raw_line in enumerate(container_cell.splitlines(), start=1):
+            if _is_delivery_mode(raw_line):
+                source_fragments.append({"source_sheet": sheet, "source_row": source_row,
+                    "source_column": COL_CONTAINER + 1, "source_line": line_number,
+                    "text": raw_line.strip(), "status": "corroborating",
+                    "reason": "delivery_mode_annotation"})
         lines = _parsed_lines(container_cell)
         valid = []
         for number, raw_line, parsed in lines:
@@ -264,6 +321,28 @@ def parse_manifest(path, *, settings=None, progress=None):
         association_ok = len(weights) == len(valid)
         assigned_weights = [value for _, value in weights] if association_ok else [None] * len(valid)
         assigned_raw_weights = [raw for raw, _ in weights] if association_ok else [""] * len(valid)
+        assigned_weight_lines = [None] * len(valid)
+        physical_alignment = False
+        raw_description = row[COL_DESCRIPTION] if COL_DESCRIPTION < len(row) else ""
+        raw_container = row[COL_CONTAINER] if COL_CONTAINER < len(row) else ""
+        raw_container_lines = raw_container.splitlines() if isinstance(raw_container, str) else []
+        physical_weights = native_weight_value.splitlines() if isinstance(native_weight_value, str) else []
+        # If leading slot is blank, an internal blank before a later value must
+        # not masquerade as a complete list after the legacy stripping step.
+        grid_preamble = bool(raw_container_lines and _aligned_grid_preamble(raw_container_lines[0]))
+        internal_gap = bool(grid_preamble and physical_weights and not physical_weights[0].strip()
+                            and any(not line.strip() and any(later.strip() for later in physical_weights[i+1:])
+                                    for i, line in enumerate(physical_weights[1:], start=1)))
+        if not association_ok or internal_gap:
+            aligned = _aligned_partial_weights(raw_container, raw_description, native_weight_value, valid, settings)
+            if aligned is not None:
+                assigned_weights, assigned_raw_weights, assigned_weight_lines = aligned
+                physical_alignment = True
+                association_ok = True
+            elif internal_gap:
+                association_ok = False
+                assigned_weights = [None] * len(valid)
+                assigned_raw_weights = [""] * len(valid)
         first_description = clean_description_text(description_cell)
         fe_statuses = [
             determine_fe(first_description, weight, parsed.get("type"), weight_kind=weight_kind)
@@ -380,6 +459,10 @@ def parse_manifest(path, *, settings=None, progress=None):
                     "BL_No": context["raw_bl"], "container_cell": container_cell,
                     "container_line": raw_line, "container_line_number": line_number,
                     "weight_cell": weight_cell, "weight_line": raw_weight,
+                    "weight_source_line": assigned_weight_lines[index - 1],
+                    "weight_expected_source_line": line_number if physical_alignment else None,
+                    "weight_alignment": ("physical_line_matched" if weight else "trailing_source_weight_missing")
+                        if physical_alignment else None,
                     "weight_cell_value": native_weight_value,
                     "weight_source_unit": weight.get("source_unit") if weight else None,
                     "description_cell": description_cell, "matched_description": raw_description,
@@ -394,6 +477,7 @@ def parse_manifest(path, *, settings=None, progress=None):
                           "vosco.operator-soc-coc", "vosco.port-mappings",
                           f"vosco.description.{match.match_type.lower()}",
                           "weight.normalized-tonnes" if weight else "weight.unresolved",
+                          *(["vosco.weight.physical-line-alignment"] if assigned_weight_lines[index - 1] is not None else []),
                           "fe.explicit-empty" if is_explicit_empty(raw_description) else
                           "fe.cargo-mass-no-tare" if weight_kind == "cargo" else "fe.vosco-legacy-inference"],
             }

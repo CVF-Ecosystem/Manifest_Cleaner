@@ -18,9 +18,15 @@ from .parsers import (
 )
 
 SOURCE_COMMIT = "03e0d34e3fe4a27d8d2ce0d54d96ea9275370436"
-PROFILE_VERSION = "vimc-1.1"
+PROFILE_VERSION = "vimc-1.2"
 _BL_MARKER = re.compile(r"\bB\s*/?\s*L\s*NO\.?\s*:", re.I)
 _PARTY_MARKER = re.compile(r"^\s*([123])\s*[).]\s*(.*)$")
+_TRAILING_OWNER_TOTAL = re.compile(
+    r"TOTAL\s*:\s*(\d{1,6})\s*[X×]\s*((?:20|40|45)'?[A-Z]{2,4})\s+(SOC|COC)\s+(LADEN|EMPTY)"
+)
+_COMPACT_IDENTIFIER = re.compile(r"[A-Z]{4}\d{4,6}")
+_COMPACT_MARK = re.compile(r"(?P<identifier>[A-Z]{4}[0-9]{4,6})[ \t]*/[ \t]*(?P<size>[A-Z0-9']{2,5})")
+_WEIGHTED_LAYOUTS = {"weight_first_tons", "description_first_kg"}
 _ROLES = {"1": "Shipper", "2": "Consignee", "3": "Notify"}
 _PORT_TYPE_ALIASES = {"22R0": "20RF", "20FL": "20FR", "40FL": "40FR", "45RH": "45RF"}
 
@@ -163,6 +169,20 @@ def _read_party(group, text, row=None, col=None, *, allow_continuation=True):
                 "source_line": line_number})
 
 
+def _read_party_row(group, values, row, party_col, *, allow_continuation):
+    party_text = text_value(values[party_col]) if party_col < len(values) else ""
+    if not party_text and party_col != 0 and group["start_row"] == row - 1:
+        # The heading may be anchored in B while the first party block under
+        # a B/L is anchored in A. Accept only explicit role-marked text here.
+        fallback = text_value(values[0])
+        markers = (_PARTY_MARKER.match(line) for line in fallback.splitlines())
+        if any(match and match[1] == "2" for match in markers):
+            _read_party(group, fallback, row, 0, allow_continuation=False)
+            group["party_role"] = None
+            return
+    _read_party(group, party_text, row, party_col, allow_continuation=allow_continuation)
+
+
 def _entries(value, row, col):
     return [{"text": line.strip(), "row": row, "col": col, "line": line_index}
             for line_index, line in enumerate(text_value(value).splitlines(), 1) if line.strip()]
@@ -178,17 +198,15 @@ def _add_issue(issues, code, message, *, record=None, severity="warning", field=
 def _source_status_markers(group):
     markers = []
     for entry in group["description"]:
-        if split_container_segments(entry["text"]):
+        if split_container_segments(entry["text"]) or _TRAILING_OWNER_TOTAL.fullmatch(normalize_text(entry["text"])):
             continue
         status, owner = _status(entry["text"]), _owner(entry["text"])
         if status or owner:
             markers.append({**entry, "status": status, "owner": owner})
-    statuses = {marker["status"] for marker in markers if marker["status"]}
-    owners = {marker["owner"] for marker in markers if marker["owner"]}
-    return markers, (next(iter(statuses)) if len(statuses) == 1 else None), (next(iter(owners)) if len(owners) == 1 else None)
+    return markers
 
 
-def _context(entry, markers, default_status, default_owner, *, marks=False):
+def _context(entry, markers, *, marks=False):
     # A later EMPTY heading must not retroactively change earlier loaded rows.
     status, owner = None, None
     prior = [marker for marker in markers if marker["row"] < entry["row"] or
@@ -246,7 +264,8 @@ def _base_record(group, entry, segment_index, source_file, sheet, parsed, status
                 "bl_evidence": group["bl_evidence"], "shipper": shipper, "consignee": consignee,
                 "party_evidence": [dict(item) for item in group["party_evidence"]],
                 "notify": "\n".join(group["Notify"]), "status_source": status_source,
-                "context_status": context_status, "row_status": own_status},
+                "context_status": context_status, "row_status": own_status, "source_bill": group["BL_No"],
+                "ownership": own_owner or owner},
         "rules": [f"{PROFILE_VERSION}:{parsed.get('layout', 'unparsed')}", f"fe:{status_source}", "vimc_operator_svm_vmc", "vimc_legacy_vtos_mapping", "preserve_source_physical_type"],
     }
     if status == "E" and not description:
@@ -255,6 +274,69 @@ def _base_record(group, entry, segment_index, source_file, sheet, parsed, status
         record["Confidence"] = min(record["Confidence"], 50)
         record["raw"]["identifier_requires_review"] = True
     return refresh_derived_fields(record, settings)
+
+
+def is_corroborated_compact_identifier(record):
+    """Accept only the literal compact ID corroborated by separate VIMC cells."""
+    identifier = record.get("Container_No", "")
+    raw = record.get("raw") or {}
+    if (not isinstance(identifier, str) or not _COMPACT_IDENTIFIER.fullmatch(identifier)
+            or identifier != raw.get("container_no") or not record.get("BL_No")
+            or record["BL_No"] != raw.get("source_bill")
+            or raw.get("detail_source") != "description" or raw.get("layout") not in _WEIGHTED_LAYOUTS):
+        return False
+    detail = parse_structured_line(text_value(raw.get("text")))
+    if not detail or detail["container_no"] != identifier or detail["layout"] not in _WEIGHTED_LAYOUTS:
+        return False
+    if text_value(raw.get("source_cell")).split(maxsplit=1)[:1] != [identifier]:
+        return False
+    detail_size = detail["size_type"].replace("'", "")
+    if not is_supported_size_type(detail_size):
+        return False
+    marks = raw.get("marks_evidence")
+    if not isinstance(marks, list) or not isinstance(raw.get("source_column"), int):
+        return False
+    for mark in marks:
+        if (not isinstance(mark, dict) or mark.get("container_no") != identifier
+                or not isinstance(mark.get("col"), int) or mark["col"] + 1 == raw["source_column"]):
+            continue
+        # The segmented MARKS match drops any preceding prose. Only the
+        # original source line can corroborate an exact compact ID/size pair.
+        match = _COMPACT_MARK.fullmatch(text_value(mark.get("text")))
+        if match and match["identifier"] == identifier and match["size"].replace("'", "") == detail_size:
+            return True
+    return False
+
+
+def _apply_trailing_owner_total(group, records):
+    if not records or not group["BL_No"]:
+        return
+    totals = []
+    for entry in group["description"]:
+        match = _TRAILING_OWNER_TOTAL.fullmatch(normalize_text(entry["text"]))
+        if match:
+            totals.append((entry, int(match[1]), match[2].replace("'", ""), match[3], match[4]))
+    if len(totals) != 1:
+        return
+    entry, quantity, size, owner, status = totals[0]
+    expected_fe = "E" if status == "EMPTY" else "F"
+    if (quantity != len(records) or quantity != len({record["Container_No"] for record in records})
+            or any(record["Size_Type"].replace("'", "") != size
+                   or record["raw"].get("detail_source") != "description"
+                   or record["raw"]["layout"] not in _WEIGHTED_LAYOUTS
+                   or (record["source_row"], record["raw"]["source_line"]) >= (entry["row"], entry["line"])
+                   or record["FE_Status"] != expected_fe
+                   or record["raw"]["ownership"] not in (None, owner)
+                   or len(set(re.findall(r"\b(?:SOC|COC)\b", record["Description"]))) > 1
+                   for record in records)):
+        return
+    for record in records:
+        if record["raw"]["ownership"] is None:
+            record["Operator"] = CARRIER_PROFILES["VIMC"].operator(owner == "SOC")
+            record["raw"]["ownership_total"] = {"text": entry["text"], "source_row": entry["row"],
+                "source_column": entry["col"] + 1, "source_line": entry["line"], "owner": owner,
+                "quantity": quantity, "size_type": size}
+            record["rules"].append("vimc_ownership_from_corroborated_bl_total")
 
 
 def _validate_record(record, parsed, issues):
@@ -295,7 +377,9 @@ def _validate_record(record, parsed, issues):
 
 def _finalize_group(group, source_file, sheet, settings, issues, counters, source_fragments):
     records = []
-    markers, default_status, default_owner = _source_status_markers(group)
+    markers = _source_status_markers(group)
+    detail_columns = {entry["col"] for entry in group["description"]}
+    detail_fragments = {}
 
     def fragment(entry, text, status, reason, record=None):
         evidence = {"source_sheet": sheet, "source_row": entry["row"],
@@ -304,6 +388,7 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
         if record:
             evidence["record_id"] = record["record_id"]
         source_fragments.append(evidence)
+        return evidence
 
     for entry in group["description"] + group["other"]:
         segments = split_container_segments(entry["text"])
@@ -312,20 +397,23 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
         for segment_index, (_, segment) in enumerate(segments, 1):
             counters["candidate_occurrences"] += 1
             parsed = parse_structured_line(segment)
-            status, owner = _context(entry, markers, default_status, default_owner)
+            status, owner = _context(entry, markers)
             if parsed["layout"] == "unparsed" and parsed["size_type"] and (_status(parsed["description"]) == "E" or status == "E"):
                 parsed["layout"] = "explicit_empty_detail"
             record = _base_record(group, entry, segment_index, source_file, sheet, parsed, status, owner, settings)
+            record["raw"]["detail_source"] = "description" if entry["col"] in detail_columns else "other"
             _validate_record(record, parsed, issues)
             records.append(record)
             counters[parsed["layout"]] += 1
             unresolved = record["raw"].get("identifier_requires_review") or parsed["layout"] in {"unparsed", "ambiguous"}
-            fragment(entry, segment, "unresolved" if unresolved else "parsed", parsed["layout"], record)
+            detail_fragments[record["record_id"]] = fragment(
+                entry, segment, "unresolved" if unresolved else "parsed", parsed["layout"], record,
+            )
     by_container = defaultdict(list)
     for record in records:
         by_container[record["Container_No"]].append(record)
     for entry in group["marks"]:
-        status, owner = _context(entry, markers, default_status, default_owner, marks=True)
+        status, owner = _context(entry, markers, marks=True)
         parsed_marks = parse_marks_container(entry["text"])
         if not parsed_marks:
             fragment(entry, entry["text"], "ignored", "Nội dung MARKS không có cấu trúc container được hỗ trợ; giữ nguyên để đối chiếu.")
@@ -355,6 +443,12 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
             counters[parsed["layout"]] += 1
             unresolved = record["raw"].get("identifier_requires_review") or parsed["layout"] == "marks_incomplete"
             fragment(entry, parsed_mark["raw"], "unresolved" if unresolved else "parsed", parsed["layout"], record)
+    for record in records:
+        if is_corroborated_compact_identifier(record):
+            detail_fragments[record["record_id"]].update(
+                status="parsed", reason="legacy_compact_identifier_corroborated_in_marks",
+            )
+    _apply_trailing_owner_total(group, records)
     return records
 
 
@@ -428,8 +522,7 @@ def parse_manifest(path, *, settings=None, progress=None):
                 party_col = columns.get("party", 0)
                 has_container_data = any(split_container_segments(text_value(value)) for col, value in enumerate(values)
                                          if col in {columns.get("description"), columns.get("marks")})
-                _read_party(group, text_value(values[party_col]) if party_col < len(values) else "", source_row, party_col,
-                            allow_continuation=not has_container_data)
+                _read_party_row(group, values, source_row, party_col, allow_continuation=not has_container_data)
             # Include goods/marks on the party-information row, which used to be skipped.
             for field in ("description", "marks"):
                 col = columns.get(field)

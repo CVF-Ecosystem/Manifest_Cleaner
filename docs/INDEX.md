@@ -15,6 +15,7 @@ Machine-readable source: `docs/catalog/ARTIFACT_REGISTRY.json`
 - Standard-library catalog validation and rendering functions.: `scripts/lib/downstream_catalog/CvfDownstreamCatalogLib.ps1`
 - Executable catalog manager (--check / --write).: `scripts/manage_cvf_downstream_catalog.ps1`
 - Machine implementation-truth surface.: `IMPLEMENTATION_STATUS.json`
+- Observed compatibility for paired legacy manifests and the VINAFCO replay.: `docs/reviews/LEGACY_COMPAT_REVIEW.md`
 - Observed results and remaining work for Manifest Cleaner 1.2.0.: `docs/reviews/ROADMAP_1_2_REVIEW.md`
 - Generated documentation index.: `docs/INDEX.md`
 - Generated human module catalog.: `docs/catalog/MODULE_CATALOG.md`

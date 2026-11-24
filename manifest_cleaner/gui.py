@@ -37,6 +37,8 @@ SOURCE_REASON_LABELS = {
     "description_metadata_total": "Dòng tổng trong mô tả, không gán thành tên hàng",
     "description_metadata_attachment": "Dòng dẫn tới danh sách đính kèm, không gán thành tên hàng",
     "description_metadata_quantity": "Thông tin số lượng/kích cỡ được dùng để đối chiếu",
+    "delivery_mode_annotation": "Ký hiệu phương thức giao nhận trong cột container",
+    "legacy_compact_identifier_corroborated_in_marks": "Mã container ngắn trùng trong dòng chi tiết và MARKS",
 }
 
 

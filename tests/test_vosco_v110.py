@@ -7,7 +7,7 @@ from openpyxl import Workbook
 
 from manifest_cleaner.engine import process_manifest
 from manifest_cleaner.exporter import build_port_rows
-from manifest_cleaner.carriers.vosco.adapter import parse_manifest
+from manifest_cleaner.carriers.vosco.adapter import parse_manifest, _aligned_partial_weights, _parsed_lines
 from manifest_cleaner.carriers.vosco.processors import determine_fe
 
 
@@ -78,6 +78,66 @@ class Vosco110Tests(unittest.TestCase):
         self.assertEqual(len(session.records), 1)
         findings = [i for i in session.validate() if i["code"] == "VOSCO_ADJACENT_CONTAINER_CANDIDATE"]
         self.assertEqual([(i["source_row"], i["source_column"]) for i in findings], [(1, 12), (3, 10)])
+
+    def test_delivery_mode_annotations_do_not_create_container_or_shift_quantity(self):
+        book = Workbook()
+        sheet = book.active
+        row = [""] * 19
+        row[0], row[1], row[5], row[10], row[14], row[18] = (
+            "(C)", "TEST", "VOSCO123456", "ABCU1234567/001234 40HC-C", "CARGO", "25 TONS")
+        sheet.append(row)
+        for label in ("DOOR-DOOR", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY"):
+            note = [""] * 19
+            note[10] = label
+            sheet.append(note)
+        path = self.root / "delivery_modes.xlsx"
+        book.save(path)
+        book.close()
+        session = process_manifest(path, "VOSCO")
+        self.assertEqual(len(session.records), 1)
+        self.assertFalse(any(i["code"] == "CONTAINER_UNPARSED" for i in session.validate()))
+        self.assertEqual(len([f for f in session.metadata["source_fragments"]
+                              if f["reason"] == "delivery_mode_annotation"]), 5)
+        columns, rows = build_port_rows(session)
+        self.assertEqual(rows[0][columns.index("Số lượng")], 1)
+
+    def test_partial_weights_require_matching_physical_lines(self):
+        containers = "FCL/FCL\nABCU1234567/001234 40HC-C\nABCU1234568/001235 40HC-C\nABCU1234569/001236 40HC-C"
+        description = "\nRICE\nSTEEL\nWOOD"
+        aligned = parse_manifest(self.workbook(description, containers=containers, weight="\n25 TONS\n26 TONS\n"))
+        self.assertEqual([r["Weight_Value"] for r in aligned["records"]], [25, 26, None])
+        self.assertEqual([r["raw"]["weight_source_line"] for r in aligned["records"]], [2, 3, None])
+        self.assertEqual([r["raw"]["weight_expected_source_line"] for r in aligned["records"]], [2, 3, 4])
+        self.assertEqual(aligned["records"][-1]["raw"]["weight_alignment"], "trailing_source_weight_missing")
+        raw_crlf = containers.replace("\n", "\r\n")
+        crlf = _aligned_partial_weights(raw_crlf, description.replace("\n", "\r\n"),
+                                         "\r\n25 TONS\r\n26 TONS\r\n", _parsed_lines(raw_crlf), {})
+        self.assertEqual([w["value"] if w else None for w in crlf[0]], [25, 26, None])
+        self.assertEqual(sum(i["code"] == "WEIGHT_INVALID" for i in aligned["issues"]), 1)
+        self.assertFalse(any(i["code"] == "WEIGHT_ASSOCIATION_AMBIGUOUS" for i in aligned["issues"]))
+        negatives = [
+            (description, "25 TONS\n26 TONS", containers),
+            ("RICE\nSTEEL\nWOOD", "\n25 TONS\n26 TONS", containers),
+            (description, "\n25 TONS\n\n26 TONS", containers),
+            (description, "\n25 TONS\nunknown", containers),
+            (description, "\n25 TONS\n26 TONS", containers.replace("FCL/FCL", "unknown")),
+            (description, "\n25 TONS\n26 TONS", containers.replace("ABCU1234568", "ABCU1234567")),
+        ]
+        for desc, weight, source in negatives:
+            with self.subTest(desc=desc, weight=weight, source=source):
+                result = parse_manifest(self.workbook(desc, containers=source, weight=weight))
+                self.assertTrue(any(i["code"] == "WEIGHT_ASSOCIATION_AMBIGUOUS" for i in result["issues"]))
+                self.assertTrue(all(r["Weight_Value"] is None for r in result["records"]))
+
+    def test_numeric_description_does_not_crash_partial_weight_audit(self):
+        result = parse_manifest(self.workbook(123, containers=CONTAINERS, weight="25 TONS"))
+        self.assertEqual(len(result["records"]), 2)
+        self.assertTrue(any(i["code"] == "WEIGHT_ASSOCIATION_AMBIGUOUS" for i in result["issues"]))
+
+    def test_unknown_short_text_and_malformed_container_remain_review_candidates(self):
+        result = parse_manifest(self.workbook("CARGO", containers="ABCU1234567/001234 40HC-C\nABCU12345\nUNEXPECTED-TEXT", weight="25 TONS"))
+        self.assertEqual(len(result["records"]), 3)
+        self.assertEqual(sum(i["code"] == "CONTAINER_UNPARSED" for i in result["issues"]), 2)
 
     def test_port_metadata_before_between_after_goods_never_shifts_cargo(self):
         for description, expected_source_lines in (

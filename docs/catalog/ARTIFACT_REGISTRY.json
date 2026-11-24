@@ -143,6 +143,13 @@
       "path": "docs/reviews/ROADMAP_1_2_REVIEW.md",
       "status": "ACTIVE",
       "description": "Observed results and remaining work for Manifest Cleaner 1.2.0."
+    },
+    {
+      "id": "truth-legacy-compat-1-2-1",
+      "family": "implementation_truth",
+      "path": "docs/reviews/LEGACY_COMPAT_REVIEW.md",
+      "status": "ACTIVE",
+      "description": "Observed compatibility for paired legacy manifests and the VINAFCO replay."
     }
   ]
 }
