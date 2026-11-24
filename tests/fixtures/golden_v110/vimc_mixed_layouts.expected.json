@@ -1,0 +1,21 @@
+{
+  "fixture_kind": "synthetic_manual_expectation",
+  "port_approved": false,
+  "carrier": "VIMC",
+  "input_file": "vimc_mixed_layouts.input.xlsx",
+  "input_sha256": "eb6858b2e6a27eba85947d7a9ff5768fcfcc993b8400792f413a5fefc6522700",
+  "settings": {"weight_kind": "unknown", "number_format": "legacy"},
+  "reasoning": "Cả ba dòng thuộc B/L DEMO-VIMC-001, COC LADEN, chủ hàng DEMO CONSIGNEE. Dòng 5 đặt 16.055 trước tên hàng nên dùng layout tấn; giữ 16.055 nội bộ và làm tròn 16.06 lúc xuất. Dòng 6/7 đặt 8000 và 27,000 sau mô tả nên dùng layout kg: 8 và 27 tấn. 20GP xuất VTOS 20DC; 40HC giữ 40HC; 20DC giữ 20DC. Số lượng 3 áp dụng mỗi dòng của B/L.",
+  "metadata": {"weight_internal_unit": "TONS"},
+  "schema_columns": ["STT", "Số Vận Đơn", "Số Container", "Số niêm chì", "Số niêm chì 1", "Chủ hàng", "Kích cỡ", "Loại Container", "Hãng khai thác", "Loại hàng", "F/E", "Trọng lượng (Tấn)", "Hàng hóa", "Số lượng", "Độ chính xác (%)", "Ghi chú"],
+  "records": [
+    {"Container_No": "DEMU0000002", "BL_No": "DEMO-VIMC-001", "Seal_No": "001235", "Size_Type": "20GP", "Physical_ISO_Size": "22G1", "VTOS_Size": "20DC", "Operator": "VMC", "FE_Status": "F", "Weight_Value": 16.055, "Weight_Unit": "TONS", "Description": "THEP DEMO", "Cargo_Type": "GENERAL", "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE"},
+    {"Container_No": "DEMU0000004", "BL_No": "DEMO-VIMC-001", "Seal_No": "001237", "Size_Type": "40HC", "Physical_ISO_Size": "45G1", "VTOS_Size": "40HC", "Operator": "VMC", "FE_Status": "F", "Weight_Value": 8.0, "Weight_Unit": "TONS", "Description": "VO LON DEMO", "Cargo_Type": "GENERAL", "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE"},
+    {"Container_No": "DEMU0000005", "BL_No": "DEMO-VIMC-001", "Seal_No": "001238", "Size_Type": "20DC", "Physical_ISO_Size": "22G1", "VTOS_Size": "20DC", "Operator": "VMC", "FE_Status": "F", "Weight_Value": 27.0, "Weight_Unit": "TONS", "Description": "GACH MEN DEMO", "Cargo_Type": "GENERAL", "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE"}
+  ],
+  "export_rows": [
+    {"STT": 1, "Số Vận Đơn": "DEMO-VIMC-001", "Số Container": "DEMU0000002", "Số niêm chì": "001235", "Số niêm chì 1": "001235", "Chủ hàng": "DEMO CONSIGNEE", "Kích cỡ": "20DC", "Loại Container": "20DC", "Hãng khai thác": "VMC", "Loại hàng": "GENERAL", "F/E": "F", "Trọng lượng (Tấn)": 16.06, "Hàng hóa": "THEP DEMO", "Số lượng": 3},
+    {"STT": 2, "Số Vận Đơn": "DEMO-VIMC-001", "Số Container": "DEMU0000004", "Số niêm chì": "001237", "Số niêm chì 1": "001237", "Chủ hàng": "DEMO CONSIGNEE", "Kích cỡ": "40HC", "Loại Container": "40HC", "Hãng khai thác": "VMC", "Loại hàng": "GENERAL", "F/E": "F", "Trọng lượng (Tấn)": 8.0, "Hàng hóa": "VO LON DEMO", "Số lượng": 3},
+    {"STT": 3, "Số Vận Đơn": "DEMO-VIMC-001", "Số Container": "DEMU0000005", "Số niêm chì": "001238", "Số niêm chì 1": "001238", "Chủ hàng": "DEMO CONSIGNEE", "Kích cỡ": "20DC", "Loại Container": "20DC", "Hãng khai thác": "VMC", "Loại hàng": "GENERAL", "F/E": "F", "Trọng lượng (Tấn)": 27.0, "Hàng hóa": "GACH MEN DEMO", "Số lượng": 3}
+  ]
+}

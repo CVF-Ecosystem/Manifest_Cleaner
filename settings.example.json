@@ -1,0 +1,5 @@
+{
+  "VOSCO": {"number_format": "legacy", "weight_kind": "unknown", "default_weight_unit": "TONS"},
+  "VIMC": {"number_format": "legacy", "weight_kind": "unknown"},
+  "VINAFCO": {"number_format": "legacy", "weight_kind": "gross", "default_weight_unit": "TONS"}
+}

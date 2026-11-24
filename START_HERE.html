@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Manifest Cleaner 1.1.1 — Hướng dẫn sử dụng</title>
+  <style>
+    :root{--navy:#12334c;--navy2:#245675;--orange:#e58436;--ink:#20364a;--muted:#536879;--line:#dce5ed;--paper:#f3f6f9;--green:#286047;--red:#9b3429;--amber:#805715}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}
+    a{color:#175b87;text-underline-offset:3px}a:hover{color:#0c3854}a:focus-visible,summary:focus-visible{outline:3px solid var(--orange);outline-offset:4px}
+    .wrap{max-width:1160px;margin:auto;padding:0 28px}.skip{position:absolute;left:16px;top:-100px;background:white;padding:8px 14px;z-index:10}.skip:focus{top:12px}
+    header{background:var(--navy);color:white;padding:54px 0 46px}.eyebrow{color:#bcd7e8;letter-spacing:.13em;text-transform:uppercase;font-size:12px;font-weight:750}
+    h1{font-size:clamp(34px,5.2vw,56px);letter-spacing:-.025em;line-height:1.15;margin:16px 0 18px}header p{max-width:790px;color:#dce8ef;font-size:19px;line-height:1.6;margin:0 0 18px}
+    .badges{display:flex;flex-wrap:wrap;gap:9px}.badge{border:1px solid #5f7c92;border-radius:20px;padding:4px 13px;font-size:13px;color:#ecf5fa}.badge.version{background:#f6b175;color:#17344b;border-color:#f6b175;font-weight:800}
+    nav{position:sticky;top:0;z-index:3;background:#fff;border-bottom:1px solid var(--line)}nav .wrap{display:flex;flex-wrap:wrap;gap:8px 22px;padding-top:14px;padding-bottom:14px}nav a{color:var(--navy);font-weight:650;font-size:14px;text-decoration:none}
+    main{padding-top:36px!important;padding-bottom:52px!important}section{margin-bottom:40px;scroll-margin-top:100px}h2{font-size:28px;line-height:1.25;letter-spacing:-.02em;margin:0 0 18px}h3{font-size:18px;line-height:1.4;margin:0 0 10px}p{margin:0 0 13px}.muted{color:var(--muted)}.small{font-size:14px}
+    .panel,.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.step .number{display:block;color:#a64d13;font-size:30px;line-height:1;font-weight:800;margin-bottom:17px}.step p{color:var(--muted);font-size:15px;margin:0}
+    .callout{padding:18px 22px;border-radius:9px;border-left:4px solid var(--orange);background:#fff2e7;margin:18px 0}.callout.info{background:#eaf2f8;border-left-color:#3c7ba6}.callout.success{background:#eaf5ef;border-left-color:#418266}.callout p:last-child{margin-bottom:0}
+    ul,ol{padding-left:23px;margin:10px 0 16px}li{margin:7px 0}.panel>:last-child,.card>:last-child{margin-bottom:0}.label{display:inline-block;font-size:12px;font-weight:750;padding:3px 10px;border-radius:14px;background:#eaf2f8;color:#255b7b;margin-bottom:11px}.label.error{background:#fbe9e6;color:var(--red)}.label.warn{background:#fff1d8;color:var(--amber)}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:white}table{border-collapse:collapse;width:100%;font-size:15px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:13px 16px}th{background:#e9f0f5;color:var(--navy);font-size:14px}tr:last-child td{border-bottom:0}td:first-child{min-width:135px}td code{white-space:normal}
+    code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.9em;background:#eaf0f5;border-radius:4px;padding:2px 6px;overflow-wrap:anywhere}pre{margin:12px 0 18px;background:#112f46;color:#e8f3fa;border-radius:9px;padding:16px 18px;overflow:auto;font:13px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace}pre code{color:inherit;background:none;padding:0;font-size:inherit;overflow-wrap:normal}kbd{font:12px ui-monospace,Consolas,monospace;border:1px solid #cad5df;border-bottom-width:2px;border-radius:4px;padding:3px 6px;background:white}
+    details{border:1px solid var(--line);background:white;border-radius:12px;padding:16px 20px;margin:16px 0}summary{cursor:pointer;font-weight:700;color:var(--navy)}details[open] summary{margin-bottom:16px}.checklist{margin-bottom:0}.file-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}.file{background:#eff5f9;border:1px solid #d7e4ee;border-radius:9px;padding:16px}.file strong{display:block;margin-bottom:7px}.file code{font-size:12px}.file p{font-size:14px;color:var(--muted);margin:10px 0 0}
+    footer{border-top:1px solid var(--line);color:var(--muted);font-size:13px;padding:24px 0 36px}.footer-row{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
+    @media(max-width:900px){.steps{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}nav .wrap{gap:7px 15px}.file-pair{grid-template-columns:1fr}}
+    @media(max-width:540px){.wrap{padding:0 18px}header{padding:36px 0 32px}header p{font-size:17px}.steps{grid-template-columns:1fr}.panel,.card{padding:20px}h2{font-size:24px}th,td{padding:11px 12px}nav{position:static}section{scroll-margin-top:20px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+    @media print{body{background:white;font-size:11pt}header{background:white;color:var(--navy);padding:0 0 20px}header p,.eyebrow{color:var(--ink)}h1{font-size:28pt}.badge{color:var(--navy);border-color:var(--line)}nav,.skip{display:none}.wrap{max-width:none;padding:0}main{padding-top:18px!important}section{margin-bottom:24px}.grid,.steps{grid-template-columns:1fr 1fr}h2,h3,summary{break-after:avoid}.card,.panel,tr,.callout{break-inside:avoid}pre{white-space:pre-wrap;color:var(--ink);background:#f2f5f8}a{color:inherit}.table-wrap{overflow:visible}footer{padding-bottom:0}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#noi-dung">Chuyển đến nội dung hướng dẫn</a>
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Công cụ local · Dữ liệu nhập hệ thống Cảng</div>
+    <h1>Một manifest.<br>Một hãng tàu.</h1>
+    <p>Đọc nguồn, giải quyết các mục cần kiểm tra và xuất đúng mẫu 16 cột. Phiên bản 1.1 bổ sung xác nhận từng trường, xem trước giá trị xuất và mở lại phiên làm việc.</p>
+    <div class="badges"><span class="badge version">Phiên bản 1.1.1</span><span class="badge">22-11-2026</span><span class="badge">VOSCO · VIMC · VINAFCO</span><span class="badge">Hướng dẫn offline</span></div>
+  </div>
+</header>
+<nav aria-label="Nội dung hướng dẫn"><div class="wrap"><a href="#bat-dau">Bắt đầu</a><a href="#doi-chieu">Đối chiếu</a><a href="#cau-hinh">Cấu hình đọc</a><a href="#luu-phien">Lưu / mở lại phiên</a><a href="#xu-ly-loi">Tình huống cần xử lý</a><a href="#ky-thuat">Cho agent local</a></div></nav>
+<main id="noi-dung" class="wrap">
+  <section class="callout success"><strong>Bản vá 1.1.1:</strong> CLI giữ nguyên bộ Excel–JSON cũ khi dữ liệu mới còn lỗi chặn xuất, kể cả khi có yêu cầu ghi đè. <a href="docs/V1_1_1_GUIDE.html">Xem bản vá, hướng dẫn local và đề xuất hoàn thiện</a>. Các đề xuất đọc Excel linh hoạt hơn chưa được triển khai trong bản vá này.</section>
+  <section id="bat-dau">
+    <h2>Bắt đầu trên Windows</h2>
+    <div class="panel">
+      <ol>
+        <li><strong>Giải nén toàn bộ gói</strong> vào thư mục có quyền ghi, chẳng hạn Documents. Chạy từ thư mục đã giải nén.</li>
+        <li>Dùng <strong>Python 3.12 64-bit</strong>, sau đó mở <code>START.cmd</code>. Gói khai báo hỗ trợ Python 3.10–3.13.</li>
+        <li>Lần chuẩn bị đầu tiên cài thư viện vào <code>.venv</code> riêng của ứng dụng, cần kết nối để tải phụ thuộc.</li>
+        <li>Chọn hãng và mở một file <code>.xls</code>, <code>.xlsx</code> hoặc <code>.xlsm</code>.</li>
+      </ol>
+      <p class="muted">Sau khi cài đủ thư viện, việc đọc, sửa và xuất manifest chạy trên máy. Không cần tài khoản AI/API. Có thể nhờ agent local chuẩn bị thư viện offline cho máy hạn chế mạng.</p>
+    </div>
+    <div class="callout"><strong>Đây là gói mã nguồn chạy local và bộ hướng dẫn đóng gói.</strong> Gói chưa kèm EXE Windows đã build/nghiệm thu. <code>BUILD_EXE.cmd</code> phục vụ bước build tại máy Windows; cần kiểm tra bản chạy cuối cùng trước khi bàn giao vận hành.</div>
+  </section>
+
+  <section aria-labelledby="workflow-title">
+    <h2 id="workflow-title">Bốn bước cho mỗi lần xử lý</h2>
+    <div class="steps">
+      <div class="card step"><span class="number">01</span><h3>Chọn hãng, mở nguồn</h3><p>VOSCO, VIMC hoặc VINAFCO. Kiểm tra quy ước số, ý nghĩa trọng lượng và sheet đang dùng.</p></div>
+      <div class="card step"><span class="number">02</span><h3>Xem mục cần kiểm tra</h3><p>Phân biệt lỗi theo dòng, lỗi toàn file, cảnh báo và container duy nhất. Mở đúng dòng để đối chiếu.</p></div>
+      <div class="card step"><span class="number">03</span><h3>Sửa hoặc xác nhận</h3><p>Chỉ trường thực sự thay đổi hoặc được chọn xác nhận mới được ghi nhận. Mỗi lần lưu cần căn cứ.</p></div>
+      <div class="card step"><span class="number">04</span><h3>Xuất và giữ phiên</h3><p>Excel nhập Cảng giữ mẫu 16 cột theo hãng. Mặc định lưu kèm JSON để mở lại phiên sau.</p></div>
+    </div>
+    <p class="small muted" style="margin-top:15px">Tên tàu không quyết định cách đọc. VIMC nhận dạng bố cục từ nội dung; những trường hợp có nhiều cách đọc cần được người dùng đối chiếu.</p>
+  </section>
+
+  <section id="doi-chieu">
+    <h2>Đối chiếu đúng trường, đúng container</h2>
+    <div class="grid">
+      <div class="panel">
+        <span class="label">Chỉnh sửa / xác nhận</span>
+        <h3>Sửa seal không tự xác nhận F/E</h3>
+        <p>Nhấp đúp một lỗi để mở form. Trường liên quan có dấu <strong>*</strong> và nhãn nổi bật.</p>
+        <ul>
+          <li><strong>Đã sửa giá trị:</strong> ghi nhận đúng trường thay đổi và lịch sử trước/sau.</li>
+          <li><strong>Giữ nguyên nhưng đã kiểm tra:</strong> tích <strong>Đã đối chiếu trường này</strong> ở chính trường đó.</li>
+          <li><strong>Chưa kiểm tra:</strong> giữ ô xác nhận trống. Chỉ mở rồi lưu form không tự làm mất lỗi.</li>
+        </ul>
+        <p>Ghi <strong>lý do chỉnh sửa / căn cứ xác nhận</strong> trước khi lưu.</p>
+      </div>
+      <div class="panel">
+        <span class="label">Thao tác theo tab hiện hành</span>
+        <h3>Chọn lỗi của B thì thao tác trên B</h3>
+        <p>Trong tab <strong>Cần kiểm tra</strong>, nút Xem/sửa, Đã đối chiếu và Loại/khôi phục dùng container của lỗi đang chọn.</p>
+        <p>Dialog xác nhận/loại ghi rõ <strong>container và B/L</strong>. Lỗi toàn file vô hiệu hóa nút thao tác theo dòng.</p>
+        <p><strong>Đã đối chiếu</strong> ở thanh công cụ lưu căn cứ cho cảnh báo. Lỗi dữ liệu cần được giải quyết tại đúng trường.</p>
+      </div>
+    </div>
+    <div class="callout info"><strong>Trọng lượng nhập trong form luôn là tấn.</strong> Có thể dùng dấu phẩy hoặc dấu chấm thập phân. F = có hàng, E = rỗng. Quy ước đọc dấu số trong file nguồn được chọn ở Cấu hình đọc.</div>
+    <div class="grid">
+      <div class="panel"><h3>Nguồn và giá trị sẽ xuất</h3><p>Tab cùng tên trong form đặt bằng chứng nguồn cạnh các giá trị sẽ ghi vào Excel: mapping kích cỡ, nhãn hàng, trọng lượng làm tròn và ghi chú.</p><p>Xem trước dùng cùng quy tắc với exporter; các ô chưa lưu có thể được xem trước mà không sửa phiên. Các lỗi chưa giải quyết vẫn chặn xuất.</p><p class="muted small">Dữ liệu JSON kỹ thuật được thu gọn để mở khi cần đọc sâu.</p></div>
+      <div class="panel"><h3>Dòng VIMC có hai cách đọc</h3><p>Đối chiếu dòng gốc, chọn phương án rồi bấm <strong>Điền và xác nhận 2 trường</strong>. Ứng dụng điền trọng lượng theo tấn và mô tả tương ứng.</p><p>Không có phương án được tự chọn sẵn. Người dùng vẫn phải ghi căn cứ và lưu. Có thể sửa từng trường thủ công nếu cần.</p></div>
+    </div>
+    <details>
+      <summary>Tra nguồn cho biết điều gì?</summary>
+      <p><strong>Tra nguồn</strong> hiển thị các đoạn mà adapter đã ghi nhận: vị trí, nguyên văn, trạng thái lúc đọc và lý do nhận diện/bỏ qua/chờ đối chiếu. Chọn một dòng để xem đầy đủ nội dung.</p>
+      <p>Trạng thái này ghi nhận <strong>lần đọc nguồn ban đầu</strong>. Tab <strong>Cần kiểm tra</strong> cập nhật theo dữ liệu đã sửa. Một đoạn “đã nhận diện” vẫn có thể có lỗi trường; số đoạn không phải số container hay tỷ lệ chính xác.</p>
+      <p class="muted">Cả VOSCO/VIMC/VINAFCO ghi đoạn nguồn theo vùng/bố cục riêng. Đây là các đoạn parser thu thập, không phải xác nhận kiểm kê mọi ô trong workbook. Phiên chưa có danh sách sẽ được thông báo rõ; nguồn từng container vẫn xem được trong form.</p>
+    </details>
+  </section>
+
+  <section id="cau-hinh">
+    <h2>Chọn đúng nghĩa của dữ liệu nguồn</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Trong Cấu hình đọc</th><th>Cách dùng</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Quy ước số</strong></td><td><code>legacy</code> giữ quy tắc nguồn cũ; <code>decimal_comma</code> đọc kiểu <code>25.000,50</code>; <code>decimal_dot</code> đọc kiểu <code>25,000.50</code>. Số numeric trong Excel giữ nguyên giá trị.</td></tr>
+        <tr><td><strong>Trọng lượng hàng</strong><br><code>cargo</code></td><td>Dùng khi cột ghi khối lượng hàng. Với VOSCO, hàng nhẹ dương không bị so với khối lượng vỏ để suy ra rỗng.</td></tr>
+        <tr><td><strong>Tổng trọng lượng</strong><br><code>gross</code></td><td>Dùng khi đã xác nhận ngữ nghĩa gross của cột; áp dụng quy tắc gross/tare của hãng có dùng suy luận này.</td></tr>
+        <tr><td><strong>Chưa xác nhận ý nghĩa</strong><br><code>unknown</code></td><td>Mặc định VOSCO/VIMC. VOSCO giữ quy tắc legacy và cảnh báo khi cần suy luận F/E từ trọng lượng. VINAFCO mặc định gross.</td></tr>
+        <tr><td><strong>Sheet cần xử lý</strong></td><td>Chọn hoặc nhập chính xác tên sheet. Tên không tồn tại báo lỗi. Nếu không chỉ định, áp dụng hành vi nhận diện sheet của từng hãng.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout"><strong>Chỉ đổi cấu hình sau khi đã xác nhận nghĩa dữ liệu.</strong> Thay đổi thật sẽ yêu cầu <strong>Xử lý lại</strong>; nếu có chỉnh sửa cần giữ, lưu đối chiếu trước. Lưu lại cùng cấu hình hiện tại không vô hiệu hóa phiên.</div>
+    <p class="small muted">VIMC tiếp tục đọc F/E từ ngữ cảnh dòng/nhóm. Không chuyển quy tắc tare của hãng khác sang VIMC chỉ vì có cùng tên tùy chọn. Cấu hình sâu và đơn vị mặc định được mô tả trong README và tài liệu từng hãng.</p>
+  </section>
+
+  <section id="luu-phien">
+    <h2>Xuất để nhập Cảng, lưu để làm tiếp</h2>
+    <div class="panel">
+      <p>Khi không còn lỗi chặn, bấm <strong>Xuất file nhập Cảng</strong>. Các cảnh báo còn lại cần được đối chiếu và xác nhận xuất. Tùy chọn xuất kèm JSON mặc định được bật.</p>
+      <div class="file-pair">
+        <div class="file"><strong>File nhập hệ thống Cảng</strong><code>manifest_VIMC_CLEAN.xlsx</code><p>Đúng tên/thứ tự 16 cột của hãng. Giữ kiểu dữ liệu và quy tắc đầu ra đã thống nhất.</p></div>
+        <div class="file"><strong>Phiên đối chiếu để mở lại</strong><code>manifest_VIMC_CLEAN.review.json</code><p>Giữ kết quả, nguồn, cấu hình, lịch sử sửa/xác nhận và dòng đã loại. JSON không dùng để nhập Cảng.</p></div>
+      </div>
+      <p>Nếu một trong hai file đã tồn tại, ứng dụng yêu cầu xác nhận ghi đè <strong>cả bộ</strong>. Giữ thêm manifest gốc để mở lại phiên. Có thể bấm <strong>Lưu đối chiếu</strong> ngay khi vẫn còn lỗi để tiếp tục sau.</p>
+    </div>
+    <div class="grid" style="margin-top:18px">
+      <div class="panel">
+        <span class="label">Review v2</span>
+        <h3>Mở lại mà giữ các sửa đổi</h3>
+        <ol>
+          <li>Bấm <strong>Mở phiên đã lưu</strong>, chọn JSON của bản 1.1.</li>
+          <li>Ứng dụng kiểm tra nội dung phiên và SHA-256 của manifest nguồn.</li>
+          <li>Khôi phục sửa đổi, xác nhận, dòng đã loại và cấu hình đã lưu; không chạy parser lại để thay kết quả.</li>
+        </ol>
+        <p class="small muted">Cấu hình đang chờ áp dụng ở giao diện không thay cấu hình của phiên đã lưu.</p>
+      </div>
+      <div class="panel">
+        <span class="label">Nguồn đã di chuyển</span>
+        <h3>Chọn lại đúng bản gốc</h3>
+        <p>Nếu không còn đường dẫn nguồn cũ, chọn lại file có <strong>cùng nội dung</strong>. Dấu kiểm tra giúp xác định đúng bản nguồn của phiên.</p>
+        <p>Nguồn đã thay đổi cần được mở thành phiên mới; muốn tiếp tục phiên cũ thì dùng đúng nguồn cũ. Mở phiên thất bại giữ nguyên phiên hiện tại.</p>
+      </div>
+    </div>
+    <div class="callout info"><strong>JSON từ bản 1.0 là báo cáo tham khảo.</strong> Bản đó chưa hỗ trợ resume. Giữ để đối chiếu và mở manifest gốc bằng 1.1 để tạo phiên mới; đổi nhãn version trong JSON không chuyển đổi được cấu trúc phiên.</div>
+    <p class="small muted">Nếu chỉ xuất Excel, JSON cũ cùng tên không được cập nhật. Dùng tên mới để tránh nhầm cặp file. Cảnh báo chỉnh sửa chưa lưu vẫn hoạt động khi phiên chưa được lưu đối chiếu.</p>
+  </section>
+
+  <section id="xu-ly-loi">
+    <h2>Khi ứng dụng yêu cầu kiểm tra</h2>
+    <div class="grid">
+      <div class="panel"><span class="label error">Lỗi chặn xuất</span><h3>Sửa dữ liệu hoặc xử lý nguồn</h3><p>Thiếu trường bắt buộc, mã chưa đúng dạng, trọng lượng/mô tả mơ hồ, cấu trúc bảng thay đổi hoặc công thức nguồn chưa có kết quả đều cần xử lý trước khi tạo file nhập.</p><p>Chỉ loại một dòng sau khi đã xác định dòng đó không cần xuất và ghi rõ lý do. Lỗi toàn file cần xử lý nguồn/cấu hình rồi đọc lại.</p></div>
+      <div class="panel"><span class="label warn">Cảnh báo</span><h3>Đọc căn cứ trước khi xác nhận</h3><p>Cảnh báo có thể liên quan suy luận F/E, seal khác quy tắc cũ hoặc container liên quan nhiều B/L. Đọc dữ liệu nguồn, ghi căn cứ đối chiếu và kiểm tra kết quả sẽ xuất.</p><p>Điểm “Độ chính xác (%)” là điểm quy tắc giữ để tương thích, không phải tỷ lệ chính xác đã đo.</p></div>
+    </div>
+    <details>
+      <summary>Công thức Excel chưa có kết quả lưu</summary>
+      <p>Với XLSX/XLSM, ứng dụng phát hiện công thức thiếu giá trị kết quả lưu hoặc đang lỗi trong sheet được dùng và chặn xuất. Mở file bằng Excel để tính lại và lưu, hoặc dùng bản chỉ chứa giá trị, rồi xử lý lại.</p>
+      <p>Ứng dụng không tự tính công thức. Kiểm tra cache công thức này chưa bao phủ XLS nhị phân cũ; chuyển mẫu có công thức sang XLSX hoặc bản giá trị khi cần đối chiếu.</p>
+    </details>
+    <details>
+      <summary>Chín tình huống từ audit và thay đổi của bản 1.1</summary>
+      <p class="small muted">Các thay đổi dưới đây nhắm vào những ca đã tái hiện. Chúng không chứng minh bao phủ mọi biến thể đầu vào.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Finding</th><th>Hành vi đã bổ sung/sửa</th></tr></thead>
+        <tbody>
+          <tr><td><strong>F01 · Xác nhận form</strong></td><td>Sửa một trường không tự xác nhận trường khác; checkbox xác nhận được gửi riêng.</td></tr>
+          <tr><td><strong>F02 · Mã VIMC hỏng</strong></td><td>Giữ các ứng viên có cấu trúc được hỗ trợ để sửa hoặc loại có lý do; mã sai không được ngầm coi là đúng.</td></tr>
+          <tr><td><strong>F03 · Đơn vị VINAFCO</strong></td><td>Nhận tên cột cùng đơn vị, kể cả các header kg liền chữ đã hỗ trợ. Header lặp đổi cột/đơn vị gây lỗi để đối chiếu.</td></tr>
+          <tr><td><strong>F04 · Mô tả VOSCO</strong></td><td>Dùng cùng danh sách mô tả đã phân loại để đếm/ghép; dòng thông tin PORT không làm lệch hàng trong ca đã tái hiện.</td></tr>
+          <tr><td><strong>F05 · Nghĩa trọng lượng</strong></td><td>VOSCO phân biệt cargo/gross/unknown khi suy luận F/E; nêu mâu thuẫn EMPTY với khối lượng hàng dương.</td></tr>
+          <tr><td><strong>F06 · Selection</strong></td><td>Các nút theo dòng dùng container được chọn trong tab hiện hành và hiển thị đối tượng thao tác.</td></tr>
+          <tr><td><strong>F07 · Công thức nguồn</strong></td><td>XLSX/XLSM thiếu kết quả công thức hoặc có lỗi công thức tạo lỗi nguồn chặn xuất.</td></tr>
+          <tr><td><strong>F08 · Cấu hình CLI</strong></td><td>Đường dẫn <code>--settings</code> đã chỉ định nhưng thiếu/sai phải báo lỗi; không tự đổi sang mặc định.</td></tr>
+          <tr><td><strong>F09 · Party VIMC</strong></td><td>Đọc tiếp tên/địa chỉ qua dòng Excel trong cùng B/L, giữ bằng chứng và ranh giới nhóm.</td></tr>
+        </tbody>
+      </table></div>
+    </details>
+  </section>
+
+  <section aria-labelledby="rules-title">
+    <h2 id="rules-title">Giữ hợp đồng xuất của từng hãng</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Hãng</th><th>Quy tắc tiếp tục được giữ</th></tr></thead>
+      <tbody>
+        <tr><td><strong>VOSCO</strong></td><td><code>VOC/SVC</code>, bố cục khối nguồn, mapping VTOS/loại hàng và các chiến lược ghép mô tả. Sửa các ca sai đã chứng minh trong từng bước xử lý.</td></tr>
+        <tr><td><strong>VIMC</strong></td><td><code>VMC/SVM</code>, nhóm B/L, kg/tấn theo kiểu dòng, tank xuất <code>GENERAL</code>, hai cột kích cỡ dùng nhãn VTOS theo mẫu cũ.</td></tr>
+        <tr><td><strong>VINAFCO</strong></td><td><code>VFC/SVF</code>, marker <code>(S)/(C)/(N)</code>, mapping VTOS/loại hàng và cách tính số lượng theo nhóm.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small muted" style="margin-top:13px">Mỗi hãng giữ mẫu 16 cột. Hai cột seal tiếp tục được giữ; VIMC/VINAFCO làm tròn trọng lượng tại bước xuất và dùng nhãn hàng EMPTY khi E. Nguồn vẫn lưu để đối chiếu. Chi tiết đầy đủ nằm trong README và tài liệu từng hãng.</p>
+  </section>
+
+  <section aria-labelledby="demo-title">
+    <h2 id="demo-title">Thử với dữ liệu tổng hợp trước</h2>
+    <div class="panel">
+      <ol>
+        <li>Mở <code>samples/DEMO_[HANG]_INPUT.xlsx</code> với đúng hãng.</li>
+        <li>Xuất bằng tên mới và so sánh <code>DEMO_[HANG]_EXPECTED.xlsx</code>.</li>
+        <li>Mở <code>DEMO_VIMC_NEEDS_REVIEW.xlsx</code> để thử thiếu chủ hàng và dòng có nhiều cách đọc.</li>
+        <li>Lưu đối chiếu, đóng phiên, rồi thử <strong>Mở phiên đã lưu</strong> với nguồn không thay đổi.</li>
+      </ol>
+      <p class="muted">Các demo là dữ liệu giả lập. EXPECTED của demo là output minh họa từ chương trình. Bộ kỳ vọng viết tay độc lập được mô tả tại <a href="docs/GOLDEN_DATA_V110.md">GOLDEN_DATA_V110.md</a>; cả hai vẫn cần được bổ sung bằng nghiệm thu manifest thật của Cảng.</p>
+      <p class="muted small">REVIEW của samples 1.1 dùng đường dẫn tương đối để mở được sau giải nén: giữ INPUT và REVIEW cạnh nhau. Phiên người dùng thông thường lưu đường dẫn tuyệt đối; khi chuyển nguồn sang chỗ khác, chọn lại nguồn hoặc dùng <code>--source</code>.</p>
+    </div>
+  </section>
+
+  <section id="ky-thuat">
+    <h2>Giao cho agent local</h2>
+    <div class="grid">
+      <div class="panel">
+        <h3>Tài liệu cần đọc</h3>
+        <ul class="checklist">
+          <li><a href="docs/LOCAL_AGENT_V111.md">LOCAL_AGENT_V111.md</a>: kiểm bản vá 1.1.1 và đề xuất nâng cấp có tiêu chí nghiệm thu.</li>
+          <li><a href="README.md">README.md</a>: đầy đủ quy trình, cấu hình và CLI.</li>
+          <li><a href="docs/GUI_V110.md">GUI_V110.md</a>: sửa/xác nhận, tra nguồn và resume.</li>
+          <li><a href="docs/CARRIER_FIXES_V110.md">CARRIER_FIXES_V110.md</a>: VIMC/VOSCO.</li>
+          <li><a href="docs/VINAFCO_FIXES_V110.md">VINAFCO_FIXES_V110.md</a>: tên cột, đơn vị và dòng thiếu mã.</li>
+          <li><a href="docs/VALIDATION_REPORT.md">VALIDATION_REPORT.md</a>: kết quả và giới hạn kiểm chứng cuối cùng.</li>
+          <li><a href="docs/DEVELOPER_HANDOFF.md">DEVELOPER_HANDOFF.md</a> và <a href="SOURCE_PROVENANCE.json">SOURCE_PROVENANCE.json</a>: tiếp nhận kỹ thuật và nguồn kế thừa.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Chạy và kiểm chứng</h3>
+        <ul>
+          <li><code>START.cmd</code>: khởi động ứng dụng.</li>
+          <li><code>RUN_TESTS.cmd</code>: chạy bộ kiểm thử.</li>
+          <li><code>BUILD_EXE.cmd</code>: build Windows theo spec.</li>
+          <li>Bản EXE sau build phải được chuyển cả thư mục <code>dist/ManifestCleaner</code>.</li>
+        </ul>
+        <p class="small muted">Số test và kết quả hiện hành xem tại VALIDATION_REPORT.md; hướng dẫn này không cố định một con số test.</p>
+      </div>
+    </div>
+    <details>
+      <summary>Các lệnh CLI thường dùng</summary>
+      <p>Chạy trong môi trường Python đã cài phụ thuộc. Trên Windows có thể thay <code>python</code> bằng <code>.venv\Scripts\python.exe</code>.</p>
+      <p><strong>Kiểm tra và lưu đối chiếu khi còn lỗi:</strong></p>
+      <pre><code>python -m manifest_cleaner.cli input.xlsx --carrier VIMC --review review.json</code></pre>
+      <p><strong>Xuất Excel và .review.json mặc định:</strong></p>
+      <pre><code>python -m manifest_cleaner.cli input.xlsx --carrier VIMC --output output.xlsx</code></pre>
+      <p><strong>Dùng cấu hình và sheet cụ thể:</strong></p>
+      <pre><code>python -m manifest_cleaner.cli input.xlsx --carrier VINAFCO --settings settings.json --sheet Manifest --output output.xlsx</code></pre>
+      <p><strong>Mở lại phiên; có thể nối lại nguồn đã di chuyển:</strong></p>
+      <pre><code>python -m manifest_cleaner.cli --resume output.review.json --output output_2.xlsx
+python -m manifest_cleaner.cli --resume output.review.json --source D:/Du_lieu/manifest_goc.xlsx --output output_2.xlsx</code></pre>
+      <p><strong>Chỉ xuất Excel:</strong></p>
+      <pre><code>python -m manifest_cleaner.cli input.xlsx --carrier VOSCO --output output.xlsx --no-review</code></pre>
+      <p><code>--resume</code> dùng cấu hình đã lưu, không kết hợp input/hãng/cấu hình/sheet khác. <code>--source</code> chỉ dùng cùng resume; nguồn phải khớp nội dung. <code>--no-review</code> không kết hợp <code>--review</code>. Muốn chủ động ghi đè các file đích, thêm <code>--overwrite</code>.</p>
+      <p class="small muted">CLI cần <code>--settings</code> để dùng cấu hình riêng; không tự tìm settings.json như GUI. Không có dialog xác nhận cảnh báo trong CLI: cần đọc issues/cấu hình hiệu lực trước khi dùng output.</p>
+    </details>
+    <div class="callout info">
+      <h3>Phần cần nghiệm thu ở môi trường sử dụng</h3>
+      <p>Chưa kiểm thử trực quan Tkinter native trên Windows, chưa build/chạy nghiệm thu EXE Windows và chưa import vào hệ thống Cảng thực tế trong môi trường bàn giao này.</p>
+      <p>Agent local cần kiểm tra bản phân phối trên máy đích, gồm DPI, đường dẫn tiếng Việt, file Excel đang mở, quyền ghi thư mục và mẫu manifest thật có output được Cảng chấp nhận. Các test tổng hợp xác minh ca cụ thể, không tạo ra tỷ lệ chính xác vận hành.</p>
+    </div>
+    <p class="small"><kbd>Ctrl</kbd> + <kbd>O</kbd> mở manifest &nbsp;·&nbsp; <kbd>Ctrl</kbd> + <kbd>S</kbd> xuất &nbsp;·&nbsp; <kbd>F1</kbd> hướng dẫn</p>
+  </section>
+</main>
+<footer><div class="wrap footer-row"><span>Manifest Cleaner Unified 1.1.1 · 22-11-2026</span><span>Hướng dẫn tiếng Việt · Không dùng tài nguyên ngoài để hiển thị</span></div></footer>
+</body>
+</html>

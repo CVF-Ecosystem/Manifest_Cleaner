@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manifest-cleaner-unified"
+version = "1.1.1"
+description = "Local carrier-based manifest cleaner for port container imports"
+requires-python = ">=3.10,<3.14"
+dependencies = ["pandas==2.2.3", "openpyxl==3.1.5", "XlsxWriter==3.2.9", "xlrd==2.0.1"]
+
+[project.scripts]
+manifest-cleaner = "manifest_cleaner.gui:main"
+manifest-cleaner-cli = "manifest_cleaner.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["manifest_cleaner*"]

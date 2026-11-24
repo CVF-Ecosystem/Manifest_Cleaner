@@ -1,0 +1,39 @@
+{
+  "version": "1.1.1",
+  "release_date": "2026-11-22",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "parent_package": "Manifest_Cleaner_Unified_v1.1.0_2026-11-22.zip",
+  "parent_package_sha256": "0434591355dbc2a1dd13d6ea996b45270258fa6a0779c1af13f3c2222d3d2986",
+  "parent_integrity_verification": "All 86 checksum entries in the supplied v1.1.0 package matched before changes.",
+  "basis": "Version 1.1.1 fixes F10: CLI validation failures cannot partially overwrite an existing Excel/review bundle. Adds 11 regression tests and a bounded local-test/Excel-flexibility roadmap. Carrier business rules and the 16-column contracts are unchanged.",
+  "repository_reference_status": "Repository references are inherited from v1.1.0; no repository was fetched again or modified for this patch.",
+  "sources": [
+    {
+      "carrier": "VOSCO",
+      "repository": "https://github.com/CVF-Ecosystem/Manifest-Cleaner_VOSCO",
+      "branch": "cvf-next",
+      "commit": "e5a78dd0444349990b08992ceb57758aa074dcb8"
+    },
+    {
+      "carrier": "VIMC",
+      "repository": "https://github.com/CVF-Ecosystem/Manifest-Cleaner_VIMC",
+      "branch": "main",
+      "commit": "03e0d34e3fe4a27d8d2ce0d54d96ea9275370436"
+    },
+    {
+      "carrier": "VINAFCO",
+      "repository": "https://github.com/CVF-Ecosystem/Manifest-Cleaner_VINAFCO",
+      "branch": "cvf-next",
+      "commit": "e743b7325bdb95ff5a72c9a9f985a41ad08b04f0"
+    }
+  ],
+  "ancestor_package": {
+    "version": "1.1.0",
+    "parent_package": "Manifest_Cleaner_Unified_v1.0.0_2026-11-22.zip",
+    "parent_package_sha256": "7fe5422c668456d035a3926a344c454e626c79707ab3fc9fbd08ec8d287baac7"
+  },
+  "implemented_findings": [
+    "F10"
+  ],
+  "proposed_features_status": "Documented only in LOCAL_AGENT_V111.md; not implemented in v1.1.1"
+}

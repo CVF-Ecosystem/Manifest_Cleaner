@@ -1,0 +1,81 @@
+{
+  "version": "1.1.1",
+  "date": "2026-11-22",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "tests": 202,
+  "passed": 202,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "test_exit_code": 0,
+  "duration_seconds": 3.925,
+  "test_modules": {
+    "test_cli_v110": 13,
+    "test_cli_v111": 11,
+    "test_common": 8,
+    "test_export_v110": 15,
+    "test_golden_v110": 3,
+    "test_gui_v110": 16,
+    "test_integration": 14,
+    "test_review_safety": 6,
+    "test_session_v110": 23,
+    "test_vimc": 25,
+    "test_vimc_v110": 9,
+    "test_vinafco": 16,
+    "test_vinafco_v110": 13,
+    "test_vosco": 19,
+    "test_vosco_v110": 11
+  },
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "dependencies": {
+    "pandas": "2.2.3",
+    "openpyxl": "3.1.5",
+    "XlsxWriter": "3.2.9",
+    "xlrd": "2.0.1"
+  },
+  "baseline_tests": 191,
+  "new_cli_regression_tests": 11,
+  "gui_callback_tests": "executed with fake widgets and real engine/files; no native display test",
+  "windows_gui": "not_executed",
+  "windows_exe": "not_built",
+  "port_system_import": "not_executed",
+  "carrier_logic": "unchanged from v1.1.0",
+  "samples": "retained unchanged from v1.1.0",
+  "golden_corpus": "retained 3 synthetic inputs and independent hand-authored expectations; not port-certified",
+  "new_proposals": "documented only; not implemented in v1.1.1",
+  "runtime_check": "passed",
+  "sample_resume_checks": [
+    {
+      "review": "DEMO_VIMC_NEEDS_REVIEW.json",
+      "records": 2,
+      "errors": 7,
+      "relocated_resume": "passed"
+    },
+    {
+      "review": "DEMO_VIMC_REVIEW.json",
+      "records": 3,
+      "errors": 0,
+      "relocated_resume": "passed"
+    },
+    {
+      "review": "DEMO_VINAFCO_REVIEW.json",
+      "records": 1,
+      "errors": 0,
+      "relocated_resume": "passed"
+    },
+    {
+      "review": "DEMO_VOSCO_REVIEW.json",
+      "records": 1,
+      "errors": 0,
+      "relocated_resume": "passed"
+    }
+  ],
+  "f10_before_after": "principal regression detects old v1.1.0 behavior and passes v1.1.1; see F10_BEFORE_AFTER.txt",
+  "syntax_check": "38 Python/spec files parsed successfully",
+  "unchanged_business_source_files": 17,
+  "baseline_tests_byte_identical": true,
+  "samples_byte_identical": true,
+  "html_local_links_checked": 31,
+  "package_integrity": "Per-file SHA-256 manifest and ZIP byte/CRC check performed during final packaging"
+}

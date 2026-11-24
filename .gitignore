@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+settings.json
+*_DOI_CHIEU.json
+*_CLEAN.xlsx
+*.log
+.cvf/local-binding.json
+.cvf/runtime/

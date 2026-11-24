@@ -1,0 +1,120 @@
+"""Independent audit regressions: cargo line alignment and weight semantics."""
+from pathlib import Path
+import tempfile
+import unittest
+
+from openpyxl import Workbook
+
+from manifest_cleaner.engine import process_manifest
+from manifest_cleaner.exporter import build_port_rows
+from manifest_cleaner.carriers.vosco.adapter import parse_manifest
+from manifest_cleaner.carriers.vosco.processors import determine_fe
+
+
+CONTAINERS = "ABCU1234567/001234 40HC-C\nABCU1234568/001235 40HC-C"
+
+
+class Vosco110Tests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def workbook(self, description, *, containers=CONTAINERS, weight="25 TONS\n25 TONS"):
+        book = Workbook()
+        sheet = book.active
+        sheet.title = "Manifest"
+        row = [""] * 19
+        row[0], row[1], row[5], row[10], row[14], row[18] = "(C)", "TEST CONSIGNEE", "VOSCO123456", containers, description, weight
+        sheet.append(row)
+        path = self.root / "manifest.xlsx"
+        book.save(path)
+        book.close()
+        return path
+
+    def test_port_metadata_before_between_after_goods_never_shifts_cargo(self):
+        for description, expected_source_lines in (
+            ("PORT HAIPHONG\nRICE\nSTEEL", [2, 3]),
+            ("RICE\nPORT HAIPHONG\nSTEEL", [1, 3]),
+            ("RICE\nSTEEL\nPORT HAIPHONG", [1, 2]),
+        ):
+            with self.subTest(description=description):
+                session = process_manifest(self.workbook(description), "VOSCO", settings={"weight_kind": "gross"})
+                self.assertEqual([r["Description"] for r in session.records], ["RICE", "STEEL"])
+                self.assertEqual([r["raw"]["description_source_lines"] for r in session.records], [[n] for n in expected_source_lines])
+                self.assertTrue(all(any(e["kind"] == "port" for e in r["raw"]["description_line_evidence"]) for r in session.records))
+                columns, rows = build_port_rows(session)
+                self.assertEqual([r[columns.index("Hàng hóa")] for r in rows], ["RICE", "STEEL"])
+
+    def test_other_boilerplate_uses_same_alignment_evidence(self):
+        description = "RICE\n\nTotal: 2 containers\nATTACHED LIST\nSTEEL"
+        result = parse_manifest(self.workbook(description))
+        self.assertEqual([r["Description"] for r in result["records"]], ["RICE", "STEEL"])
+        self.assertEqual(result["records"][1]["raw"]["description_source_lines"], [5])
+
+    def test_source_snapshot_keeps_ignored_description_and_unresolved_container(self):
+        containers = CONTAINERS.splitlines()[0] + "\nABC 1234568/001235 40HC-C"
+        session = process_manifest(self.workbook("RICE\nPORT HAIPHONG\nSTEEL", containers=containers), "VOSCO", settings={"weight_kind": "gross"})
+        fragments = session.metadata["source_fragments"]
+        ignored = next(item for item in fragments if item["status"] == "ignored")
+        self.assertEqual((ignored["text"], ignored["source_column"], ignored["source_line"]), ("PORT HAIPHONG", 15, 2))
+        unresolved = next(item for item in fragments if item["status"] == "unresolved")
+        self.assertEqual(unresolved["text"], "ABC 1234568/001235 40HC-C")
+        self.assertIn(unresolved["record_id"], {record["record_id"] for record in session.records})
+        self.assertEqual(session.metadata["coverage"], {"source_fragments": 3, "parsed_fragments": 1, "unresolved_fragments": 1, "ignored_fragments": 1, "corroborating_fragments": 0})
+        session.update_record(unresolved["record_id"], {"Container_No": "ABCU1234568", "Size_Type": "40HC", "Seal_No": "001235", "FE_Status": "F"}, "Đối chiếu và nhập lại dòng lỗi")
+        self.assertEqual(session.metadata["coverage"]["unresolved_fragments"], 1)
+
+    def test_transport_word_is_cargo_not_port_metadata(self):
+        result = parse_manifest(self.workbook("TRANSPORT EQUIPMENT\nSTEEL"))
+        self.assertEqual([r["Description"] for r in result["records"]], ["TRANSPORT EQUIPMENT", "STEEL"])
+
+    def test_single_container_also_excludes_port_metadata(self):
+        result = parse_manifest(self.workbook("PORT HAIPHONG\nRICE", containers=CONTAINERS.splitlines()[0], weight="25 TONS"))
+        self.assertEqual(result["records"][0]["Description"], "RICE")
+        self.assertEqual(result["records"][0]["raw"]["description_source_lines"], [2])
+
+    def test_insufficient_goods_lines_still_warn_instead_of_claiming_exact(self):
+        result = parse_manifest(self.workbook("PORT HAIPHONG\nRICE"))
+        self.assertEqual(len(result["records"]), 2)
+        self.assertTrue(all(r["Confidence"] < 100 for r in result["records"]))
+        self.assertTrue(any(i["code"] == "DESCRIPTION_REVIEW" for i in result["issues"]))
+
+    def test_positive_cargo_mass_not_compared_with_tare(self):
+        for weight in ("2 TONS", "2000 KGS", "0.01 TONS"):
+            with self.subTest(weight=weight):
+                session = process_manifest(self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight=weight), "VOSCO", settings={"weight_kind": "cargo"})
+                self.assertEqual(session.records[0]["FE_Status"], "F")
+                self.assertEqual(session.records[0]["Cargo_Type"], "GENERAL")
+                self.assertIn("fe.cargo-mass-no-tare", session.records[0]["rules"])
+                columns, rows = build_port_rows(session)
+                self.assertEqual(rows[0][columns.index("F/E")], "F")
+
+    def test_unknown_keeps_legacy_inference_with_visible_warning(self):
+        result = parse_manifest(self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight="2 TONS"))
+        self.assertEqual(result["records"][0]["FE_Status"], "E")
+        self.assertTrue(any(i["code"] == "FE_WEIGHT_KIND_UNCONFIRMED" for i in result["issues"]))
+        self.assertEqual(determine_fe("LIGHT CARGO", {"value": 2, "unit": "TONS"}, "40HC", weight_kind="gross"), "E")
+
+    def test_invalid_weight_kind_rejected_including_wrong_type(self):
+        path = self.workbook("RICE\nSTEEL")
+        for value in ("typo", "CARGO", None, []):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "weight_kind"):
+                    parse_manifest(path, settings={"weight_kind": value})
+
+    def test_positive_cargo_weight_and_explicit_empty_blocks_export(self):
+        session = process_manifest(self.workbook("EMPTY", containers=CONTAINERS.splitlines()[0], weight="2 TONS"), "VOSCO", settings={"weight_kind": "cargo"})
+        self.assertEqual(session.records[0]["FE_Status"], "E")
+        self.assertTrue(any(i["code"] == "EMPTY_CARGO_WEIGHT_CONFLICT" for i in session.validate()))
+        with self.assertRaises(ValueError):
+            build_port_rows(session)
+
+    def test_zero_payload_without_explicit_empty_requires_review(self):
+        session = process_manifest(self.workbook("LIGHT CARGO", containers=CONTAINERS.splitlines()[0], weight="0 TONS"), "VOSCO", settings={"weight_kind": "cargo"})
+        self.assertEqual(session.records[0]["FE_Status"], "F")
+        self.assertTrue(any(i["code"] == "ZERO_FULL_WEIGHT" for i in session.validate()))
+
+
+if __name__ == "__main__":
+    unittest.main()

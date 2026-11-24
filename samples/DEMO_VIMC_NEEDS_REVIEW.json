@@ -1,0 +1,396 @@
+{
+  "format": "manifest-cleaner-review-v2",
+  "schema_version": 2,
+  "app_version": "1.1.0",
+  "carrier": "VIMC",
+  "saved_at": "2026-11-22T08:49:22.041124+00:00",
+  "records": [
+    {
+      "record_id": "VIMC:Manifest:5:3:1:1",
+      "BL_No": "DEMO-VIMC-001",
+      "Master_BL_Group_ID": "DEMO-VIMC-001",
+      "Container_No": "DEMU0000002",
+      "Seal_No": "001235",
+      "Size_Type": "20GP",
+      "VTOS_Size": "20DC",
+      "Operator": "VMC",
+      "FE_Status": "F",
+      "Weight_Value": 16.055,
+      "Weight_Unit": "TONS",
+      "Weight_Kind": "unknown",
+      "Description": "THEP DEMO",
+      "Cargo_Type": "GENERAL",
+      "Shipper": "DEMO SHIPPER",
+      "Consignee": "",
+      "Notify": "",
+      "Cleaned_Consignee_Name_For_Output": "",
+      "Confidence": 100,
+      "Warning": "Thiếu chủ hàng/người nhận; container vẫn được giữ trong kết quả.",
+      "source_file": "DEMO_VIMC_NEEDS_REVIEW.xlsx",
+      "source_sheet": "Manifest",
+      "source_row": 5,
+      "raw": {
+        "text": "DEMU0000002 001235 20GP 16.055 THEP DEMO",
+        "source_cell": "DEMU0000002 001235 20GP 16.055 THEP DEMO",
+        "source_column": 4,
+        "source_line": 1,
+        "container_no": "DEMU0000002",
+        "size_type": "20GP",
+        "seal": "001235",
+        "weight": "16.055",
+        "weight_source_unit": "TONS",
+        "description": "THEP DEMO",
+        "layout": "weight_first_tons",
+        "ambiguous_candidates": [],
+        "bl_evidence": [
+          {
+            "position": "third_column",
+            "value": "DEMO-VIMC-001"
+          },
+          {
+            "position": "inline",
+            "value": ""
+          }
+        ],
+        "shipper": "DEMO SHIPPER",
+        "consignee": "",
+        "party_evidence": [
+          {
+            "role": "Shipper",
+            "text": "DEMO SHIPPER",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 1
+          },
+          {
+            "role": "Notify",
+            "text": "SAME AS CONSIGNEE",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 3
+          }
+        ],
+        "notify": "SAME AS CONSIGNEE",
+        "status_source": "group_heading",
+        "context_status": "F",
+        "row_status": null
+      },
+      "rules": [
+        "vimc-1.1:weight_first_tons",
+        "fe:group_heading",
+        "vimc_operator_svm_vmc",
+        "vimc_legacy_vtos_mapping",
+        "preserve_source_physical_type"
+      ],
+      "ISO_Size": "22G1",
+      "Physical_ISO_Size": "22G1"
+    },
+    {
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "BL_No": "DEMO-VIMC-001",
+      "Master_BL_Group_ID": "DEMO-VIMC-001",
+      "Container_No": "DEMU0000006",
+      "Seal_No": "001239",
+      "Size_Type": "20GP",
+      "VTOS_Size": "20DC",
+      "Operator": "VMC",
+      "FE_Status": "F",
+      "Weight_Value": null,
+      "Weight_Unit": null,
+      "Weight_Kind": "unknown",
+      "Description": "20 STEEL DEMO 12000",
+      "Cargo_Type": "GENERAL",
+      "Shipper": "DEMO SHIPPER",
+      "Consignee": "",
+      "Notify": "",
+      "Cleaned_Consignee_Name_For_Output": "",
+      "Confidence": 0,
+      "Warning": "Thiếu chủ hàng/người nhận; container vẫn được giữ trong kết quả. | Dòng phù hợp cả trọng lượng đầu dòng (tấn) và cuối dòng (kg). Cần xác nhận trọng lượng, đơn vị và mô tả; ứng dụng không chọn theo tên tàu. | Container chưa xác nhận rỗng và thiếu trọng lượng.",
+      "source_file": "DEMO_VIMC_NEEDS_REVIEW.xlsx",
+      "source_sheet": "Manifest",
+      "source_row": 6,
+      "raw": {
+        "text": "DEMU0000006 001239 20GP 20 STEEL DEMO 12000",
+        "source_cell": "DEMU0000006 001239 20GP 20 STEEL DEMO 12000",
+        "source_column": 4,
+        "source_line": 1,
+        "container_no": "DEMU0000006",
+        "size_type": "20GP",
+        "seal": "001239",
+        "weight": null,
+        "weight_source_unit": null,
+        "description": "20 STEEL DEMO 12000",
+        "layout": "ambiguous",
+        "ambiguous_candidates": [
+          {
+            "layout": "weight_first_tons",
+            "weight_raw": "20",
+            "source_unit": "TONS",
+            "description": "STEEL DEMO 12000"
+          },
+          {
+            "layout": "description_first_kg",
+            "weight_raw": "12000",
+            "source_unit": "KGS",
+            "description": "20 STEEL DEMO"
+          }
+        ],
+        "bl_evidence": [
+          {
+            "position": "third_column",
+            "value": "DEMO-VIMC-001"
+          },
+          {
+            "position": "inline",
+            "value": ""
+          }
+        ],
+        "shipper": "DEMO SHIPPER",
+        "consignee": "",
+        "party_evidence": [
+          {
+            "role": "Shipper",
+            "text": "DEMO SHIPPER",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 1
+          },
+          {
+            "role": "Notify",
+            "text": "SAME AS CONSIGNEE",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 3
+          }
+        ],
+        "notify": "SAME AS CONSIGNEE",
+        "status_source": "group_heading",
+        "context_status": "F",
+        "row_status": null
+      },
+      "rules": [
+        "vimc-1.1:ambiguous",
+        "fe:group_heading",
+        "vimc_operator_svm_vmc",
+        "vimc_legacy_vtos_mapping",
+        "preserve_source_physical_type"
+      ],
+      "ISO_Size": "22G1",
+      "Physical_ISO_Size": "22G1"
+    }
+  ],
+  "base_issues": [
+    {
+      "code": "VIMC_CONSIGNEE_MISSING",
+      "severity": "error",
+      "message": "Thiếu chủ hàng/người nhận; container vẫn được giữ trong kết quả.",
+      "record_id": "VIMC:Manifest:5:3:1:1",
+      "field": "Cleaned_Consignee_Name_For_Output",
+      "source_row": 5,
+      "source_sheet": "Manifest"
+    },
+    {
+      "code": "VIMC_CONSIGNEE_MISSING",
+      "severity": "error",
+      "message": "Thiếu chủ hàng/người nhận; container vẫn được giữ trong kết quả.",
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "field": "Cleaned_Consignee_Name_For_Output",
+      "source_row": 6,
+      "source_sheet": "Manifest"
+    },
+    {
+      "code": "VIMC_LAYOUT_AMBIGUOUS",
+      "severity": "error",
+      "message": "Dòng phù hợp cả trọng lượng đầu dòng (tấn) và cuối dòng (kg). Cần xác nhận trọng lượng, đơn vị và mô tả; ứng dụng không chọn theo tên tàu.",
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "field": null,
+      "source_row": 6,
+      "source_sheet": "Manifest",
+      "resolution_fields": [
+        "Weight_Value",
+        "Description"
+      ]
+    },
+    {
+      "code": "VIMC_WEIGHT_MISSING",
+      "severity": "error",
+      "message": "Container chưa xác nhận rỗng và thiếu trọng lượng.",
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "field": "Weight_Value",
+      "source_row": 6,
+      "source_sheet": "Manifest"
+    }
+  ],
+  "current_issues": [
+    {
+      "code": "VIMC_CONSIGNEE_MISSING",
+      "severity": "error",
+      "message": "Thiếu chủ hàng/người nhận; container vẫn được giữ trong kết quả.",
+      "record_id": "VIMC:Manifest:5:3:1:1",
+      "field": "Cleaned_Consignee_Name_For_Output",
+      "source_row": 5,
+      "source_sheet": "Manifest"
+    },
+    {
+      "code": "VIMC_CONSIGNEE_MISSING",
+      "severity": "error",
+      "message": "Thiếu chủ hàng/người nhận; container vẫn được giữ trong kết quả.",
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "field": "Cleaned_Consignee_Name_For_Output",
+      "source_row": 6,
+      "source_sheet": "Manifest"
+    },
+    {
+      "code": "VIMC_LAYOUT_AMBIGUOUS",
+      "severity": "error",
+      "message": "Dòng phù hợp cả trọng lượng đầu dòng (tấn) và cuối dòng (kg). Cần xác nhận trọng lượng, đơn vị và mô tả; ứng dụng không chọn theo tên tàu.",
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "field": null,
+      "source_row": 6,
+      "source_sheet": "Manifest",
+      "resolution_fields": [
+        "Weight_Value",
+        "Description"
+      ]
+    },
+    {
+      "code": "VIMC_WEIGHT_MISSING",
+      "severity": "error",
+      "message": "Container chưa xác nhận rỗng và thiếu trọng lượng.",
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "field": "Weight_Value",
+      "source_row": 6,
+      "source_sheet": "Manifest"
+    },
+    {
+      "code": "MISSING_CLEANED_CONSIGNEE_NAME_FOR_OUTPUT",
+      "severity": "error",
+      "message": "Thiếu Chủ hàng.",
+      "record_id": "VIMC:Manifest:5:3:1:1",
+      "field": "Cleaned_Consignee_Name_For_Output",
+      "source_row": 5,
+      "source_sheet": "Manifest"
+    },
+    {
+      "code": "MISSING_CLEANED_CONSIGNEE_NAME_FOR_OUTPUT",
+      "severity": "error",
+      "message": "Thiếu Chủ hàng.",
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "field": "Cleaned_Consignee_Name_For_Output",
+      "source_row": 6,
+      "source_sheet": "Manifest"
+    },
+    {
+      "code": "MISSING_WEIGHT",
+      "severity": "error",
+      "message": "Container F chưa có trọng lượng hợp lệ.",
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "field": "Weight_Value",
+      "source_row": 6,
+      "source_sheet": "Manifest"
+    }
+  ],
+  "metadata": {
+    "carrier": "VIMC",
+    "source_commit": "03e0d34e3fe4a27d8d2ce0d54d96ea9275370436",
+    "profile_version": "vimc-1.1",
+    "source_file": "DEMO_VIMC_NEEDS_REVIEW.xlsx",
+    "sheets_seen": [
+      "Manifest"
+    ],
+    "sheets_used": [
+      "Manifest"
+    ],
+    "available_sheets": [
+      "Manifest"
+    ],
+    "selected_sheet": null,
+    "source_fragments": [
+      {
+        "source_sheet": "Manifest",
+        "source_row": 3,
+        "source_column": 4,
+        "source_line": 1,
+        "text": "COC LADEN",
+        "status": "ignored",
+        "reason": "Thông tin nguồn không có cấu trúc dòng container; giữ để đối chiếu."
+      },
+      {
+        "source_sheet": "Manifest",
+        "source_row": 5,
+        "source_column": 4,
+        "source_line": 1,
+        "text": "DEMU0000002 001235 20GP 16.055 THEP DEMO",
+        "status": "parsed",
+        "reason": "weight_first_tons",
+        "record_id": "VIMC:Manifest:5:3:1:1"
+      },
+      {
+        "source_sheet": "Manifest",
+        "source_row": 6,
+        "source_column": 4,
+        "source_line": 1,
+        "text": "DEMU0000006 001239 20GP 20 STEEL DEMO 12000",
+        "status": "unresolved",
+        "reason": "ambiguous",
+        "record_id": "VIMC:Manifest:6:3:1:1"
+      }
+    ],
+    "coverage": {
+      "source_fragments": 3,
+      "parsed_fragments": 1,
+      "unresolved_fragments": 1,
+      "ignored_fragments": 1,
+      "corroborating_fragments": 0
+    },
+    "row_layout_counts": {
+      "candidate_occurrences": 2,
+      "weight_first_tons": 1,
+      "ambiguous": 1
+    },
+    "selection_basis": "carrier_and_row_structure",
+    "weight_internal_unit": "TONS",
+    "number_format": "legacy",
+    "source_path": "DEMO_VIMC_NEEDS_REVIEW.xlsx",
+    "source_name": "DEMO_VIMC_NEEDS_REVIEW.xlsx",
+    "source_sha256": "627f06aeda56dfec8da5b53b831e277c3c2a3f0887c47feaf3d355aeed07fdba",
+    "session_id": "17063d9a55a240c9b935783b3a4f0e9d",
+    "used_sheets": [
+      "Manifest"
+    ],
+    "formula_cache_scan": "xlsx_xml",
+    "formula_source_cells": [],
+    "effective_settings": {
+      "number_format": "legacy",
+      "weight_kind": "unknown"
+    },
+    "source_weight_units": [
+      "TONS"
+    ],
+    "app_version": "1.1.0",
+    "processed_at": "2026-11-22T08:49:22.040979+00:00"
+  },
+  "settings": {
+    "number_format": "legacy",
+    "weight_kind": "unknown"
+  },
+  "corrections": [],
+  "statistics": {
+    "detected_records": 2,
+    "active_records": 2,
+    "containers": 2,
+    "bills": 1,
+    "full": 2,
+    "empty": 0,
+    "unknown": 0,
+    "excluded": 0,
+    "errors": 7,
+    "warnings": 0,
+    "error_records": 2,
+    "review_records": 2,
+    "file_errors": 0,
+    "unresolved_source_fragments": 1,
+    "formula_source_errors": 0
+  },
+  "payload_sha256": "d0d7d1782c7154ab457cbd053bb9298b6dc8387cb783b2b08f7f0e13afeecc3a"
+}

@@ -1,0 +1,38 @@
+BEFORE: original CLI v1.1.0
+test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite (tests.test_cli_v111.Cli111Tests.test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite) ... 
+  test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite (tests.test_cli_v111.Cli111Tests.test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite) (flags=[]) ... FAIL
+  test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite (tests.test_cli_v111.Cli111Tests.test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite) (flags=['--overwrite']) ... FAIL
+
+======================================================================
+FAIL: test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite (tests.test_cli_v111.Cli111Tests.test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite) (flags=[])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4100e7b6d7f1/release_v1_1_1/Manifest_Cleaner_Unified/tests/test_cli_v111.py", line 61, in test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite
+    self.assert_protected_failure(code, error)
+  File "/workspace/scratch/4100e7b6d7f1/release_v1_1_1/Manifest_Cleaner_Unified/tests/test_cli_v111.py", line 44, in assert_protected_failure
+    self.assertIn("giữ nguyên", error)
+AssertionError: 'giữ nguyên' not found in 'Lỗi: Bản đối chiếu đã tồn tại; chọn tên mới hoặc xác nhận ghi đè.\n'
+
+======================================================================
+FAIL: test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite (tests.test_cli_v111.Cli111Tests.test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite) (flags=['--overwrite'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4100e7b6d7f1/release_v1_1_1/Manifest_Cleaner_Unified/tests/test_cli_v111.py", line 60, in test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite
+    self.assert_bytes_unchanged(before)
+  File "/workspace/scratch/4100e7b6d7f1/release_v1_1_1/Manifest_Cleaner_Unified/tests/test_cli_v111.py", line 51, in assert_bytes_unchanged
+    self.assertEqual(path.read_bytes(), contents, str(path))
+AssertionError: b'{\n[147 chars]:47.031829+00:00",\n  "records": [\n    {\n   [6535 chars]"\n}' != b'{\n[147 chars]:47.017003+00:00",\n  "records": [\n    {\n   [5705 chars]"\n}' : /tmp/tmpslo12euz/port.review.json
+
+----------------------------------------------------------------------
+Ran 1 test in 0.048s
+
+FAILED (failures=2)
+
+AFTER: patched CLI v1.1.1
+test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite (tests.test_cli_v111.Cli111Tests.test_invalid_export_preserves_explicit_existing_pair_even_with_overwrite) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.031s
+
+OK
+

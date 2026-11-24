@@ -1,0 +1,386 @@
+{
+  "format": "manifest-cleaner-review-v2",
+  "schema_version": 2,
+  "app_version": "1.1.0",
+  "carrier": "VIMC",
+  "saved_at": "2026-11-22T08:49:22.003582+00:00",
+  "records": [
+    {
+      "record_id": "VIMC:Manifest:5:3:1:1",
+      "BL_No": "DEMO-VIMC-001",
+      "Master_BL_Group_ID": "DEMO-VIMC-001",
+      "Container_No": "DEMU0000002",
+      "Seal_No": "001235",
+      "Size_Type": "20GP",
+      "VTOS_Size": "20DC",
+      "Operator": "VMC",
+      "FE_Status": "F",
+      "Weight_Value": 16.055,
+      "Weight_Unit": "TONS",
+      "Weight_Kind": "unknown",
+      "Description": "THEP DEMO",
+      "Cargo_Type": "GENERAL",
+      "Shipper": "DEMO SHIPPER",
+      "Consignee": "DEMO CONSIGNEE",
+      "Notify": "DEMO CONSIGNEE",
+      "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE",
+      "Confidence": 100,
+      "Warning": "",
+      "source_file": "DEMO_VIMC_INPUT.xlsx",
+      "source_sheet": "Manifest",
+      "source_row": 5,
+      "raw": {
+        "text": "DEMU0000002 001235 20GP 16.055 THEP DEMO",
+        "source_cell": "DEMU0000002 001235 20GP 16.055 THEP DEMO",
+        "source_column": 4,
+        "source_line": 1,
+        "container_no": "DEMU0000002",
+        "size_type": "20GP",
+        "seal": "001235",
+        "weight": "16.055",
+        "weight_source_unit": "TONS",
+        "description": "THEP DEMO",
+        "layout": "weight_first_tons",
+        "ambiguous_candidates": [],
+        "bl_evidence": [
+          {
+            "position": "third_column",
+            "value": "DEMO-VIMC-001"
+          },
+          {
+            "position": "inline",
+            "value": ""
+          }
+        ],
+        "shipper": "DEMO SHIPPER",
+        "consignee": "DEMO CONSIGNEE",
+        "party_evidence": [
+          {
+            "role": "Shipper",
+            "text": "DEMO SHIPPER",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 1
+          },
+          {
+            "role": "Consignee",
+            "text": "DEMO CONSIGNEE",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 2
+          },
+          {
+            "role": "Notify",
+            "text": "SAME AS CONSIGNEE",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 3
+          }
+        ],
+        "notify": "SAME AS CONSIGNEE",
+        "status_source": "group_heading",
+        "context_status": "F",
+        "row_status": null
+      },
+      "rules": [
+        "vimc-1.1:weight_first_tons",
+        "fe:group_heading",
+        "vimc_operator_svm_vmc",
+        "vimc_legacy_vtos_mapping",
+        "preserve_source_physical_type"
+      ],
+      "ISO_Size": "22G1",
+      "Physical_ISO_Size": "22G1"
+    },
+    {
+      "record_id": "VIMC:Manifest:6:3:1:1",
+      "BL_No": "DEMO-VIMC-001",
+      "Master_BL_Group_ID": "DEMO-VIMC-001",
+      "Container_No": "DEMU0000004",
+      "Seal_No": "001237",
+      "Size_Type": "40HC",
+      "VTOS_Size": "40HC",
+      "Operator": "VMC",
+      "FE_Status": "F",
+      "Weight_Value": 8.0,
+      "Weight_Unit": "TONS",
+      "Weight_Kind": "unknown",
+      "Description": "VO LON DEMO",
+      "Cargo_Type": "GENERAL",
+      "Shipper": "DEMO SHIPPER",
+      "Consignee": "DEMO CONSIGNEE",
+      "Notify": "DEMO CONSIGNEE",
+      "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE",
+      "Confidence": 100,
+      "Warning": "",
+      "source_file": "DEMO_VIMC_INPUT.xlsx",
+      "source_sheet": "Manifest",
+      "source_row": 6,
+      "raw": {
+        "text": "DEMU0000004 001237 40HC VO LON DEMO 8000",
+        "source_cell": "DEMU0000004 001237 40HC VO LON DEMO 8000",
+        "source_column": 4,
+        "source_line": 1,
+        "container_no": "DEMU0000004",
+        "size_type": "40HC",
+        "seal": "001237",
+        "weight": "8000",
+        "weight_source_unit": "KGS",
+        "description": "VO LON DEMO",
+        "layout": "description_first_kg",
+        "ambiguous_candidates": [],
+        "bl_evidence": [
+          {
+            "position": "third_column",
+            "value": "DEMO-VIMC-001"
+          },
+          {
+            "position": "inline",
+            "value": ""
+          }
+        ],
+        "shipper": "DEMO SHIPPER",
+        "consignee": "DEMO CONSIGNEE",
+        "party_evidence": [
+          {
+            "role": "Shipper",
+            "text": "DEMO SHIPPER",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 1
+          },
+          {
+            "role": "Consignee",
+            "text": "DEMO CONSIGNEE",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 2
+          },
+          {
+            "role": "Notify",
+            "text": "SAME AS CONSIGNEE",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 3
+          }
+        ],
+        "notify": "SAME AS CONSIGNEE",
+        "status_source": "group_heading",
+        "context_status": "F",
+        "row_status": null
+      },
+      "rules": [
+        "vimc-1.1:description_first_kg",
+        "fe:group_heading",
+        "vimc_operator_svm_vmc",
+        "vimc_legacy_vtos_mapping",
+        "preserve_source_physical_type"
+      ],
+      "ISO_Size": "45G1",
+      "Physical_ISO_Size": "45G1"
+    },
+    {
+      "record_id": "VIMC:Manifest:7:3:1:1",
+      "BL_No": "DEMO-VIMC-001",
+      "Master_BL_Group_ID": "DEMO-VIMC-001",
+      "Container_No": "DEMU0000005",
+      "Seal_No": "001238",
+      "Size_Type": "20DC",
+      "VTOS_Size": "20DC",
+      "Operator": "VMC",
+      "FE_Status": "F",
+      "Weight_Value": 27.0,
+      "Weight_Unit": "TONS",
+      "Weight_Kind": "unknown",
+      "Description": "GACH MEN DEMO",
+      "Cargo_Type": "GENERAL",
+      "Shipper": "DEMO SHIPPER",
+      "Consignee": "DEMO CONSIGNEE",
+      "Notify": "DEMO CONSIGNEE",
+      "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE",
+      "Confidence": 100,
+      "Warning": "",
+      "source_file": "DEMO_VIMC_INPUT.xlsx",
+      "source_sheet": "Manifest",
+      "source_row": 7,
+      "raw": {
+        "text": "DEMU0000005 001238 20DC GACH MEN DEMO 27,000",
+        "source_cell": "DEMU0000005 001238 20DC GACH MEN DEMO 27,000",
+        "source_column": 4,
+        "source_line": 1,
+        "container_no": "DEMU0000005",
+        "size_type": "20DC",
+        "seal": "001238",
+        "weight": "27,000",
+        "weight_source_unit": "KGS",
+        "description": "GACH MEN DEMO",
+        "layout": "description_first_kg",
+        "ambiguous_candidates": [],
+        "bl_evidence": [
+          {
+            "position": "third_column",
+            "value": "DEMO-VIMC-001"
+          },
+          {
+            "position": "inline",
+            "value": ""
+          }
+        ],
+        "shipper": "DEMO SHIPPER",
+        "consignee": "DEMO CONSIGNEE",
+        "party_evidence": [
+          {
+            "role": "Shipper",
+            "text": "DEMO SHIPPER",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 1
+          },
+          {
+            "role": "Consignee",
+            "text": "DEMO CONSIGNEE",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 2
+          },
+          {
+            "role": "Notify",
+            "text": "SAME AS CONSIGNEE",
+            "source_row": 4,
+            "source_column": 1,
+            "source_line": 3
+          }
+        ],
+        "notify": "SAME AS CONSIGNEE",
+        "status_source": "group_heading",
+        "context_status": "F",
+        "row_status": null
+      },
+      "rules": [
+        "vimc-1.1:description_first_kg",
+        "fe:group_heading",
+        "vimc_operator_svm_vmc",
+        "vimc_legacy_vtos_mapping",
+        "preserve_source_physical_type"
+      ],
+      "ISO_Size": "22G1",
+      "Physical_ISO_Size": "22G1"
+    }
+  ],
+  "base_issues": [],
+  "current_issues": [],
+  "metadata": {
+    "carrier": "VIMC",
+    "source_commit": "03e0d34e3fe4a27d8d2ce0d54d96ea9275370436",
+    "profile_version": "vimc-1.1",
+    "source_file": "DEMO_VIMC_INPUT.xlsx",
+    "sheets_seen": [
+      "Manifest"
+    ],
+    "sheets_used": [
+      "Manifest"
+    ],
+    "available_sheets": [
+      "Manifest"
+    ],
+    "selected_sheet": null,
+    "source_fragments": [
+      {
+        "source_sheet": "Manifest",
+        "source_row": 3,
+        "source_column": 4,
+        "source_line": 1,
+        "text": "COC LADEN",
+        "status": "ignored",
+        "reason": "Thông tin nguồn không có cấu trúc dòng container; giữ để đối chiếu."
+      },
+      {
+        "source_sheet": "Manifest",
+        "source_row": 5,
+        "source_column": 4,
+        "source_line": 1,
+        "text": "DEMU0000002 001235 20GP 16.055 THEP DEMO",
+        "status": "parsed",
+        "reason": "weight_first_tons",
+        "record_id": "VIMC:Manifest:5:3:1:1"
+      },
+      {
+        "source_sheet": "Manifest",
+        "source_row": 6,
+        "source_column": 4,
+        "source_line": 1,
+        "text": "DEMU0000004 001237 40HC VO LON DEMO 8000",
+        "status": "parsed",
+        "reason": "description_first_kg",
+        "record_id": "VIMC:Manifest:6:3:1:1"
+      },
+      {
+        "source_sheet": "Manifest",
+        "source_row": 7,
+        "source_column": 4,
+        "source_line": 1,
+        "text": "DEMU0000005 001238 20DC GACH MEN DEMO 27,000",
+        "status": "parsed",
+        "reason": "description_first_kg",
+        "record_id": "VIMC:Manifest:7:3:1:1"
+      }
+    ],
+    "coverage": {
+      "source_fragments": 4,
+      "parsed_fragments": 3,
+      "unresolved_fragments": 0,
+      "ignored_fragments": 1,
+      "corroborating_fragments": 0
+    },
+    "row_layout_counts": {
+      "candidate_occurrences": 3,
+      "weight_first_tons": 1,
+      "description_first_kg": 2
+    },
+    "selection_basis": "carrier_and_row_structure",
+    "weight_internal_unit": "TONS",
+    "number_format": "legacy",
+    "source_path": "DEMO_VIMC_INPUT.xlsx",
+    "source_name": "DEMO_VIMC_INPUT.xlsx",
+    "source_sha256": "4fb0eb2a5db199d955d9ec107aa191f8b46ae2f1935b92bcf9e42ffb7cf517e9",
+    "session_id": "8a8afca6a31e49239b5c39654bc0ecbc",
+    "used_sheets": [
+      "Manifest"
+    ],
+    "formula_cache_scan": "xlsx_xml",
+    "formula_source_cells": [],
+    "effective_settings": {
+      "number_format": "legacy",
+      "weight_kind": "unknown"
+    },
+    "source_weight_units": [
+      "KGS",
+      "TONS"
+    ],
+    "app_version": "1.1.0",
+    "processed_at": "2026-11-22T08:49:21.994114+00:00"
+  },
+  "settings": {
+    "number_format": "legacy",
+    "weight_kind": "unknown"
+  },
+  "corrections": [],
+  "statistics": {
+    "detected_records": 3,
+    "active_records": 3,
+    "containers": 3,
+    "bills": 1,
+    "full": 3,
+    "empty": 0,
+    "unknown": 0,
+    "excluded": 0,
+    "errors": 0,
+    "warnings": 0,
+    "error_records": 0,
+    "review_records": 0,
+    "file_errors": 0,
+    "unresolved_source_fragments": 0,
+    "formula_source_errors": 0
+  },
+  "payload_sha256": "d643421872472a26969a6c04ccc4299f42f9e197c79b4e611d8187269f83c29d"
+}
