@@ -122,3 +122,5 @@ Reviewer-local repair theo quyết định của operator chọn hành vi nhất
 
 Operator yêu cầu commit bản 1.2.6. Orchestrator ghi chuyển vai sang COMMIT_STEWARD và SESSION_SYNC_STEWARD. Cập nhật IMPLEMENTATION_STATUS với giới hạn đã biết của 1.2.6. Chạy pre-commit gate trên đúng thay đổi đã stage, rồi commit cục bộ phần sản phẩm, kiểm thử, hồ sơ và continuity trong một commit. Biên nhận gate và bảng đối chiếu manifest thật nằm ở .cvf/runtime/v126, ngoài Git. Chưa build EXE 1.2.6. Project trở lại ORCHESTRATOR trong REVIEW. Bước tiếp theo là build EXE 1.2.6 tách riêng, sau đó giao tranche 1.2.7 giao diện.
 
+Operator đổi thứ tự sau commit 6db5432: không build EXE 1.2.6 riêng. Bước tiếp theo là tranche 1.2.7 giao diện trên nền 1.2.6. Sau khi 1.2.7 qua review độc lập mới build một EXE duy nhất, rồi kiểm luồng Windows trên bản đó.
+
