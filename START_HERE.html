@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>Manifest Cleaner 1.2.4 — Hướng dẫn sử dụng</title>
+  <title>Manifest Cleaner 1.2.5 — Hướng dẫn sử dụng</title>
   <style>
     :root{--navy:#12334c;--navy2:#245675;--orange:#e58436;--ink:#20364a;--muted:#536879;--line:#dce5ed;--paper:#f3f6f9;--green:#286047;--red:#9b3429;--amber:#805715}
     *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -35,12 +35,12 @@
     <div class="eyebrow">Công cụ local · Dữ liệu nhập hệ thống Cảng</div>
     <h1>Một manifest.<br>Một hãng tàu.</h1>
     <p>Đọc nguồn, giải quyết các mục cần kiểm tra và xuất đúng mẫu 16 cột. Phiên bản 1.1 bổ sung xác nhận từng trường, xem trước giá trị xuất và mở lại phiên làm việc.</p>
-    <div class="badges"><span class="badge version">Phiên bản 1.2.4</span><span class="badge">24-11-2026</span><span class="badge">VOSCO · VIMC · VINAFCO</span><span class="badge">Hướng dẫn offline</span></div>
+    <div class="badges"><span class="badge version">Phiên bản 1.2.5</span><span class="badge">24-11-2026</span><span class="badge">VOSCO · VIMC · VINAFCO</span><span class="badge">Hướng dẫn offline</span></div>
   </div>
 </header>
 <nav aria-label="Nội dung hướng dẫn"><div class="wrap"><a href="#bat-dau">Bắt đầu</a><a href="#doi-chieu">Đối chiếu</a><a href="#cau-hinh">Cấu hình đọc</a><a href="#luu-phien">Lưu / mở lại phiên</a><a href="#xu-ly-loi">Tình huống cần xử lý</a><a href="#ky-thuat">Cho agent local</a></div></nav>
 <main id="noi-dung" class="wrap">
-  <section class="callout success"><strong>Quy tắc bản 1.2.4.</strong> Trọng lượng khai báo gồm vỏ và hàng. Số niêm chì được ghi theo manifest để đối chiếu khi container xuống bãi.</section>
+  <section class="callout success"><strong>Bản 1.2.5.</strong> Nút Lưu ở chân cửa sổ đối chiếu. Nhấn Ctrl+S trong cửa sổ này để lưu vào phiên. Trọng lượng khai báo gồm vỏ và hàng. Số niêm chì được ghi theo manifest để đối chiếu khi container xuống bãi.</section>
   <section id="bat-dau">
     <h2>Bắt đầu trên Windows</h2>
     <div class="panel">
@@ -78,7 +78,7 @@
           <li><strong>Giữ nguyên nhưng đã kiểm tra:</strong> tích <strong>Đã đối chiếu trường này</strong> ở chính trường đó.</li>
           <li><strong>Chưa kiểm tra:</strong> giữ ô xác nhận trống. Chỉ mở rồi lưu form không tự làm mất lỗi.</li>
         </ul>
-        <p>Ghi <strong>lý do chỉnh sửa / căn cứ xác nhận</strong> trước khi lưu.</p>
+        <p>Ghi <strong>lý do chỉnh sửa / căn cứ xác nhận</strong> rồi bấm <strong>Lưu chỉnh sửa / xác nhận</strong>. Dùng <strong>Lưu đối chiếu</strong> ở màn hình chính để lưu phiên ra JSON.</p>
       </div>
       <div class="panel">
         <span class="label">Thao tác theo tab hiện hành</span>
@@ -90,8 +90,8 @@
     </div>
     <div class="callout info"><strong>Trọng lượng nhập trong form luôn là tấn.</strong> Có thể dùng dấu phẩy hoặc dấu chấm thập phân. F = có hàng, E = rỗng. Quy ước đọc dấu số trong file nguồn được chọn ở Cấu hình đọc.</div>
     <div class="grid">
-      <div class="panel"><h3>Nguồn và giá trị sẽ xuất</h3><p>Tab cùng tên trong form đặt bằng chứng nguồn cạnh các giá trị sẽ ghi vào Excel: mapping kích cỡ, nhãn hàng, trọng lượng làm tròn và ghi chú.</p><p>Xem trước dùng cùng quy tắc với exporter; các ô chưa lưu có thể được xem trước mà không sửa phiên. Các lỗi chưa giải quyết vẫn chặn xuất.</p><p class="muted small">Dữ liệu JSON kỹ thuật được thu gọn để mở khi cần đọc sâu.</p></div>
-      <div class="panel"><h3>Dòng VIMC có hai cách đọc</h3><p>Đối chiếu dòng gốc, chọn phương án rồi bấm <strong>Điền và xác nhận 2 trường</strong>. Ứng dụng điền trọng lượng theo tấn và mô tả tương ứng.</p><p>Không có phương án được tự chọn sẵn. Người dùng vẫn phải ghi căn cứ và lưu. Có thể sửa từng trường thủ công nếu cần.</p></div>
+      <div class="panel"><h3>Nguồn và giá trị xuất</h3><p>Tab cùng tên trong form đặt bằng chứng nguồn cạnh các giá trị sẽ ghi vào Excel: mapping kích cỡ, nhãn hàng, trọng lượng làm tròn và ghi chú.</p><p>Xem trước dùng cùng quy tắc với exporter; các ô chưa lưu có thể được xem trước mà không sửa phiên. Các lỗi chưa giải quyết vẫn chặn xuất.</p><p class="muted small">Dữ liệu JSON kỹ thuật được thu gọn để mở khi cần đọc sâu.</p></div>
+      <div class="panel"><h3>Dòng VIMC có hai cách đọc</h3><p>Đối chiếu dòng gốc, chọn phương án rồi bấm <strong>Điền và xác nhận</strong>. Ứng dụng điền các trường tương ứng với cách đọc đã chọn.</p><p>Không có phương án được tự chọn sẵn. Người dùng vẫn phải ghi căn cứ và lưu. Có thể sửa từng trường thủ công nếu cần.</p></div>
     </div>
     <details>
       <summary>Tra nguồn cho biết điều gì?</summary>
@@ -151,7 +151,7 @@
     <h2>Khi ứng dụng yêu cầu kiểm tra</h2>
     <div class="grid">
       <div class="panel"><span class="label error">Lỗi chặn xuất</span><h3>Sửa dữ liệu hoặc xử lý nguồn</h3><p>Thiếu trường bắt buộc, mã chưa đúng dạng, trọng lượng/mô tả mơ hồ, cấu trúc bảng thay đổi hoặc công thức nguồn chưa có kết quả đều cần xử lý trước khi tạo file nhập.</p><p>Chỉ loại một dòng sau khi đã xác định dòng đó không cần xuất và ghi rõ lý do. Lỗi toàn file cần xử lý nguồn/cấu hình rồi đọc lại.</p></div>
-      <div class="panel"><span class="label warn">Cảnh báo</span><h3>Đọc căn cứ trước khi xác nhận</h3><p>Cảnh báo có thể liên quan F/E hoặc container liên quan nhiều B/L. Đọc dữ liệu nguồn, ghi căn cứ đối chiếu và kiểm tra kết quả sẽ xuất.</p><p>Điểm “Độ chính xác (%)” là điểm quy tắc giữ để tương thích, không phải tỷ lệ chính xác đã đo.</p></div>
+      <div class="panel"><span class="label warn">Cảnh báo</span><h3>Đọc căn cứ trước khi xác nhận</h3><p>Cảnh báo có thể liên quan F/E hoặc container liên quan nhiều B/L. Cột Ghi chú trong Excel ghi cảnh báo của dòng đó và lý do sửa hoặc xác nhận. Cảnh báo toàn file hiển thị trong tab Cần kiểm tra và JSON.</p><p>Điểm “Độ chính xác (%)” là điểm quy tắc giữ để tương thích, không phải tỷ lệ chính xác đã đo.</p></div>
     </div>
     <details>
       <summary>Công thức Excel chưa có kết quả lưu</summary>
@@ -256,6 +256,6 @@ python -m manifest_cleaner.cli --resume output.review.json --source D:/Du_lieu/m
     <p class="small"><kbd>Ctrl</kbd> + <kbd>O</kbd> mở manifest &nbsp;·&nbsp; <kbd>Ctrl</kbd> + <kbd>S</kbd> xuất &nbsp;·&nbsp; <kbd>F1</kbd> hướng dẫn</p>
   </section>
 </main>
-<footer><div class="wrap footer-row"><span>Manifest Cleaner Unified 1.2.4 · 24-11-2026</span><span>Hướng dẫn tiếng Việt · Dùng được offline</span></div></footer>
+<footer><div class="wrap footer-row"><span>Manifest Cleaner Unified 1.2.5 · 24-11-2026</span><span>Hướng dẫn tiếng Việt · Dùng được offline</span></div></footer>
 </body>
 </html>

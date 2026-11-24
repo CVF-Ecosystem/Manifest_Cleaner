@@ -18,7 +18,7 @@ from .parsers import (
 )
 
 SOURCE_COMMIT = "03e0d34e3fe4a27d8d2ce0d54d96ea9275370436"
-PROFILE_VERSION = "vimc-1.3"
+PROFILE_VERSION = "vimc-1.3.1"
 _BL_MARKER = re.compile(r"\bB\s*/?\s*L\s*NO\.?\s*:", re.I)
 _PARTY_MARKER = re.compile(r"^\s*([123])\s*[).]\s*(.*)$")
 _TRAILING_OWNER_TOTAL = re.compile(
@@ -354,7 +354,8 @@ def _validate_record(record, parsed, issues):
         affected = ["Seal_No", "Size_Type", "Description"]
         if parsed.get("weight_raw") is None:
             affected.append("Weight_Value")
-        _add_issue(issues, "VIMC_SEAL_TYPE_AMBIGUOUS", "Hai mã kích cỡ liền nhau đều khớp cấu trúc dòng. Cần đối chiếu seal, kích cỡ, mô tả và trọng lượng theo dòng gốc.", record=record, severity="error")
+        fields = "seal, kích cỡ, hàng hóa và trọng lượng" if "Weight_Value" in affected else "seal, kích cỡ và hàng hóa"
+        _add_issue(issues, "VIMC_SEAL_TYPE_AMBIGUOUS", f"Hai mã liền nhau đều có thể là kích cỡ. Đối chiếu {fields} với dòng gốc rồi chọn cách đọc.", record=record, severity="error")
         issues[-1]["resolution_fields"] = affected
     elif parsed.get("layout") == "ambiguous":
         # This is a coupled layout/weight/description decision. Editing only the

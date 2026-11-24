@@ -1,8 +1,10 @@
-# Manifest Cleaner Unified 1.2.4
+# Manifest Cleaner Unified 1.2.5
 
 Ứng dụng **local**, xử lý **một manifest của một hãng tàu mỗi phiên**, hỗ trợ đối chiếu dữ liệu và xuất Excel theo mẫu nhập hệ thống quản lý container của Cảng.
 
 **Bắt đầu:** giải nén toàn bộ thư mục, dùng Python 3.12 64-bit và chạy `START.cmd`. Mở [START_HERE.html](START_HERE.html) để xem hướng dẫn tiếng Việt dùng được offline.
+
+**Bản 1.2.5** giữ nút Lưu ở chân cửa sổ đối chiếu, sửa cách so số lượng VOSCO và cách ghi cảnh báo từng dòng.
 
 **Bản 1.2.4** áp dụng tổng trọng lượng vỏ và hàng cho cả ba hãng. Seal được ghi nguyên văn theo manifest và đối chiếu khi container xuống bãi.
 
@@ -67,19 +69,21 @@ Trong cửa sổ sửa:
 
 - Dấu `*` và nhãn nổi bật chỉ trường liên quan lỗi/cảnh báo.
 - **Trường đã thay đổi** được ghi nhận cùng giá trị trước/sau.
-- **Trường giữ nguyên** chỉ được xác nhận khi tích ô **Đã đối chiếu trường này** của chính trường đó.
+- **Trường giữ nguyên** chỉ được xác nhận khi tích ô **Đã đối chiếu** của chính trường đó.
 - Mở rồi lưu form không tự xác nhận tất cả trường. Sửa seal không làm mất lỗi F/E hoặc trọng lượng chưa được giải quyết.
-- Ghi **lý do chỉnh sửa / căn cứ xác nhận** trước khi lưu.
+- Nhập lý do rồi bấm **Lưu chỉnh sửa / xác nhận** ở chân cửa sổ hoặc nhấn **Ctrl+S** trong cửa sổ sửa để cập nhật phiên. Dùng **Lưu đối chiếu** ở màn hình chính để lưu phiên ra JSON.
 
 Trọng lượng sửa trên giao diện luôn là **tấn**, dùng dấu phẩy hoặc dấu chấm thập phân. F là có hàng; E là rỗng.
 
-Với dòng VIMC có hai cách đọc, đối chiếu nguồn rồi chọn phương án và bấm **Điền và xác nhận 2 trường**. Ứng dụng điền trọng lượng/mô tả tương ứng; người dùng vẫn phải ghi căn cứ và lưu. Không có phương án được tự chọn sẵn.
+Với dòng VIMC có hai cách đọc, đối chiếu nguồn rồi chọn phương án và bấm **Điền và xác nhận** cho các trường liên quan. Ứng dụng điền giá trị theo cách đọc đã chọn; người dùng vẫn phải ghi căn cứ và lưu. Không có phương án được tự chọn sẵn.
 
 **Đã đối chiếu** ở thanh công cụ dùng để ghi căn cứ cho cảnh báo; không tự xóa lỗi dữ liệu. Dòng lặp hoặc dòng không thuộc manifest có thể **Loại** với lý do. Dialog nêu rõ số container/B/L; dòng vẫn được giữ trong phiên và có thể khôi phục.
 
 ### 3. So nguồn với giá trị sẽ xuất
 
-Tab **Nguồn và giá trị sẽ xuất** trong cửa sổ sửa cho xem nguyên văn nguồn, bằng chứng theo trường và giá trị ghi vào mẫu 16 cột. Xem trước dùng cùng quy tắc chuyển đổi với exporter, bao gồm mapping, cách làm tròn và nhãn `EMPTY`. Xem trước không bỏ qua lỗi chặn xuất và không tự lưu các ô đang sửa.
+Tab **Nguồn và giá trị xuất** trong cửa sổ sửa cho xem nguyên văn nguồn, bằng chứng theo trường và giá trị ghi vào mẫu 16 cột. Xem trước dùng cùng quy tắc chuyển đổi với exporter, bao gồm mapping, cách làm tròn và nhãn `EMPTY`. Xem trước không bỏ qua lỗi chặn xuất và không tự lưu các ô đang sửa.
+
+Cột **Ghi chú** của Excel ghi cảnh báo của chính dòng và lý do cho từng trường đã sửa hoặc xác nhận. Cảnh báo toàn file xem ở tab **Cần kiểm tra**. Quy tắc đọc, bằng chứng nguồn và lịch sử đầy đủ nằm trong JSON.
 
 Phần JSON kỹ thuật được thu gọn. Nút **Tra nguồn** ở cửa sổ chính cho xem các đoạn nguồn mà adapter đã ghi nhận, vị trí và lý do nhận diện/bỏ qua/chờ đối chiếu. Những nhãn này là **trạng thái tại lần đọc nguồn**, không phải số lỗi hiện tại sau chỉnh sửa. Một đoạn đã nhận diện vẫn có thể còn lỗi trường dữ liệu. Số đoạn nguồn không phải số container hay tỷ lệ chính xác.
 

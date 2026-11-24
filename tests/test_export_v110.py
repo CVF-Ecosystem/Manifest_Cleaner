@@ -105,6 +105,25 @@ class Export110Tests(unittest.TestCase):
         finally:
             book.close()
 
+    def test_excel_notes_apply_to_this_row_and_retain_current_field_reasons(self):
+        session = process_manifest(create_vimc(self.root / "notes.xlsx",
+                       extra_lines=("DEMU0000004 001237 40HC 25 THEP",)), "VIMC")
+        rid = session.records[0]["record_id"]
+        session.base_issues.append({"code": "FILE_NOTE", "message": "Kiểm tổng hợp", "severity": "warning"})
+        session.base_issues.append({"code": "TRACE", "message": "Dấu vết", "record_id": rid, "severity": "info"})
+        session.update_record(rid, {"Seal_No": "123"}, "lần đầu")
+        session.update_record(rid, {"Seal_No": "00123"}, "theo chứng từ mới", verified_fields=["Description"])
+        path = exporter.export_port_excel(session, self.outputs / "notes.xlsx")
+        _, rows = self.output_rows(path)
+        note = rows[0]["Ghi chú"]
+        for expected in ("Đã sửa Số niêm chì", "Đã đối chiếu Hàng hóa", "theo chứng từ mới"):
+            self.assertIn(expected, note)
+        for unrelated in ("Kiểm tổng hợp", "Dấu vết", "lần đầu"):
+            self.assertNotIn(unrelated, note)
+        self.assertIn(rows[1]["Ghi chú"], (None, ""))
+        self.assertEqual(rows[1]["Độ chính xác (%)"], session.records[1]["Confidence"])
+        self.assertTrue(any(i["code"] == "FILE_NOTE" for i in session.review_data()["current_issues"]))
+
     def test_preview_matches_actual_sixteen_column_export_all_carriers(self):
         for carrier in CREATORS:
             for status in ("F", "E"):

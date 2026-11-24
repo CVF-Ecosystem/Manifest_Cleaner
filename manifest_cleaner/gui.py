@@ -31,6 +31,7 @@ SOURCE_REASON_LABELS = {
     "missing_or_invalid_container": "Thiếu mã container hoặc mã cần kiểm tra",
     "weight_first_tons": "Trọng lượng đứng trước mô tả, đơn vị tấn", "description_first_kg": "Trọng lượng đứng sau mô tả, đơn vị kg",
     "ambiguous": "Có nhiều cách đọc trọng lượng và mô tả", "unparsed": "Chưa đọc đủ cấu trúc dòng",
+    "seal_type_ambiguous": "Có nhiều cách tách seal, kích cỡ, trọng lượng hoặc mô tả",
     "marks_empty": "Container rỗng trong cột MARKS", "marks_incomplete": "Cột MARKS chưa đủ thông tin container",
     "explicit_empty_detail": "Dòng ghi rõ container rỗng",
     "container_record_requires_review": "Dòng container còn thiếu dữ liệu khi đọc nguồn",
@@ -42,6 +43,9 @@ SOURCE_REASON_LABELS = {
     "weight_continuation_matched": "Trọng lượng ở ô nối tiếp, đã khớp số lượng và tổng",
     "weight_continuation_ambiguous": "Ô trọng lượng nối tiếp chưa đủ căn cứ để ghép",
     "legacy_compact_identifier_corroborated_in_marks": "Mã container ngắn trùng trong dòng chi tiết và MARKS",
+    "container_summary_header": "Tiêu đề bảng tổng hợp container", "container_summary_size": "Số lượng theo kích cỡ",
+    "container_summary_total": "Tổng số container khai báo", "container_summary_other_metric": "Chỉ số khác trong bảng tổng hợp",
+    "container_summary_unlabeled_metric": "Giá trị tổng hợp thiếu nhãn",
 }
 
 
@@ -76,6 +80,9 @@ def _source_field(record, field):
             evidence.append(f"Dòng: {raw['row_status']}")
         return " | ".join(evidence) or text_value(raw.get("comm") or raw.get("matched_description") or raw.get("description")) or "Xem mô tả và quy tắc suy luận"
     if field == "Operator":
+        owner_total = raw.get("ownership_total") or {}
+        if owner_total.get("text"):
+            return f"Dòng {owner_total.get('source_row', '')} · {owner_total['text']}"
         return "SOC" if raw.get("is_soc") is True else "Xem dấu SOC/COC trong nguồn"
     value_text = seal_text if field == "Seal_No" else text_value
     for name in names.get(field, ()):
@@ -110,14 +117,115 @@ def _reconciliation_description(session):
     difference = result.get("total_difference")
     if source is None or difference is None:
         reason = result.get("reason") or "Chưa xác định được tổng số container từ nguồn."
-        return f"Đối soát lúc đọc: đọc được {parsed} container. {reason}"
-    delta = f"{difference:+d}" if difference else "0"
-    text = f"Đối soát lúc đọc: nguồn khai {source} · đọc được {parsed} · chênh lệch {delta}"
+        text = f"Đối soát lúc đọc chưa hoàn tất. Đọc được {parsed} mã container duy nhất. {reason}"
+    else:
+        delta = f"{difference:+d}" if difference else "0"
+        text = f"Đối soát lúc đọc: nguồn khai {source} · đọc được {parsed} · chênh lệch {delta}"
+        if result.get("reason"):
+            text += f" · {result['reason']}"
     if result.get("size_differences"):
         text += " · Có kích cỡ lệch. Xem mục Cần kiểm tra."
-    if result.get("reason"):
-        text += f" · {result['reason']}"
     return text
+
+
+def _monitor_work_area(parent):
+    """Get the Windows work area of the parent monitor, excluding the taskbar."""
+    parent.update_idletasks()
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        class MonitorInfo(ctypes.Structure):
+            _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
+                        ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        monitor_from_window = user32.MonitorFromWindow
+        monitor_from_window.argtypes = [wintypes.HWND, wintypes.DWORD]
+        monitor_from_window.restype = wintypes.HANDLE
+        get_monitor_info = user32.GetMonitorInfoW
+        get_monitor_info.argtypes = [wintypes.HANDLE, ctypes.POINTER(MonitorInfo)]
+        get_monitor_info.restype = wintypes.BOOL
+        info = MonitorInfo()
+        info.cbSize = ctypes.sizeof(info)
+        handle = monitor_from_window(parent.winfo_id(), 2)
+        if handle and get_monitor_info(handle, ctypes.byref(info)):
+            return info.rcWork.left, info.rcWork.top, info.rcWork.right, info.rcWork.bottom
+    return 0, 0, parent.winfo_screenwidth(), parent.winfo_screenheight()
+
+
+def _fit_dialog(dialog, parent, preferred=(1000, 760), minimum=(475, 330)):
+    left, top, right, bottom = _monitor_work_area(parent)
+    max_width = max(1, right - left - 32)
+    max_height = max(1, bottom - top - 72)
+    width, height = min(preferred[0], max_width), min(preferred[1], max_height)
+    x = left + (right - left - width) // 2
+    y = top + (bottom - top - height - 40) // 2
+    dialog.geometry(f"{width}x{height}+{x}+{y}")
+    dialog.minsize(min(minimum[0], width), min(minimum[1], height))
+
+
+def _scroll_area(parent):
+    canvas = tk.Canvas(parent, background=BG, borderwidth=0, highlightthickness=0, width=1, height=1)
+    scroll = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+    scroll.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+    canvas.configure(yscrollcommand=scroll.set)
+    content = ttk.Frame(canvas, padding=8)
+    window = canvas.create_window((0, 0), window=content, anchor="nw")
+    canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+    content.bind("<Configure>", lambda _: canvas.configure(scrollregion=canvas.bbox("all")))
+    return canvas, content
+
+
+def _bind_dialog_scroll(dialog, panes):
+    def pane_for(widget):
+        for canvas, content in panes:
+            if widget is canvas or widget is content or str(widget).startswith(f"{content}."):
+                return canvas, content
+        return None
+
+    def wheel(event):
+        pane = pane_for(event.widget)
+        if pane and not isinstance(event.widget, (tk.Text, ttk.Treeview)):
+            direction = -1 if event.num == 4 or event.delta > 0 else 1
+            pane[0].yview_scroll(direction * 3, "units")
+            return "break"
+
+    def page(event):
+        pane = pane_for(event.widget)
+        if pane and not isinstance(event.widget, (tk.Text, ttk.Treeview)):
+            pane[0].yview_scroll(-1 if event.keysym == "Prior" else 1, "pages")
+            return "break"
+
+    def reveal(event):
+        pane = pane_for(event.widget)
+        if not pane:
+            return
+        canvas, content = pane
+        height = content.winfo_height()
+        viewport = canvas.winfo_height()
+        if height <= viewport:
+            return
+        y = event.widget.winfo_rooty() - content.winfo_rooty()
+        start = canvas.canvasy(0)
+        end = y + event.widget.winfo_height()
+        if y < start:
+            canvas.yview_moveto(y / height)
+        elif end > start + viewport:
+            canvas.yview_moveto((end - viewport) / height)
+
+    for binding in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+        dialog.bind(binding, wheel, add="+")
+    for binding in ("<Prior>", "<Next>"):
+        dialog.bind(binding, page, add="+")
+    dialog.bind("<FocusIn>", reveal, add="+")
+
+
+def _wrapped_label(parent, **options):
+    label = ttk.Label(parent, wraplength=420, **options)
+    parent.bind("<Configure>", lambda event: label.configure(wraplength=max(100, event.width - 24)), add="+")
+    return label
 
 
 class ManifestApp:
@@ -462,13 +570,10 @@ class ManifestApp:
         if not self.session:
             return
         session = self.session
-        issues = session.validate()
+        issues = [item for item in session.validate() if item.get("severity") in {"error", "warning"}]
         stats = session.statistics()
-        by_id = {r["record_id"]: r for r in session.records}
-        error_containers = {text_value(by_id.get(str(i.get("record_id")), {}).get("Container_No")) or str(i.get("record_id"))
-                            for i in issues if i.get("severity") == "error" and i.get("record_id") is not None}
-        file_errors = sum(i.get("severity") == "error" and i.get("record_id") is None for i in issues)
-        error_summary = f"{stats['errors'] - file_errors} lỗi dòng trên {len(error_containers)} container"
+        file_errors = stats["file_errors"]
+        error_summary = f"{stats['errors'] - file_errors} lỗi chặn xuất trên {stats['error_records']} dòng"
         if file_errors:
             error_summary += f" + {file_errors} lỗi toàn file"
         self.summary.set(f"{session.carrier}  |  {stats['bills']} B/L · {stats['containers']} container / {stats['active_records']} dòng  |  F: {stats['full']} · E: {stats['empty']} · Chưa rõ: {stats['unknown']}  |  {error_summary} · {stats['warnings']} cảnh báo · {stats['excluded']} dòng đã loại")
@@ -504,10 +609,14 @@ class ManifestApp:
                 continue
             if self.only_issues.get() and not row_issues:
                 continue
-            if query and query not in " ".join(text_value(v) for k, v in record.items() if k not in {"raw", "rules"}).casefold():
-                continue
+            if query:
+                record_text = [text_value(value) for field, value in record.items()
+                               if field not in {"raw", "rules", "Warning"}]
+                record_text.extend(text_value(item.get("message")) for item in row_issues)
+                if query not in " ".join(record_text).casefold():
+                    continue
             error = any(i.get("severity") == "error" for i in row_issues)
-            label = "Đã loại" if excluded else "Cần sửa" if error else "Cần kiểm tra" if row_issues else "Đã đối chiếu" if record.get("_manual_review_reason") else "Đủ dữ liệu"
+            label = "Đã loại" if excluded else "Cần xử lý" if error else "Cần kiểm tra" if row_issues else "Đã đối chiếu" if record.get("_manual_review_reason") else "Đủ dữ liệu"
             tag = "excluded" if excluded else "error" if error else "warning" if row_issues else ""
             weight = record.get("Weight_Value")
             values = (label, record.get("Container_No", ""), seal_text(record.get("Seal_No")),
@@ -536,8 +645,13 @@ class ManifestApp:
         self.export_button.configure(state="normal" if can_export else "disabled")
         self.review_button.configure(state="normal")
         self._update_row_actions()
-        self.status.set(f"Đã đọc {stats['detected_records']} bản ghi; đang giữ {stats['active_records']}. " +
-                        ("Xử lý các lỗi trong mục Cần kiểm tra trước khi xuất." if stats["errors"] else "Sẵn sàng xuất. Có thể mở từng dòng để đối chiếu nguồn."))
+        if stats["errors"]:
+            next_step = "Xem mục Cần kiểm tra để xử lý lỗi chặn xuất."
+        elif stats["warnings"]:
+            next_step = "Xem cảnh báo trong mục Cần kiểm tra. Có thể xác nhận để tiếp tục xuất."
+        else:
+            next_step = "Có thể xuất. Mở từng dòng để xem bằng chứng từ nguồn."
+        self.status.set(f"Đã đọc {stats['detected_records']} bản ghi; đang giữ {stats['active_records']}. {next_step}")
 
     def sort_by(self, field):
         self.sort_reverse = not self.sort_reverse if self.sort_field == field else False
@@ -643,74 +757,121 @@ class ManifestApp:
         original = {name: text_value(record.get(name)) for name in EDITABLE_FIELDS}
         original["Seal_No"] = seal_text(record.get("Seal_No"))
         record_issues = [item for item in self.session.validate() if item.get("record_id") == rid]
-        affected = {field for item in record_issues for field in (item.get("resolution_fields") or [item.get("field")]) if field}
+        review_issues = [item for item in record_issues if item.get("severity") in {"error", "warning"}]
+        affected = {field for item in review_issues for field in (item.get("resolution_fields") or [item.get("field")]) if field}
         dialog = tk.Toplevel(self.root)
         dialog.title(f"Đối chiếu container — {record.get('Container_No') or 'chưa có số'}")
-        dialog.geometry("1000x760")
-        dialog.minsize(880, 670)
         dialog.transient(self.root)
+        _fit_dialog(dialog, self.root)
         dialog.grab_set()
         body = ttk.Frame(dialog, padding=14)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"B/L: {record.get('BL_No') or '(chưa có số)'}  |  Nguồn: {Path(record.get('source_file') or '').name}  |  Sheet {record.get('source_sheet','')} · dòng {record.get('source_row','')}", font=("Segoe UI", 10, "bold"), wraplength=940).pack(anchor="w", pady=(0, 10))
+        footer = ttk.Frame(body)
+        footer.pack(side="bottom", fill="x", pady=(8, 0))
         notebook = ttk.Notebook(body)
-        notebook.pack(fill="both", expand=True, pady=(0, 8))
-        edit_tab = ttk.Frame(notebook, padding=10)
-        source_tab = ttk.Frame(notebook, padding=10)
-        notebook.add(edit_tab, text="Chỉnh sửa / xác nhận")
-        notebook.add(source_tab, text="Nguồn và giá trị sẽ xuất")
-        if record_issues:
-            issue_text = tk.Text(edit_tab, height=3, wrap="word", font=("Segoe UI", 10), bg="#FFF5E7", relief="flat", padx=8, pady=6)
-            issue_text.pack(fill="x", pady=(0, 8))
-            issue_text.insert("1.0", "\n".join(("LỖI: " if i.get("severity") == "error" else "Lưu ý: ") + i.get("message", "") for i in record_issues))
-            issue_text.configure(state="disabled")
-        ttk.Label(edit_tab, text="Chỉ trường đã sửa hoặc được tích xác nhận mới được ghi nhận là đã đối chiếu. Dấu * chỉ trường liên quan lỗi/cảnh báo.", wraplength=900, style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
+        notebook.pack(fill="both", expand=True)
+        notebook.enable_traversal()
+        edit_page, source_page = ttk.Frame(notebook), ttk.Frame(notebook)
+        notebook.add(edit_page, text="Chỉnh sửa / xác nhận")
+        notebook.add(source_page, text="Nguồn và giá trị xuất")
+        edit_canvas, edit_tab = _scroll_area(edit_page)
+        source_canvas, source_tab = _scroll_area(source_page)
+        _bind_dialog_scroll(dialog, [(edit_canvas, edit_tab), (source_canvas, source_tab)])
+        context = f"B/L: {record.get('BL_No') or '(chưa có số)'}  |  {Path(record.get('source_file') or '').name}  |  Sheet {record.get('source_sheet', '')} · dòng {record.get('source_row', '')}"
+        _wrapped_label(edit_tab, text=context, font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 8))
+        for finding in review_issues:
+            blocking = finding.get("severity") == "error"
+            label = "Lỗi chặn xuất" if blocking else "Cảnh báo"
+            style = "Issue.TLabel" if blocking else "TLabel"
+            _wrapped_label(edit_tab, text=f"{label} · {finding.get('message', '')}", style=style).pack(anchor="w", pady=(0, 4))
+        _wrapped_label(edit_tab, text="Dấu * chỉ trường liên quan lỗi hoặc cảnh báo. Tích xác nhận khi đã kiểm tra chính trường đó.", style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
+        _wrapped_label(edit_tab, text="Nút Lưu áp dụng vào phiên đang mở. Dùng Lưu đối chiếu để giữ sửa đổi và lý do trong file JSON.", style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
         form = ttk.Frame(edit_tab)
         form.pack(fill="x")
         form.columnconfigure(1, weight=1)
         variables = {}
         verified = {}
+        form_fields = []
         for index, name in enumerate(EDITABLE_FIELDS):
-            label = FIELD_LABELS[name] + (" *" if name in affected else "")
-            ttk.Label(form, text=label, style="Issue.TLabel" if name in affected else "TLabel").grid(row=index, column=0, sticky="w", padx=(0, 10), pady=4)
+            field_name = FIELD_LABELS[name] + (" *" if name in affected else "")
+            label = ttk.Label(form, text=field_name, style="Issue.TLabel" if name in affected else "TLabel")
+            label.grid(row=index, column=0, sticky="w", padx=(0, 10), pady=4)
             variable = tk.StringVar(value=original[name])
             variables[name] = variable
             if name == "FE_Status":
-                widget = ttk.Combobox(form, textvariable=variable, values=("F", "E", ""), state="readonly", width=38)
+                widget = ttk.Combobox(form, textvariable=variable, values=("F", "E", ""), state="readonly", width=12)
             else:
-                widget = ttk.Entry(form, textvariable=variable, width=38)
-            widget.grid(row=index, column=1, sticky="ew", padx=(0, 14), pady=4)
+                widget = ttk.Entry(form, textvariable=variable, width=12)
+            widget.grid(row=index, column=1, sticky="ew", padx=(0, 8), pady=4)
             verified[name] = tk.BooleanVar(value=False)
-            ttk.Checkbutton(form, text="Đã đối chiếu trường này", variable=verified[name]).grid(row=index, column=2, sticky="w", pady=4)
-        ttk.Label(edit_tab, text="Nhập trọng lượng bằng TẤN; dùng dấu phẩy hoặc dấu chấm thập phân. F = có hàng, E = rỗng.", style="Muted.TLabel", wraplength=900).pack(anchor="w", pady=(8, 4))
+            check = ttk.Checkbutton(form, text="Đã đối chiếu", variable=verified[name])
+            check.grid(row=index, column=2, sticky="w", pady=4)
+            form_fields.append((label, widget, check))
 
+        compact_form = None
+        def reflow_form(event):
+            nonlocal compact_form
+            full_width = sum(max(row[column].winfo_reqwidth() for row in form_fields) for column in range(3)) + 24
+            compact = event.width < full_width
+            if compact == compact_form:
+                return
+            compact_form = compact
+            form.columnconfigure(0, weight=int(compact))
+            form.columnconfigure(1, weight=int(not compact))
+            for index, (label, widget, check) in enumerate(form_fields):
+                label.grid_configure(row=index * 2 if compact else index, columnspan=2 if compact else 1)
+                field_row = index * 2 + 1 if compact else index
+                widget.grid_configure(row=field_row, column=0 if compact else 1)
+                check.grid_configure(row=field_row, column=1 if compact else 2)
+
+        form.bind("<Configure>", reflow_form)
+        _wrapped_label(edit_tab, text="Trọng lượng nhập bằng tấn. F là có hàng. E là rỗng.", style="Muted.TLabel").pack(anchor="w", pady=(8, 4))
+
+        layout_issue = next((item for item in review_issues if item.get("code") in
+                             {"VIMC_LAYOUT_AMBIGUOUS", "VIMC_SEAL_TYPE_AMBIGUOUS"}), None)
+        candidate_fields = set(layout_issue.get("resolution_fields") or ()) if layout_issue else set()
         candidates = record.get("raw", {}).get("ambiguous_candidates", [])
-        if candidates:
+        if candidates and candidate_fields:
             picker = ttk.Frame(edit_tab)
             picker.pack(fill="x", pady=(8, 0))
+            includes_seal_type = {"Seal_No", "Size_Type"} <= candidate_fields
             descriptions = []
             for index, candidate in enumerate(candidates, 1):
-                descriptions.append(f"{index}. {candidate.get('weight_raw', '')} {candidate.get('source_unit', '')}; hàng: {candidate.get('description', '')}")
+                weight_text = f"{candidate.get('weight_raw', '')} {candidate.get('source_unit', '')}"
+                seal_type = ""
+                if includes_seal_type:
+                    seal = seal_text(candidate.get("seal_no")) or "(trống)"
+                    seal_type = f"Seal: {seal} · Cỡ: {candidate['size_type']} · "
+                descriptions.append(f"{index}. {seal_type}{weight_text} · Hàng: {candidate.get('description', '')}")
             choice = tk.StringVar(value="")
-            ttk.Label(picker, text="Cách đọc đã đối chiếu từ nguồn:").pack(anchor="w")
-            ttk.Combobox(picker, textvariable=choice, values=descriptions, state="readonly").pack(side="left", fill="x", expand=True, pady=(5, 0))
+            ttk.Label(picker, text="Cách đọc đã đối chiếu từ nguồn").pack(anchor="w")
+            ttk.Combobox(picker, textvariable=choice, values=descriptions, state="readonly").pack(fill="x", pady=(5, 0))
             def use_candidate():
                 if choice.get() not in descriptions:
                     messagebox.showinfo("Chọn cách đọc", "Đối chiếu dòng gốc rồi chọn một cách đọc. Ứng dụng không tự chọn thay bạn.", parent=dialog)
                     return
                 candidate = candidates[descriptions.index(choice.get())]
-                weight = parse_weight(candidate.get("weight_raw"), default_unit=candidate.get("source_unit") or "TONS", number_format=self.session.settings.get("number_format", "legacy"))
-                if weight is None:
-                    messagebox.showerror("Chưa đọc được số", "Cách đọc này không phù hợp quy ước số hiện tại. Kiểm tra nguồn và cấu hình đọc.", parent=dialog)
-                    return
-                variables["Weight_Value"].set(text_value(weight["value"]))
-                variables["Description"].set(candidate.get("description", ""))
-                verified["Weight_Value"].set(True)
-                verified["Description"].set(True)
+                values = {"Description": candidate.get("description", "")}
+                if "Weight_Value" in candidate_fields:
+                    weight = parse_weight(candidate.get("weight_raw"), default_unit=candidate.get("source_unit") or "TONS", number_format=self.session.settings.get("number_format", "legacy"))
+                    if weight is None:
+                        messagebox.showerror("Chưa đọc được số", "Cách đọc này không phù hợp quy ước số hiện tại. Kiểm tra nguồn và cấu hình đọc.", parent=dialog)
+                        return
+                    values["Weight_Value"] = text_value(weight["value"])
+                if includes_seal_type:
+                    values.update(Seal_No=seal_text(candidate.get("seal_no")), Size_Type=candidate["size_type"])
+                for field, value in values.items():
+                    if field in candidate_fields:
+                        variables[field].set(value)
+                        verified[field].set(True)
                 update_preview()
-            ttk.Button(picker, text="Điền và xác nhận 2 trường", command=use_candidate).pack(side="right", padx=(8, 0), pady=(5, 0))
+            button_text = f"Điền và xác nhận {len(candidate_fields)} trường"
+            ttk.Button(picker, text=button_text, command=use_candidate).pack(anchor="e", pady=(5, 0))
 
-        ttk.Label(source_tab, text="Xem trước đúng giá trị ghi vào mẫu 16 cột của hãng. Các lỗi chưa xử lý vẫn chặn xuất file.", wraplength=900, style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
+        _wrapped_label(source_tab, text=context, font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 8))
+        _wrapped_label(source_tab, text="Bảng này xem trước giá trị của các ô đang sửa. Các lỗi chưa xử lý vẫn chặn xuất file.", style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
+        preview_state = _wrapped_label(source_tab, text="", style="Muted.TLabel")
+        preview_state.pack(anchor="w")
         source_raw = record.get("raw", {})
         original_text = source_raw.get("source_cell") or source_raw.get("container_cell") or source_raw.get("text")
         if original_text:
@@ -732,13 +893,18 @@ class ManifestApp:
             # are shared with the real save/export path; no preview is persisted.
             projected = copy.copy(self.session)
             projected.records = [copy.deepcopy(item) if item["record_id"] == rid else item for item in self.session.records]
-            projected.corrections = []
+            projected.corrections = list(self.session.corrections)
             changes = {name: variable.get() for name, variable in variables.items() if variable.get() != original[name]}
             verified_fields = [name for name, variable in verified.items() if variable.get()]
+            typed_reason = reason.get().strip()
+            preview_state.configure(text="Chưa nhập lý do. Xem trước chưa có ghi chú cho sửa đổi này."
+                                    if (changes or verified_fields) and not typed_reason else "")
             comparison.delete(*comparison.get_children())
             try:
                 if changes or verified_fields:
-                    projected.update_record(rid, changes, "Chỉ xem trước, chưa lưu", verified_fields=verified_fields)
+                    projected.update_record(rid, changes, typed_reason or "Xem trước", verified_fields=verified_fields)
+                    if not typed_reason:
+                        projected.corrections = list(self.session.corrections)
                 preview = preview_record_for_export(projected, projected.get_record(rid))
             except (ValueError, TypeError) as exc:
                 comparison.insert("", "end", values=("Chưa xem trước được", "Kiểm tra các ô đang sửa", str(exc)), tags=("review",))
@@ -765,11 +931,12 @@ class ManifestApp:
             advanced_button.configure(text="Ẩn dữ liệu kỹ thuật (JSON)" if advanced_visible else "Hiện dữ liệu kỹ thuật (JSON)")
         advanced_button = ttk.Button(source_tab, text="Hiện dữ liệu kỹ thuật (JSON)", command=toggle_details)
         advanced_button.pack(anchor="w", pady=(0, 4))
-        update_preview()
-        ttk.Label(body, text="Lý do chỉnh sửa / căn cứ xác nhận (bắt buộc)").pack(anchor="w")
+        _wrapped_label(footer, text="Lý do / căn cứ đối chiếu (bắt buộc)").pack(anchor="w")
         reason = tk.StringVar()
-        ttk.Entry(body, textvariable=reason).pack(fill="x", pady=(5, 8))
-        buttons = ttk.Frame(body)
+        update_preview()
+        reason_entry = ttk.Entry(footer, textvariable=reason)
+        reason_entry.pack(fill="x", pady=(4, 6))
+        buttons = ttk.Frame(footer)
         buttons.pack(fill="x")
         def save():
             changes = {name: variable.get() for name, variable in variables.items() if variable.get() != original[name]}
@@ -781,11 +948,26 @@ class ManifestApp:
                 self.session.update_record(rid, changes, reason.get(), verified_fields=verified_fields)
                 self.dirty = True
                 self.refresh()
+                self.status.set("Đã ghi thay đổi vào phiên. Dùng Lưu đối chiếu để giữ thay đổi và lý do trong JSON.")
                 dialog.destroy()
             except Exception as exc:
                 messagebox.showerror("Chưa lưu được", str(exc), parent=dialog)
         ttk.Button(buttons, text="Lưu chỉnh sửa / xác nhận", style="Primary.TButton", command=save).pack(side="right")
-        ttk.Button(buttons, text="Đóng", command=dialog.destroy).pack(side="right", padx=8)
+        ttk.Button(buttons, text="Hủy", command=dialog.destroy).pack(side="right", padx=8)
+
+        def save_key(_):
+            save()
+            return "break"
+
+        def cancel_key(_):
+            dialog.destroy()
+            return "break"
+
+        dialog.bind("<Control-s>", save_key)
+        dialog.bind("<Control-Return>", save_key)
+        reason_entry.bind("<Return>", save_key)
+        dialog.bind("<Escape>", cancel_key)
+        notebook.focus_set()
 
     def acknowledge(self):
         rid = self.selected_record_id()
@@ -819,7 +1001,11 @@ class ManifestApp:
         if stats["errors"]:
             messagebox.showwarning("Cần xử lý lỗi", f"Còn {stats['errors']} lỗi. Mở mục Cần kiểm tra để xử lý.", parent=self.root)
             return
-        if stats["warnings"] and not messagebox.askyesno("Xác nhận xuất", f"Còn {stats['warnings']} cảnh báo. Bạn đã kiểm tra và muốn xuất file?", parent=self.root):
+        if stats["warnings"] and not messagebox.askyesno(
+            "Xuất khi còn cảnh báo",
+            f"Phiên còn {stats['warnings']} cảnh báo trong mục Cần kiểm tra. Bạn muốn tiếp tục xuất Excel?",
+            parent=self.root,
+        ):
             return
         path = filedialog.asksaveasfilename(title="Xuất file nhập hệ thống Cảng", defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")],
                                           initialfile=f"{self.selected_path.stem}_{self.session.carrier}_CLEAN.xlsx", confirmoverwrite=False, parent=self.root)
@@ -852,7 +1038,7 @@ class ManifestApp:
             try:
                 self.session.save_review(path)
                 self.dirty = False
-                self.status.set("Đã lưu dữ liệu gốc, kết quả, các mục cần kiểm tra và lịch sử chỉnh sửa.")
+                self.status.set("Đã lưu phiên đối chiếu và lịch sử chỉnh sửa vào JSON. Khi mở lại, cần đúng file manifest gốc.")
             except Exception as exc:
                 messagebox.showerror("Không lưu được", str(exc), parent=self.root)
 
@@ -924,7 +1110,14 @@ class ManifestApp:
         ttk.Button(body, text="Lưu cấu hình", style="Primary.TButton", command=save).pack(anchor="e", pady=(12, 0))
 
     def help(self):
-        messagebox.showinfo("Hướng dẫn nhanh", "1. Chọn hãng tàu, mở một manifest và xem cấu hình đọc đang dùng.\n2. Mở tab Cần kiểm tra; nhấp đúp lỗi để sửa đúng container.\n3. Chỉ tích Đã đối chiếu trường này khi đã kiểm tra chính trường đó. Sửa seal không tự xác nhận F/E hoặc trọng lượng.\n4. Trong cửa sổ sửa, tab Nguồn và giá trị sẽ xuất cho thấy giá trị gốc và mẫu 16 cột. Dữ liệu JSON được thu gọn ở phần kỹ thuật.\n5. Xuất Excel; mặc định lưu kèm .review.json để giữ nguồn, sửa đổi và lịch sử.\n6. Mở phiên đã lưu để tiếp tục công việc; phải cung cấp đúng manifest gốc, nội dung không thay đổi.\n\nLỗi chặn xuất; cảnh báo cần đối chiếu. Loại dòng luôn hiển thị container/B/L và cần lý do. Cột Độ chính xác (%) là điểm quy tắc, không phải xác suất đã đo.\n\nCtrl+O: mở manifest · Ctrl+S: xuất · F1: hướng dẫn", parent=self.root)
+        messagebox.showinfo("Hướng dẫn nhanh",
+            "1. Chọn hãng tàu và mở manifest.\n"
+            "2. Xem tab Cần kiểm tra. Nhấp đúp một mục để mở đúng dòng. Lỗi chặn xuất Excel. Cảnh báo vẫn cho phép xuất sau khi xác nhận.\n"
+            "3. Trong cửa sổ sửa, chỉ tích Đã đối chiếu với trường vừa kiểm tra. Tab Nguồn và giá trị xuất cho thấy nguồn và giá trị dự kiến.\n"
+            "4. Nhập lý do rồi bấm Lưu chỉnh sửa / xác nhận để áp dụng vào phiên. Lưu đối chiếu ghi các sửa đổi và lịch sử vào JSON. "
+            "Xuất Excel mặc định lưu kèm JSON. Mở lại JSON cần đúng manifest gốc chưa thay đổi.\n\n"
+            "Cửa sổ sửa — Ctrl+S hoặc Ctrl+Enter để lưu, Esc để hủy. Nhấn Enter khi đang nhập lý do cũng lưu.\n"
+            "Cửa sổ chính — Ctrl+O mở manifest, Ctrl+S xuất Excel, F1 xem hướng dẫn.", parent=self.root)
 
     def close(self):
         if self.busy and not messagebox.askyesno("Đang xử lý", "Đóng ứng dụng và dừng phiên đang xử lý?", parent=self.root):

@@ -6,6 +6,8 @@
 
 Bản 1.2.3 bổ sung cách đọc trọng lượng VOSCO từ ô nối tiếp cùng vận đơn. [Đính chính và bằng chứng kiểm](docs/reviews/LEGACY_COMPAT_REVIEW.md#đính-chính-vosco-trong-bản-123).
 
+Bản 1.2.5 sửa đối chiếu số lượng VOSCO, rà cảnh báo và ghi chú của cả ba hãng, và giữ nút Lưu trong vùng hiển thị. [Kết quả rà soát](docs/reviews/LEGACY_COMPAT_REVIEW.md).
+
 Bản 1.2.4 áp dụng tổng trọng lượng vỏ và hàng, ghi seal theo khai báo để đối chiếu tại bãi. [Quy tắc nhận manifest](README.md#tổng-trọng-lượng-và-seal-khai-báo).
 
 Đã kiểm chứng M01, M11, M12, M21, M22, M31 và M41. M32 có EXE dùng thử trên Windows này và còn nghiệm thu trên máy độc lập và hệ thống Cảng. M42 chờ xác định hãng và mẫu nghiệp vụ.

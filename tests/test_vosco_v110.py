@@ -7,7 +7,7 @@ from openpyxl import Workbook
 
 from manifest_cleaner.engine import process_manifest
 from manifest_cleaner.exporter import build_port_rows
-from manifest_cleaner.carriers.vosco.adapter import parse_manifest, _aligned_partial_weights, _parsed_lines
+from manifest_cleaner.carriers.vosco.adapter import parse_manifest, current_weight_issues, _aligned_partial_weights, _parsed_lines
 from manifest_cleaner.carriers.vosco.processors import determine_fe
 
 
@@ -263,6 +263,120 @@ class Vosco110Tests(unittest.TestCase):
         session.update_record(unresolved["record_id"], {"Container_No": "ABCU1234568", "Size_Type": "40HC", "Seal_No": "001235", "FE_Status": "F"}, "Đối chiếu và nhập lại dòng lỗi")
         self.assertEqual(session.metadata["coverage"]["unresolved_fragments"], 1)
 
+    def test_mixed_type_quantity_declaration_compares_every_type(self):
+        containers = "ABCU1234567/001234 20DC-C\nABCU1234568/001235 40HC-C"
+        result = parse_manifest(self.workbook("CARGO (01) x20'DC COC, (01) x40'HC COC", containers=containers))
+        self.assertFalse(any(i["code"] == "DESCRIPTION_QUANTITY_MISMATCH" for i in result["issues"]))
+        mismatch = parse_manifest(self.workbook("CARGO (01) x20'DC COC, (02) x40'HC COC", containers=containers))
+        finding = next(i for i in mismatch["issues"] if i["code"] == "DESCRIPTION_QUANTITY_MISMATCH")
+        self.assertEqual(finding["details"]["declared"], {"20DC": 1, "40HC": 2})
+        self.assertEqual(finding["details"]["row_counts"], {"20DC": 1, "40HC": 1})
+        self.assertEqual((finding["source_row"], finding["details"]["source_column"], finding["details"]["quantity_lines"]), (1, 15, [1]))
+        self.assertIn("40HC: khai 2, dòng 1, B/L 1", finding["message"])
+
+    def test_quantity_compares_contiguous_bill_occurrence_not_one_row_or_later_repeat(self):
+        book = Workbook()
+        sheet = book.active
+        for number, bill, description in (("ABCU1234567", "VOSCO123456", "CARGO"),
+                                          ("ABCU1234568", "", "CARGO (02) x40'HC COC"),
+                                          ("ABCU1234569", "VOSCO123456", "CARGO")):
+            row = [""] * 19
+            row[0], row[1], row[5], row[10], row[14], row[18] = "(C)", "TEST", bill, number + "/001234 40HC-C", description, "25 TONS"
+            sheet.append(row)
+        path = self.root / "bill_scope.xlsx"
+        book.save(path)
+        book.close()
+        result = parse_manifest(path)
+        self.assertFalse(any(i["code"] == "DESCRIPTION_QUANTITY_MISMATCH" for i in result["issues"]))
+
+    def test_row_only_quantity_match_with_larger_bill_stays_ambiguous(self):
+        from openpyxl import load_workbook
+        path = self.workbook("CARGO (01) x40'HC COC", containers=CONTAINERS.splitlines()[0], weight="25 TONS")
+        book = load_workbook(path)
+        row = [""] * 19
+        row[10], row[14], row[18] = "ABCU1234568/001235 40HC-C", "CARGO", "25 TONS"
+        book.active.append(row)
+        book.save(path)
+        book.close()
+        result = parse_manifest(path)
+        finding = next(i for i in result["issues"] if i["code"] == "DESCRIPTION_QUANTITY_SCOPE_UNCLEAR")
+        self.assertEqual((finding["details"]["row_counts"], finding["details"]["bill_counts"]), ({"40HC": 1}, {"40HC": 2}))
+
+    def test_separate_total_row_reports_its_actual_location(self):
+        from openpyxl import load_workbook
+        path = self.workbook("STEEL", containers=CONTAINERS.splitlines()[0], weight="25 TONS")
+        book = load_workbook(path)
+        row = [""] * 19
+        row[14] = "TOTAL: (2) x 40HC"
+        book.active.append(row)
+        book.save(path)
+        book.close()
+        result = parse_manifest(path)
+        finding = next(i for i in result["issues"] if i["code"] == "DESCRIPTION_QUANTITY_MISMATCH")
+        self.assertEqual((finding["source_row"], finding["details"]["source_column"], finding["details"]["record_source_row"]), (2, 15, 1))
+        self.assertEqual(finding["details"]["declared"], {"40HC": 2})
+
+    def test_multiple_totals_keep_distinct_source_cells(self):
+        from openpyxl import load_workbook
+        path = self.workbook("STEEL", containers=CONTAINERS.splitlines()[0], weight="25 TONS")
+        book = load_workbook(path)
+        for label in ("TOTAL: (2) x 40HC", "TOTAL: (3) x 40HC"):
+            row = [""] * 19
+            row[14] = label
+            book.active.append(row)
+        book.save(path)
+        book.close()
+        session = process_manifest(path, "VOSCO")
+        findings = [i for i in session.validate() if i["code"] == "DESCRIPTION_QUANTITY_MISMATCH"]
+        self.assertEqual([i["source_row"] for i in findings], [2, 3])
+        self.assertIn("Ô O2", findings[0]["message"])
+        self.assertIn("Ô O3", findings[1]["message"])
+        self.assertEqual([i["details"]["source_column"] for i in findings], [15, 15])
+
+    def test_grand_total_omitted_size_is_zero_but_subtotal_is_not(self):
+        from openpyxl import load_workbook
+        containers = "ABCU1234567/001234 20DC-C\nABCU1234568/001235 40HC-C"
+        for label, expected in (("GRAND TOTAL: (1) x20DC", True), ("TOTAL: (1) x20DC", False),
+                                ("GRAND TOTAL: (1) x20DC, (1) x40HC", False)):
+            with self.subTest(label=label):
+                path = self.workbook("STEEL", containers=containers)
+                book = load_workbook(path)
+                row = [""] * 19
+                row[14] = label
+                book.active.append(row)
+                book.save(path)
+                book.close()
+                result = parse_manifest(path)
+                findings = [i for i in result["issues"] if i["code"] == "DESCRIPTION_QUANTITY_MISMATCH"]
+                self.assertEqual(bool(findings), expected)
+                if expected:
+                    self.assertIn("Ô O2", findings[0]["message"])
+                    self.assertIn("40HC: khai 0, B/L 1", findings[0]["message"])
+                    self.assertTrue(findings[0]["details"]["grand_total"])
+
+    def test_mass_quantity_and_unrelated_tail_are_not_container_totals(self):
+        from openpyxl import load_workbook
+        for desc, tail in (("PARTS (2) x 40KG", ""), ("STEEL", "REFERENCE (2) x 40HC")):
+            with self.subTest(description=desc, tail=tail):
+                path = self.workbook(desc, containers=CONTAINERS.splitlines()[0], weight="25 TONS")
+                book = load_workbook(path)
+                row = [""] * 19
+                row[14] = tail
+                book.active.append(row)
+                book.save(path)
+                book.close()
+                result = parse_manifest(path)
+                self.assertFalse([i for i in result["issues"] if i["code"].startswith("DESCRIPTION_QUANTITY_")])
+                self.assertFalse([i for i in result["issues"] if i["code"] == "DESCRIPTION_REVIEW"])
+                self.assertEqual(result["records"][0]["Description"], desc.upper())
+                self.assertEqual(result["records"][0]["raw"]["description_cell"], desc)
+
+    def test_unparsed_container_makes_quantity_scope_unclear(self):
+        result = parse_manifest(self.workbook("CARGO (02) x40'HC COC", containers="ABCU1234567/001234 40HC-C\nABCU12345/001235 40HC-C"))
+        findings = [i for i in result["issues"] if i["code"] == "DESCRIPTION_QUANTITY_SCOPE_UNCLEAR"]
+        self.assertTrue(findings)
+        self.assertFalse(any(i["code"] == "DESCRIPTION_QUANTITY_MISMATCH" for i in result["issues"]))
+
     def test_transport_word_is_cargo_not_port_metadata(self):
         result = parse_manifest(self.workbook("TRANSPORT EQUIPMENT\nSTEEL"))
         self.assertEqual([r["Description"] for r in result["records"]], ["TRANSPORT EQUIPMENT", "STEEL"])
@@ -303,6 +417,40 @@ class Vosco110Tests(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaisesRegex(ValueError, "weight_kind"):
                     parse_manifest(path, settings={"weight_kind": value})
+
+    def test_weight_issues_recompute_current_values_and_show_thresholds(self):
+        record = {"record_id": "synthetic", "source_row": 5, "source_sheet": "Manifest",
+                  "Size_Type": "40HC", "Weight_Value": 7, "Weight_Kind": "gross",
+                  "FE_Status": "E", "Description": "EMPTY"}
+        warning = current_weight_issues(record)[0]
+        self.assertEqual(warning["code"], "EMPTY_WEIGHT_CONFLICT")
+        self.assertEqual(warning["resolution_fields"], ["FE_Status", "Weight_Value"])
+        self.assertEqual(warning["details"]["weight_tons"], 7)
+        self.assertEqual(warning["details"]["threshold_tons"], 4.8)
+        self.assertIn("7 tấn", warning["message"])
+        self.assertIn("4.8 tấn", warning["message"])
+        self.assertIn("vỏ tham chiếu", warning["message"])
+        self.assertIn("không phải trọng lượng vỏ thực tế", warning["message"])
+        for changes in ({"Weight_Value": 4}, {"FE_Status": "F"}, {"Size_Type": "20TK", "Weight_Value": 5.9},
+                        {"Description": "CARGO"}, {"Weight_Value": None}):
+            with self.subTest(changes=changes):
+                self.assertFalse(current_weight_issues({**record, **changes}))
+        self.assertEqual(current_weight_issues({**record, "Size_Type": "20TK"})[0]["details"]["threshold_tons"], 6)
+        tank = {**record, "Size_Type": "20TK", "Weight_Value": 7, "FE_Status": "F", "Description": "CARGO"}
+        tank_warning = current_weight_issues(tank)[0]
+        self.assertEqual(tank_warning["code"], "TANK_WEIGHT_REVIEW")
+        self.assertEqual(tank_warning["resolution_fields"], ["FE_Status", "Weight_Value"])
+        self.assertEqual((tank_warning["details"]["minimum_tons"], tank_warning["details"]["maximum_tons"]), (5, 12))
+        self.assertFalse(current_weight_issues({**tank, "Size_Type": "40HC"}))
+        self.assertFalse(current_weight_issues({**tank, "Weight_Value": 13}))
+        self.assertFalse(current_weight_issues({**tank, "Weight_Kind": "cargo"}))
+
+    def test_parse_weight_finding_uses_same_current_evaluator(self):
+        result = parse_manifest(self.workbook("EMPTY", containers=CONTAINERS.splitlines()[0], weight="25 TONS"))
+        record = result["records"][0]
+        existing = [i for i in result["issues"] if i["code"] == "EMPTY_WEIGHT_CONFLICT"]
+        self.assertEqual(existing, current_weight_issues(record))
+        self.assertEqual(record["FE_Status"], "E")
 
     def test_legacy_explicit_empty_and_cargo_conflict_remains_visible(self):
         result = parse_manifest(self.workbook("EMPTY", containers=CONTAINERS.splitlines()[0], weight="2 TONS"),

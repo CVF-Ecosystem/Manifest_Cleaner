@@ -60,6 +60,38 @@ class Vinafco110Tests(unittest.TestCase):
                 columns, rows = build_port_rows(session)
                 self.assertEqual(rows[0][columns.index("TL hàng")], 25)
 
+    def test_named_goods_with_high_gross_is_traceable_without_a_review_note(self):
+        source = self.workbook([self.container(comm="GẠCH MEN"), self.container("MSCU1234568", comm=""),
+                                self.container("MSCU1234569", comm="RICE", gw=1)])
+        session = process_manifest(source, "VINAFCO")
+        named, blank, light = session.records
+        self.assertIn("VINAFCO_FE_FULL_WITH_GOODS_AND_WEIGHT", named["rules"])
+        issues = session.validate()
+        self.assertFalse(any(i.get("record_id") == named["record_id"] for i in issues))
+        for row in (blank, light):
+            self.assertTrue(any(i.get("record_id") == row["record_id"] and i["code"] == "VINAFCO_FE_INFERRED" for i in issues))
+        columns, rows = build_port_rows(session)
+        self.assertEqual(rows[0][columns.index("Ghi chú")], "")
+
+    def test_editing_weight_rechecks_status_and_invalidates_an_old_confirmation(self):
+        session = process_manifest(self.workbook([self.container(comm="EMPTY", gw=2)]), "VINAFCO")
+        rid = session.records[0]["record_id"]
+        def conflicts():
+            return [item for item in session.validate() if item["code"] == "VINAFCO_FE_CONFLICT"]
+        self.assertFalse(conflicts())
+        session.update_record(rid, {"Weight_Value": 25}, "Kiểm tra nguồn")
+        self.assertEqual(conflicts()[0]["severity"], "error")
+        session.acknowledge_record(rid, "Đã xem dòng")
+        self.assertTrue(conflicts())
+        session.update_record(rid, {}, "Đối chiếu hai trường", verified_fields=["FE_Status", "Weight_Value"])
+        self.assertFalse(conflicts())
+        session.update_record(rid, {"Weight_Value": 26}, "Khai bổ sung")
+        self.assertTrue(conflicts())
+        from manifest_cleaner.exporter import preview_record_for_export
+        self.assertNotIn("Đối chiếu hai trường", preview_record_for_export(session, session.records[0])["Ghi chú"])
+        session.update_record(rid, {"Weight_Value": 2}, "Đọc lại manifest")
+        self.assertFalse(conflicts())
+
     def test_configured_weight_aliases_carry_units_without_changing_numeric_cells(self):
         cases = [
             ("CÂN", "CANKGS", 25000, "TONS", 25, "KGS"),

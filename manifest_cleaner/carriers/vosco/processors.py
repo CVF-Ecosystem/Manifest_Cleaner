@@ -17,6 +17,7 @@ import pandas as pd
 
 from .mappings import (
     SIZE_TYPE_TO_CARGO_TYPE_BASE,
+    SIZE_TO_VTOS,
     TARE_WEIGHTS_TONS,
     SAFETY_MARGIN_TONS,
     TANK_TARE_WEIGHTS_TONS,
@@ -73,6 +74,14 @@ QTY_ONLY_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+def _supported_quantity_match(match):
+    return bool(match and (match.group(3) + match.group(4)).upper() in SIZE_TO_VTOS)
+
+
+def _has_supported_cargo_quantity(text):
+    return any(_supported_quantity_match(match) for match in CARGO_QTY_PATTERN.finditer(text))
+
+
 # Header lines to skip when counting containers
 CONTAINER_HEADER_PATTERNS = ['FCL/FCL', 'CY-CY', 'CY/CY', 'FCL/CY', 'CY/FCL']
 
@@ -113,7 +122,7 @@ def classify_description_lines(description_text: str) -> List[dict]:
             kind = "total"
         elif re.match(r"^(?:SEE\s+)?ATTACHED\s+LIST\b", text, re.I):
             kind = "attachment"
-        elif CARGO_QTY_PATTERN.search(text):
+        elif _has_supported_cargo_quantity(text):
             kind = "quantity"
         else:
             kind = "cargo"
@@ -167,7 +176,7 @@ def detect_description_structure(
     
     # SECOND: Check for QUANTITY_BASED pattern in description
     # This is for cases like "GACH MEN (01) x20'DC COC, PHAN BON (02) x40'HC COC"
-    if CARGO_QTY_PATTERN.search(description_text):
+    if _has_supported_cargo_quantity(description_text):
         return StructureType.QUANTITY_BASED
     
     # THIRD: Default to SHARED_SINGLE (all containers share same description)
@@ -414,6 +423,8 @@ def parse_cargo_items_with_qty(description: str) -> List[tuple]:
     
     # Find all matches
     for match in CARGO_QTY_PATTERN.finditer(desc_str):
+        if not _supported_quantity_match(match):
+            continue
         cargo_name = match.group(1).strip()
         qty = int(match.group(2))
         size_prefix = match.group(3)  # e.g., "20"
@@ -581,7 +592,7 @@ def match_descriptions_with_confidence(
                     results.append(DescriptionMatch(
                         description=fallback_desc,
                         confidence=80,
-                        warning="⚠️ Fallback từ quantity pattern",
+                        warning="Chưa ghép được theo dòng; đã dùng số lượng và kích cỡ trong mô tả. Cần đối chiếu nguồn.",
                         match_type="QUANTITY_FALLBACK"
                     ))
                 else:
@@ -592,7 +603,7 @@ def match_descriptions_with_confidence(
                     results.append(DescriptionMatch(
                         description=shared_desc,
                         confidence=50,
-                        warning="⚠️ Description có thể không chính xác",
+                        warning="Chưa xác định chắc mô tả hàng cho container; cần đối chiếu nguồn.",
                         match_type="SHARED_FALLBACK"
                     ))
                     
@@ -614,7 +625,7 @@ def match_descriptions_with_confidence(
                 results.append(DescriptionMatch(
                     description=desc,
                     confidence=50,
-                    warning="⚠️ Description có thể không chính xác",
+                    warning="Chưa xác định chắc mô tả hàng cho container; cần đối chiếu nguồn.",
                     match_type="QUANTITY_FALLBACK"
                 ))
     else:
@@ -733,7 +744,7 @@ def validate_container_info_description(description: str) -> Tuple[Optional[str]
         return (None, None)
     
     # Check if pattern matches container info structure
-    if not CONTAINER_INFO_DESC_PATTERN.search(desc_str):
+    if not CONTAINER_INFO_DESC_PATTERN.search(desc_str) or not _has_supported_cargo_quantity(desc_str):
         return (None, None)
     
     # Parse segments to extract cargo names
@@ -744,7 +755,7 @@ def validate_container_info_description(description: str) -> Tuple[Optional[str]
     for segment in segments:
         # Try to match cargo + qty pattern first
         match = CARGO_QTY_PATTERN.match(segment)
-        if match:
+        if _supported_quantity_match(match):
             cargo = match.group(1).strip()
             if cargo:
                 if cargo.upper() == 'EMPTY':
@@ -770,7 +781,7 @@ def validate_container_info_description(description: str) -> Tuple[Optional[str]
         # This handles cases like "EMPTY (04) X40'RF SOC, (01) X45'RF SOC" -> "EMPTY"
         extracted_cargo = "EMPTY"
     
-    warning = "⚠️ Description có thể không chính xác (chứa thông tin container)"
+    warning = "Mô tả có thông tin đóng container; cần đối chiếu tên hàng với nguồn."
     
     return (warning, extracted_cargo)
 

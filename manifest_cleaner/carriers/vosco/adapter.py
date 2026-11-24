@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import Counter
 from decimal import Decimal
+import math
 from pathlib import Path
 import re
 
@@ -19,13 +20,13 @@ from ...common import (
 from .. import CARRIER_PROFILES
 from .mappings import (
     SAFETY_MARGIN_TONS, SIZE_TO_VTOS, TANK_TARE_WEIGHTS_TONS, TARE_WEIGHTS_TONS,
+    TANK_WEIGHT_WARNING_RANGE,
 )
 from .parsers import get_vtos_size, is_valid_bl, parse_container_line
 from .processors import (
     CONTAINER_HEADER_PATTERNS, clean_consignee_name, clean_description_text, classify_description_lines,
     determine_fe, get_cargo_type, match_descriptions_with_confidence,
-    parse_cargo_items_with_qty, refine_description_column, validate_container_info_description,
-    validate_tank_weight_warning,
+    refine_description_column, validate_container_info_description,
 )
 
 # Zero-based positions of the established VOSCO worksheet layout.
@@ -307,6 +308,99 @@ def _scan_contexts(rows, sheet, first_data_index=0):
     return contexts, parties
 
 
+_DECLARED_QUANTITY = re.compile(r"\((\d+)\)\s*[xX]?\s*(\d{2})['’]?([A-Z0-9]{1,4})", re.I)
+
+
+def _quantity_audit(rows, contexts, first_data_index):
+    """Compare each explicit declaration with its detail row and B/L occurrence."""
+    occurrence = 0
+    by_occurrence = {}
+    occurrences = []
+    for index, (row, context) in enumerate(zip(rows, contexts)):
+        if index < first_data_index:
+            occurrences.append(None)
+            continue
+        bill = _cell(row, COL_BL)
+        if bill and not _bl_heading(bill):
+            occurrence += 1
+        scope = (occurrence, context["Master_BL_Group_ID"])
+        occurrences.append(scope)
+        group = by_occurrence.setdefault(scope, {"types": Counter(), "rows": [], "unparsed": False})
+        parsed_lines = _parsed_lines(_cell(row, COL_CONTAINER))
+        for _, _, parsed in parsed_lines:
+            if not parsed or not parsed.get("type"):
+                group["unparsed"] = True
+            else:
+                group["types"][parsed["type"].upper()] += 1
+        if parsed_lines:
+            group["rows"].append(index + 1)
+
+    findings = {}
+    for index, (row, scope) in enumerate(zip(rows, occurrences)):
+        if scope is None:
+            continue
+        description = _cell(row, COL_DESCRIPTION)
+        entries = []
+        for line_number, line in enumerate(description.splitlines(), 1):
+            for match in _DECLARED_QUANTITY.finditer(line):
+                kind = (match.group(2) + match.group(3)).upper()
+                if is_supported_size_type(kind):
+                    entries.append((line_number, int(match.group(1)), kind))
+        if not entries:
+            continue
+        group = by_occurrence[scope]
+        declaration_row = index + 1
+        detail_row = declaration_row
+        row_container = _cell(row, COL_CONTAINER)
+        normalized = normalize_text(description)
+        grand_total = bool(re.match(r"^GRAND\s+TOTAL\s*[:=]", normalized))
+        if not _parsed_lines(row_container):
+            previous = [number for number in group["rows"] if number < detail_row]
+            if (row_container or not previous
+                    or not re.match(r"^(?:GRAND\s+)?(?:TOTAL|TONG CONG)\s*[:=]", normalized)):
+                continue
+            detail_row = previous[-1]
+        declared = Counter()
+        for _, count, kind in entries:
+            declared[kind] += count
+        row_types = Counter(parsed["type"].upper() for _, _, parsed in _parsed_lines(_cell(rows[detail_row - 1], COL_CONTAINER))
+                            if parsed and parsed.get("type"))
+        lines = sorted({number for number, _, _ in entries})
+        location = f"Ô O{declaration_row}, dòng trong ô {', '.join(map(str, lines))}: "
+
+        def add_finding(code, message):
+            findings.setdefault(detail_row, []).append({"code": code, "message": location + message,
+                "declared": dict(declared), "row_counts": dict(row_types), "bill_counts": dict(group["types"]),
+                "quantity_lines": lines, "detail_rows": group["rows"], "declaration_row": declaration_row,
+                "grand_total": grand_total})
+
+        if group["unparsed"] or not scope[1]:
+            add_finding("DESCRIPTION_QUANTITY_SCOPE_UNCLEAR",
+                        "Chưa thể đối chiếu số lượng vì phạm vi B/L hoặc dòng container chưa rõ.")
+            continue
+        # A plain declaration can describe a row or the whole bill, and may
+        # name only one size. A GRAND TOTAL explicitly covers the whole bill.
+        row_matches = all(row_types[k] == count for k, count in declared.items())
+        bill_matches = all(group["types"][k] == count for k, count in declared.items())
+        if grand_total:
+            bill_matches = dict(declared) == dict(group["types"])
+            if not bill_matches:
+                kinds = set(declared) | set(group["types"])
+                details = ", ".join(f"{kind}: khai {declared[kind]}, B/L {group['types'][kind]}"
+                                    for kind in sorted(kinds))
+                add_finding("DESCRIPTION_QUANTITY_MISMATCH",
+                            "Tổng B/L khai không khớp (" + details + "); đối chiếu nguồn.")
+        elif row_matches and not bill_matches and len(group["rows"]) > 1:
+            add_finding("DESCRIPTION_QUANTITY_SCOPE_UNCLEAR",
+                        "Số lượng khai khớp dòng này nhưng khác tổng B/L; cần xác định phạm vi khai báo.")
+        elif not row_matches and not bill_matches:
+            details = ", ".join(f"{kind}: khai {count}, dòng {row_types[kind]}, B/L {group['types'][kind]}"
+                                for kind, count in sorted(declared.items()))
+            add_finding("DESCRIPTION_QUANTITY_MISMATCH",
+                        "Số lượng khai không khớp theo dòng hoặc phạm vi B/L (" + details + "); đối chiếu nguồn.")
+    return findings
+
+
 def is_supported_size_type(size_type, settings=None):
     """Only the operational source-to-port mappings are accepted."""
     return text_value(size_type).upper() in SIZE_TO_VTOS
@@ -326,6 +420,58 @@ def refresh_derived_fields(record, settings=None):
     return result
 
 
+def current_weight_issues(record, settings=None):
+    """Derive VOSCO F/E weight findings from current values and saved policy."""
+    settings = settings or {}
+    kind = record.get("Weight_Kind") or settings.get("weight_kind", _CARRIER.weight_kind)
+    raw_value = record.get("Weight_Value")
+    try:
+        if raw_value is None or isinstance(raw_value, bool):
+            return []
+        value = float(raw_value)
+        if not math.isfinite(value) or value < 0:
+            return []
+    except (TypeError, ValueError, OverflowError):
+        return []
+    size = text_value(record.get("Size_Type")).upper()
+    fe = text_value(record.get("FE_Status")).upper()
+    description = text_value(record.get("Description"))
+    found = []
+
+    def add(code, message, *, severity="warning", details=None):
+        entry = issue(code, message, severity=severity, record_id=record.get("record_id"),
+                      field="FE_Status", source_row=record.get("source_row"),
+                      source_sheet=record.get("source_sheet"))
+        entry["resolution_fields"] = ["FE_Status", "Weight_Value"]
+        entry["details"] = details or {}
+        found.append(entry)
+
+    if fe == "E" and is_explicit_empty(description):
+        if kind == "cargo" and value > 0:
+            add("EMPTY_CARGO_WEIGHT_CONFLICT",
+                f"Mô tả ghi EMPTY nhưng trọng lượng hàng là {value:g} tấn (> 0); đối chiếu F/E và trọng lượng.",
+                severity="error", details={"weight_tons": value, "threshold_tons": 0, "weight_kind": kind})
+        elif kind != "cargo":
+            tare = TANK_TARE_WEIGHTS_TONS.get(size, TARE_WEIGHTS_TONS.get(size[:2]))
+            if tare is not None and value > tare + SAFETY_MARGIN_TONS:
+                threshold = tare + SAFETY_MARGIN_TONS
+                add("EMPTY_WEIGHT_CONFLICT",
+                    f"Mô tả ghi EMPTY; trọng lượng tổng {value:g} tấn cao hơn ngưỡng đối chiếu {threshold:g} tấn "
+                    f"(vỏ tham chiếu {tare:g} + biên {SAFETY_MARGIN_TONS:g}; không phải trọng lượng vỏ thực tế). "
+                    "Giữ E và đối chiếu F/E, trọng lượng nguồn.",
+                    details={"weight_tons": value, "tare_tons": tare, "margin_tons": SAFETY_MARGIN_TONS,
+                             "threshold_tons": threshold, "size_type": size, "weight_kind": kind})
+    if kind != "cargo" and fe == "F" and size in TANK_WEIGHT_WARNING_RANGE:
+        lower, upper = TANK_WEIGHT_WARNING_RANGE[size]
+        if lower <= value <= upper:
+            add("TANK_WEIGHT_REVIEW",
+                f"Container bồn {size} khai F, trọng lượng tổng {value:g} tấn nằm trong khoảng {lower:g}–{upper:g} tấn; "
+                "đối chiếu F/E và trọng lượng nguồn.",
+                details={"weight_tons": value, "minimum_tons": lower, "maximum_tons": upper,
+                         "size_type": size, "weight_kind": kind})
+    return found
+
+
 def parse_manifest(path, *, settings=None, progress=None):
     """Read one VOSCO file into records, issues and source metadata."""
     settings = dict(settings or {})
@@ -336,7 +482,7 @@ def parse_manifest(path, *, settings=None, progress=None):
     sheets = read_workbook(path)
     issues, records, source_fragments = [], [], []
     metadata = {
-        "carrier": "VOSCO", "adapter_version": "1.1.3", "profile_version": "vosco-1.1.3",
+        "carrier": "VOSCO", "adapter_version": "1.1.4", "profile_version": "vosco-1.1.4",
         "source_file": source_file,
         "source_baseline": "e5a78dd0444349990b08992ceb57758aa074dcb8",
         "available_sheets": [name for name, _ in sheets],
@@ -383,6 +529,7 @@ def parse_manifest(path, *, settings=None, progress=None):
                                     for _, raw, parsed in _parsed_lines(_cell(row, COL_CONTAINER)))),
                             len(rows))
     contexts, parties = _scan_contexts(rows, sheet, first_data_index)
+    quantity_findings = _quantity_audit(rows, contexts, first_data_index)
     candidate_count = 0
     for source_row, (row, context) in enumerate(zip(rows, contexts), start=1):
         if source_row <= first_data_index:
@@ -471,12 +618,8 @@ def parse_manifest(path, *, settings=None, progress=None):
             "\n".join(raw for _, raw, _ in valid), description_cell,
             fe_statuses, bl_no=context["BL_No"],
         )
-        cargo_quantities = parse_cargo_items_with_qty(description_cell)
-        declared_types = Counter()
-        for _, count, container_type in cargo_quantities:
-            declared_types[container_type] += count
-        actual_types = Counter(parsed.get("type") for _, _, parsed in valid)
-        quantity_mismatch = bool(cargo_quantities and declared_types != actual_types)
+        row_quantity_findings = quantity_findings.get(source_row, [])
+        quantity_mismatch = bool(row_quantity_findings)
         party_block = parties.get(context["Master_BL_Group_ID"], {})
         party_values = {key: "\n".join(party_block.get(key, [])).strip()
                         for key in PARTY_FIELDS.values()}
@@ -514,10 +657,12 @@ def parse_manifest(path, *, settings=None, progress=None):
                 add("SIZE_TYPE_MISSING", "Không xác định được kích cỡ container từ dữ liệu gốc.", "error", "Size_Type")
             if match.warning:
                 add("DESCRIPTION_REVIEW", match.warning, field="Description")
-            if quantity_mismatch:
-                add("DESCRIPTION_QUANTITY_MISMATCH",
-                    "Số lượng/kích cỡ trong mô tả hàng không khớp danh sách container; cần đối chiếu cách gán hàng.",
+            for quantity_finding in row_quantity_findings:
+                add(quantity_finding["code"], quantity_finding["message"],
                     field="Description", resolution_fields=["Description", "Size_Type"])
+                record_issues[-1]["source_row"] = quantity_finding["declaration_row"]
+                record_issues[-1]["details"] = {**quantity_finding, "source_column": COL_DESCRIPTION + 1,
+                                                 "record_source_row": source_row}
             raw_description = match.description
             description = normalize_text(raw_description)
             description_warning, extracted = validate_container_info_description(description)
@@ -527,21 +672,12 @@ def parse_manifest(path, *, settings=None, progress=None):
                     description = extracted
             fe_status = ("" if parsed.get("_unparsed") else
                          determine_fe(raw_description, weight, parsed.get("type"), weight_kind=weight_kind))
-            type_value = str(parsed.get("type") or "").upper()
-            tare = TANK_TARE_WEIGHTS_TONS.get(type_value, TARE_WEIGHTS_TONS.get(type_value[:2]))
-            if is_explicit_empty(raw_description) and weight and weight_kind == "cargo" and weight["value"] > 0:
-                add("EMPTY_CARGO_WEIGHT_CONFLICT",
-                    "Mô tả ghi EMPTY nhưng trọng lượng hàng lớn hơn 0; cần xác nhận F/E và trọng lượng từ nguồn.",
-                    "error", resolution_fields=["FE_Status", "Weight_Value"])
-            elif is_explicit_empty(raw_description) and weight and weight_kind != "cargo" and tare is not None and weight["value"] > tare + SAFETY_MARGIN_TONS:
-                add("EMPTY_WEIGHT_CONFLICT",
-                    "Mô tả ghi EMPTY nhưng trọng lượng cao hơn ngưỡng suy luận. Giữ E theo khai báo; cần đối chiếu trọng lượng gốc.",
-                    field="FE_Status")
-            tank_warning = validate_tank_weight_warning(
-                type_value, weight.get("value") if weight else None, fe_status
-            ) if weight_kind != "cargo" else None
-            if tank_warning:
-                add("TANK_WEIGHT_REVIEW", tank_warning, field="FE_Status")
+            current_weight_record = {"record_id": record_id, "source_row": source_row, "source_sheet": sheet,
+                "Size_Type": parsed.get("type") or "", "Weight_Value": weight["value"] if weight else None,
+                "Weight_Kind": weight_kind, "FE_Status": fe_status, "Description": description}
+            for weight_finding in current_weight_issues(current_weight_record, settings):
+                record_issues.append(weight_finding)
+                issues.append(weight_finding)
             if (not parsed.get("_unparsed") and weight
                     and weight_kind == "unknown"
                     and not is_explicit_empty(raw_description)):

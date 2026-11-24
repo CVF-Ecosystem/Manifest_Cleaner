@@ -46,3 +46,18 @@ Số niêm chì được ghi theo khai báo nguồn. Hai cột xuất giữ nguy
 Kiểm năm manifest thực tế trên máy Windows. VIMC có 157 dòng, VOSCO có 309 dòng và VINAFCO có 322 dòng trong ba file. Cả năm file đều xử lý theo `gross`, xuất đủ 16 cột và mở lại được qua JSON. VOSCO giữ hai cảnh báo mâu thuẫn giữa khai báo EMPTY và trọng lượng cao.
 
 Kiểm độc lập các seal có số 0 đầu, dấu phân cách, chữ thường và văn bản giống công thức. Trường hợp một dòng VIMC có nhiều cách tách seal và kích cỡ cần xác nhận theo nguyên văn nguồn. Đã kiểm 246 ca và 94 mục SHA-256 trên bộ nguồn.
+
+## Rà cảnh báo, ghi chú và lưu dòng trong bản 1.2.5
+
+Đã rà các nơi phát sinh thông báo ở ba adapter và bộ kiểm tra chung, luồng sửa hoặc xác nhận dòng, mở lại phiên, lọc trên giao diện, xem trước và ghi Excel. Kết quả dưới đây dùng năm manifest nghiệp vụ đọc tại máy.
+
+| Nguồn | Kết quả đọc mới | Căn cứ xử lý |
+| --- | --- | --- |
+| VOSCO FF2601S | 309 dòng, 2 cảnh báo | Bỏ 61 cảnh báo số lượng sai ở các dòng nguồn 59, 578 và 911. Dòng 59 kê 60 container của hai phần chi tiết (38 + 22). Dòng 578 kê 10 × 20DC và 20 × 40HC. Dòng 911 kê 8 × 20DC và 1 × 40HC. Mô tả hàng khớp Excel cũ trên cả 309 dòng. |
+| VOSCO dòng 980 | Giữ E và 11 tấn trên hai dòng | Mô tả ghi EMPTY. Tổng khai cao hơn ngưỡng đối chiếu 6 tấn cho 20TK (vỏ tham chiếu 5,5 tấn và biên 0,5 tấn). Cảnh báo ghi rõ số liệu để người dùng đối chiếu. |
+| VIMC BS2622S-TT | 157 dòng, 1 cảnh báo | Mã ngắn có cùng số trên dòng chi tiết và MARKS. Giữ số theo nguồn, cho phép xác nhận số container. Mã hỏng thiếu bằng chứng vẫn chặn xuất. |
+| VINAFCO, ba manifest | 4, 57 và 261 dòng, tổng 0 cảnh báo | 228 dòng có mô tả hàng và trọng lượng phù hợp trạng thái F. Giữ căn cứ suy luận trong quy tắc đọc. Trạng thái mặc định, thiếu bằng chứng hoặc mâu thuẫn có thông báo riêng. |
+
+Các kiểm thử giả lập bao gồm sai số lượng thực, nhiều cỡ trên cùng dòng, tổng ghi riêng, phạm vi B/L lặp, mẫu ghi khối lượng trong mô tả hàng, trị số thay đổi sau xác nhận, dòng VIMC trùng có trọng lượng khác nhau và ghi chú toàn file. Bản xuất giữ 16 cột. Cột Ghi chú dùng vấn đề còn hiệu lực của từng dòng và căn cứ cho trường đã sửa hoặc xác nhận. JSON giữ lịch sử, quy tắc và vấn đề toàn file. Các dòng rõ dữ liệu, chưa chỉnh sửa có ghi chú trống.
+
+Trên Windows Tk, đã thử bố cục 595 × 430 với hệ số Tk 2.0, cuộn tới các trường, lưu bằng Enter và hủy bằng Escape. Thanh lý do, Lưu và Hủy hiển thị trong vùng làm việc. Việc lưu dòng áp dụng vào phiên hiện tại. Nút Lưu đối chiếu lưu phiên ra JSON. Xử lý lại từ manifest gốc để tính lại các cảnh báo cấu trúc của bản cũ.

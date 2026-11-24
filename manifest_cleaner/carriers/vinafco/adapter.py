@@ -14,7 +14,7 @@ from ...common import (
 from .profile import CARGO_TYPES, DEFAULTS, HEADER_ALIASES, INPUT_COLUMNS, SIZE_TO_VTOS
 
 
-PROFILE_VERSION = "VINAFCO-1.1.1"
+PROFILE_VERSION = "VINAFCO-1.1.2"
 _PARTY = re.compile(r"^\s*\(\s*([SCN])\s*\)\s*(.*)$", re.I | re.S)
 _CONTAINER = re.compile(r"^[A-Z]{4}\d{7}$")
 _SOC = re.compile(r"(?<![A-Z])S[.\s]*O[.\s]*C(?![A-Z])", re.I)
@@ -429,8 +429,12 @@ def _reconcile(records: list, metadata: dict, blocks: list, issues: list) -> Non
         mismatched_entries = size_entries.get(next(iter(size_differences)))
         if mismatched_entries:
             first_mismatch = mismatched_entries[0]["source_row"]
+    differences = [f"{size} ({source_sizes.get(size, 0)} / {parsed_sizes.get(size, 0)})"
+                   for size in size_differences]
+    totals_text = f"Tổng theo bảng kê {source_total}, tổng từ chi tiết {len(sizes_by_container)}." if source_total is not None else ""
+    sizes_text = " Số theo bảng kê / chi tiết từng cỡ: " + ", ".join(differences) + "." if differences else ""
     finding = issue("VINAFCO_SUMMARY_MISMATCH",
-        "Số container đọc được không khớp bảng tổng hợp VINAFCO. Kiểm tra số container duy nhất và số theo kích cỡ.",
+        f"Đối chiếu bảng tổng hợp ở dòng {first_mismatch}. {totals_text}{sizes_text}".strip(),
         severity="warning", source_sheet=block["source_sheet"], source_row=first_mismatch)
     finding["details"] = {"source_total": source_total, "parsed_total": len(sizes_by_container),
                           "total_difference": total_difference, "size_differences": size_differences,
@@ -490,17 +494,51 @@ def _fe(description: str, weight: dict | None, size: str, cfg: dict):
         rules.append("VINAFCO_EXPLICIT_FE")
         if inferred is not None and explicit != inferred:
             notes.append(("VINAFCO_FE_CONFLICT", "error",
-                "Trạng thái F/E ghi trong mô tả mâu thuẫn với suy luận từ trọng lượng; cần đối chiếu file gốc."))
+                f"Mô tả khai {explicit}. Với {numeric:g} tấn và cỡ {size}, quy tắc VINAFCO cho {inferred}. "
+                "Đối chiếu F/E và trọng lượng trên manifest."))
         return explicit, notes, rules, False
     status = inferred or "F"
-    if inferred:
+    cargo = normalize_text(description)
+    has_goods = bool(re.search(r"[A-Z]", cargo)) and cargo not in {
+        "N/A", "NA", "NONE", "NIL", "TBA", "TBC", "UNKNOWN", "SOC", "COC", "FCL/FCL", "AS PER ATTACHED LIST",
+    }
+    if inferred == "F" and has_goods:
+        rules.append("VINAFCO_FE_FULL_WITH_GOODS_AND_WEIGHT")
+    elif inferred:
         notes.append(("VINAFCO_FE_INFERRED", "warning",
-            "F/E được suy luận từ trọng lượng theo quy tắc VINAFCO; trọng lượng vỏ là ngưỡng cấu hình, không phải cân vỏ thực tế."))
+            f"Quy tắc VINAFCO cho {inferred} từ {numeric:g} tấn và cỡ {size}. "
+            + ("Mô tả có ghi hàng. Đối chiếu F/E với vận đơn." if has_goods else
+               "Mô tả chưa xác định đầy hay rỗng. Đối chiếu F/E với vận đơn.")))
     else:
         rules.append("VINAFCO_LEGACY_DEFAULT_FULL")
         notes.append(("VINAFCO_FE_DEFAULTED", "warning",
-            "Chưa đủ dữ liệu xác định F/E; đang giữ mặc định F của ứng dụng VINAFCO cũ. Cần kiểm tra trước khi xuất."))
+            "Mô tả và trọng lượng chưa xác định được F/E. Giá trị tạm là F. Đối chiếu F/E với vận đơn."))
     return status, notes, rules, True
+
+
+def current_weight_issues(record, settings):
+    weight = record.get("Weight_Value")
+    if weight is not None and (not isinstance(weight, (int, float)) or not math.isfinite(weight) or weight < 0):
+        return []  # The shared numeric validator reports this field.
+    expected, notes, rules, _ = _fe(
+        text_value(record.get("Description")), {"value": weight} if weight is not None else None,
+        text_value(record.get("Size_Type")), _settings(settings),
+    )
+    findings = []
+    if (record.get("FE_Status") in {"F", "E"} and record["FE_Status"] != expected
+            and "VINAFCO_LEGACY_DEFAULT_FULL" not in rules and not any(code == "VINAFCO_FE_CONFLICT" for code, _, _ in notes)):
+        notes = [("VINAFCO_FE_CONFLICT", "warning",
+                  f"F/E đang là {record['FE_Status']}. Mô tả và quy tắc trọng lượng VINAFCO cho {expected}. "
+                  "Đối chiếu F/E và trọng lượng trên vận đơn.")]
+    for code, severity, message in notes:
+        if code != "VINAFCO_FE_CONFLICT" and record.get("FE_Status") != expected:
+            continue  # The operator has supplied a different status.
+        item = issue(code, message, severity=severity, record_id=record["record_id"], field="FE_Status",
+                     source_row=record.get("source_row"), source_sheet=record.get("source_sheet"))
+        if code == "VINAFCO_FE_CONFLICT":
+            item["resolution_fields"] = ["FE_Status", "Weight_Value"]
+        findings.append(item)
+    return findings
 
 
 def parse_manifest(path, *, settings=None, progress=None) -> dict:

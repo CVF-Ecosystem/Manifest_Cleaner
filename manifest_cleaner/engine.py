@@ -28,6 +28,19 @@ FIELD_LABELS = {"BL_No": "Số B/L", "Container_No": "Số container", "Seal_No"
 DEFAULT_SETTINGS = {code: profile.defaults() for code, profile in CARRIER_PROFILES.items()}
 REVIEW_FORMAT = "manifest-cleaner-review-v2"
 RETIRED_SEAL_WARNINGS = frozenset({"SEAL_LEGACY_RULE", "VOSCO_SEAL_FORMAT", "VINAFCO_SEAL_REVIEW"})
+WEIGHT_ISSUES = {"VOSCO": {"EMPTY_WEIGHT_CONFLICT", "TANK_WEIGHT_REVIEW", "EMPTY_CARGO_WEIGHT_CONFLICT"},
+                 "VINAFCO": {"VINAFCO_FE_CONFLICT", "VINAFCO_FE_DEFAULTED", "VINAFCO_FE_INFERRED"}}
+WEIGHT_CONTEXT = {"FE_Status", "Weight_Value", "Description", "Size_Type"}
+# A parser can identify the cause more precisely than a generic missing-field check.
+PARSER_EQUIVALENTS = {
+    "MISSING_BL_NO": {"VINAFCO_BL_MISSING", "VIMC_BL_MISSING", "INVALID_OR_MISSING_BL"},
+    "MISSING_CONTAINER_NO": {"VINAFCO_CONTAINER_MISSING"},
+    "MISSING_CLEANED_CONSIGNEE_NAME_FOR_OUTPUT": {"VINAFCO_CONSIGNEE_MISSING", "VIMC_CONSIGNEE_MISSING"},
+    "MISSING_SIZE_TYPE": {"SIZE_TYPE_MISSING", "VIMC_SIZE_MISSING"},
+    "MISSING_FE_STATUS": {"VIMC_FE_UNRESOLVED"},
+    "MISSING_WEIGHT": {"WEIGHT_INVALID", "WEIGHT_ASSOCIATION_AMBIGUOUS", "VINAFCO_WEIGHT_INVALID",
+                       "VIMC_WEIGHT_INVALID", "VIMC_WEIGHT_MISSING"},
+}
 
 
 class ReviewSourceError(ValueError):
@@ -182,7 +195,14 @@ class ManifestSession:
         if self.metadata.get("settings_changed"):
             output.append(issue("SETTINGS_CHANGED", "Quy ước xử lý đã thay đổi. Xử lý lại manifest trước khi xuất.", severity="error"))
         active = {r["record_id"]: r for r in self.active_records()}
+        adapter = _adapter(self.carrier)
+        weight_issues = getattr(adapter, "current_weight_issues", None)
+        recomputed = WEIGHT_ISSUES.get(self.carrier, set()) if weight_issues else set()
         for original in self.base_issues:
+            if original.get("code") in recomputed or original.get("code") in {
+                "VIMC_DUPLICATE_IN_BL", "VIMC_CONTAINER_DATA_CONFLICT", "VIMC_ZERO_LOADED_WEIGHT",
+            }:
+                continue
             if original.get("code") in RETIRED_SEAL_WARNINGS and original.get("severity") == "warning":
                 continue
             item = dict(original)
@@ -203,12 +223,14 @@ class ManifestSession:
             output.append(item)
         by_container_bl = defaultdict(list)
         by_container = defaultdict(list)
-        adapter = _adapter(self.carrier)
         compact_identifier = getattr(adapter, "is_corroborated_compact_identifier", None)
         validate_size = getattr(adapter, "is_supported_size_type", None)
         for record in active.values():
             rid = record["record_id"]
+            verified = set(record.get("_current_verified_fields", record.get("_verified_fields", [])))
             def add(code, message, severity="error", field_name=None):
+                if severity == "warning" and (record.get("_manual_review_reason") or field_name in verified):
+                    return
                 output.append(issue(code, message, severity=severity, record_id=rid, field=field_name,
                                     source_sheet=record.get("source_sheet"), source_row=record.get("source_row")))
             required = ("BL_No", "Container_No", "Cleaned_Consignee_Name_For_Output", "Size_Type", "VTOS_Size", "Operator", "FE_Status", "Cargo_Type")
@@ -219,7 +241,7 @@ class ManifestSession:
             if container and not re.fullmatch(r"[A-Z]{4}\d{7}", container):
                 if compact_identifier and compact_identifier(record):
                     add("VIMC_LEGACY_COMPACT_CONTAINER",
-                        "Mã container ngắn trùng khớp trong dòng chi tiết và MARKS của vận đơn VIMC. Đã giữ nguyên mã nguồn.",
+                        "Mã container ngắn hơn mẫu 4 chữ và 7 số. Dòng chi tiết và MARKS đều ghi cùng mã. Xác nhận số container nếu giữ theo vận đơn.",
                         "warning", "Container_No")
                 else:
                     add("INVALID_CONTAINER", "Số container phải gồm 4 chữ cái và 7 chữ số.", field_name="Container_No")
@@ -244,11 +266,18 @@ class ManifestSession:
                     if not math.isfinite(number) or number < 0:
                         raise ValueError
                     if fe == "F" and number == 0:
-                        add("ZERO_FULL_WEIGHT", "Container F có trọng lượng bằng 0; kiểm tra lại dữ liệu.", "warning", "Weight_Value")
+                        add("ZERO_FULL_WEIGHT", "Container có hàng (F) nhưng tổng trọng lượng khai là 0 tấn. Đối chiếu trọng lượng trên manifest.", "warning", "Weight_Value")
                 except (ValueError, TypeError, OverflowError):
                     add("INVALID_WEIGHT", "Trọng lượng phải là số hữu hạn, không âm, theo đơn vị tấn.", field_name="Weight_Value")
             if fe == "F" and not _present(record.get("Description")):
-                add("MISSING_DESCRIPTION", "Container F chưa có mô tả hàng hóa.", "warning", "Description")
+                add("MISSING_DESCRIPTION", "Container có hàng (F) và ô hàng hóa đang trống. Đối chiếu mô tả hàng trên vận đơn.", "warning", "Description")
+            for item in weight_issues(record, self.settings) if weight_issues else ():
+                fields = item.get("resolution_fields") or [item.get("field")]
+                if all(name in verified and _present(record.get(name)) for name in fields):
+                    continue
+                if item["severity"] == "warning" and record.get("_manual_review_reason"):
+                    continue
+                output.append(item)
             if container:
                 by_container_bl[(bl, container)].append(record)
                 by_container[container].append(record)
@@ -257,19 +286,42 @@ class ManifestSession:
                 # Distinct cargo records can be legitimate; only an explicit review
                 # acknowledges this relationship. Never drop them silently.
                 confirmed = all(r.get("_manual_review_reason") for r in records)
+                different = [name for name in ("Seal_No", "Size_Type", "Weight_Value", "FE_Status")
+                             if len({r.get(name) for r in records}) > 1] if self.carrier == "VIMC" else []
+                if confirmed and not different:
+                    continue
                 for r in records:
-                    output.append(issue("DUPLICATE_CONTAINER_BL", f"Container {container} xuất hiện {len(records)} lần trong B/L {bl}. Đối chiếu hoặc loại bản sao có lý do.",
-                                        severity="warning" if confirmed else "error", record_id=r["record_id"], field="Container_No"))
+                    message = f"Container {container} có {len(records)} dòng trong B/L {bl}."
+                    if different:
+                        message += " Các dòng khác nhau ở " + ", ".join(FIELD_LABELS[name] for name in different) + ". Đối chiếu và sửa hoặc loại dòng ghi nhầm."
+                    else:
+                        message += " Xác nhận từng dòng nếu vận đơn có nhiều dòng hàng, hoặc loại dòng ghi trùng."
+                    finding = issue("VIMC_CONTAINER_DATA_CONFLICT" if different else "DUPLICATE_CONTAINER_BL",
+                                    message, severity="error", record_id=r["record_id"], field="Container_No",
+                                    source_row=r.get("source_row"), source_sheet=r.get("source_sheet"))
+                    if different:
+                        finding["resolution_fields"] = different
+                    output.append(finding)
         for container, records in by_container.items():
             if len({text_value(r.get("BL_No")) for r in records}) > 1:
                 for r in records:
-                    output.append(issue("CONTAINER_MULTIPLE_BL", f"Container {container} liên quan nhiều B/L; các quan hệ được giữ nguyên.",
-                                        record_id=r["record_id"], field="Container_No"))
+                    if not r.get("_manual_review_reason"):
+                        output.append(issue("CONTAINER_MULTIPLE_BL", f"Container {container} có mặt trên nhiều vận đơn. Đối chiếu số container và B/L của dòng này.",
+                                            record_id=r["record_id"], field="Container_No",
+                                            source_row=r.get("source_row"), source_sheet=r.get("source_sheet")))
         if not active:
             output.append(issue("NO_ACTIVE_RECORDS", "Không có container để xuất.", severity="error"))
         # A record can receive the same issue from parser and final validation.
+        row_errors = defaultdict(set)
+        for item in output:
+            if item.get("severity") == "error":
+                row_errors[item.get("record_id")].add(item["code"])
         unique = {}
         for item in output:
+            if PARSER_EQUIVALENTS.get(item["code"], set()) & row_errors[item.get("record_id")]:
+                continue
+            if item["code"] == "CONSIGNEE_MISSING" and "MISSING_CLEANED_CONSIGNEE_NAME_FOR_OUTPUT" in row_errors[item.get("record_id")]:
+                continue
             key = (item.get("record_id"), item.get("code"), item.get("message"))
             unique[key] = item
         return list(unique.values())
@@ -287,7 +339,7 @@ class ManifestSession:
                 "errors": sum(i.get("severity") == "error" for i in issues),
                 "warnings": sum(i.get("severity") == "warning" for i in issues),
                 "error_records": len({i["record_id"] for i in issues if i.get("record_id") and i.get("severity") == "error"}),
-                "review_records": len({i["record_id"] for i in issues if i.get("record_id")}),
+                "review_records": len({i["record_id"] for i in issues if i.get("record_id") and i["severity"] in {"warning", "error"}}),
                 "file_errors": sum(i.get("severity") == "error" and not i.get("record_id") for i in issues),
                 "unresolved_source_fragments": int((self.metadata.get("coverage") or {}).get("unresolved_fragments", 0)),
                 "formula_source_errors": sum(i.get("code") in {"SOURCE_FORMULA_UNCALCULATED", "SOURCE_FORMULA_ERROR"} for i in issues)}
@@ -340,6 +392,11 @@ class ManifestSession:
         if not changed_now and not explicit:
             return
         candidate["_edited_fields"] = sorted(edited)
+        current_verified = set(candidate.get("_current_verified_fields", candidate.get("_verified_fields", [])))
+        current_verified -= changed_now
+        if changed_now & WEIGHT_CONTEXT:
+            current_verified -= WEIGHT_CONTEXT
+        candidate["_current_verified_fields"] = sorted(current_verified | explicit)
         candidate["_verified_fields"] = sorted(set(candidate.get("_verified_fields", [])) | explicit)
         if "Weight_Value" in changed_now:
             candidate["Weight_Unit"] = "TONS" if candidate.get("Weight_Value") is not None else None
@@ -464,6 +521,9 @@ def load_review(path: str | Path, *, source_path: str | Path | None = None) -> M
         ids.add(rid)
         if not isinstance(record.get("raw", {}), dict) or not isinstance(record.get("rules", []), list):
             raise ValueError("Bằng chứng nguồn hoặc danh sách quy tắc trong phiên không hợp lệ.")
+        if "_current_verified_fields" in record and (not isinstance(record["_current_verified_fields"], list)
+                or any(name not in EDITABLE_FIELDS for name in record["_current_verified_fields"])):
+            raise ValueError("Danh sách trường đã xác nhận của dòng không hợp lệ.")
         for name in EDITABLE_FIELDS:
             value = record.get(name)
             if name == "Weight_Value":

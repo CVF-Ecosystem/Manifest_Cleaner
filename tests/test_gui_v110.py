@@ -8,7 +8,10 @@ from __future__ import annotations
 import copy
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
+import sys
 import tempfile
+import tkinter as tk
+from tkinter import ttk
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -91,7 +94,9 @@ def fake_dialog():
                 buttons[kwargs.get("text")] = kwargs["command"]
 
     with ExitStack() as stack:
-        stack.enter_context(patch.multiple(gui.tk, Toplevel=RenderWidget, StringVar=String, BooleanVar=Boolean, Text=RenderWidget))
+        stack.enter_context(patch.multiple(gui.tk, Toplevel=RenderWidget, StringVar=String, BooleanVar=Boolean,
+                                           Text=RenderWidget, Canvas=RenderWidget))
+        stack.enter_context(patch.object(gui, "_monitor_work_area", return_value=(0, 0, 1000, 700)))
         stack.enter_context(patch.multiple(gui.ttk, **{name: RenderWidget for name in
             ("Frame", "Label", "Entry", "Combobox", "Button", "Checkbutton", "Notebook", "Treeview", "Scrollbar")}))
         info = stack.enter_context(patch.object(gui.messagebox, "showinfo"))
@@ -268,6 +273,101 @@ class GUIRegressionTests(unittest.TestCase):
         self.assertIn("VIMC_STATUS_GOODS_CONFLICT", {i["code"] for i in session.validate()})
         dialog.info.assert_called_once()
 
+    def test_information_does_not_make_record_require_review(self):
+        session = self.session()
+        rid = session.records[0]["record_id"]
+        session.base_issues.append({"severity": "info", "code": "SOURCE_INFORMATION",
+                                    "message": "Đã ghi quy tắc đối soát", "record_id": rid})
+        app = self.app(session)
+        app.sort_field = None
+        app.only_issues.set(True)
+        app.refresh = gui.ManifestApp.refresh.__get__(app)
+        app.refresh()
+        self.assertFalse(app.tree.rows)
+        self.assertFalse(app.issue_tree.rows)
+        self.assertIn("Có thể xuất", app.status.get())
+        with fake_dialog() as dialog:
+            app.edit_record(rid)
+            self.assertFalse(any("Đã ghi quy tắc đối soát" in w.options.get("text", "") for w in dialog.widgets))
+
+    def test_search_uses_live_issues_and_excludes_stale_record_warning(self):
+        session = self.session()
+        rid = session.records[0]["record_id"]
+        session.records[0]["Warning"] = "Old superseded note"
+        session.base_issues.append({"severity": "warning", "code": "SOURCE_WARNING",
+                                    "message": "Current source finding", "record_id": rid})
+        app = self.app(session)
+        app.sort_field = None
+        app.refresh = gui.ManifestApp.refresh.__get__(app)
+        app.search.set("Old superseded note")
+        app.refresh()
+        self.assertFalse(app.tree.rows)
+        app.search.set("Current source finding")
+        app.refresh()
+        self.assertEqual(tuple(app.tree.rows), (rid,))
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows Tk work-area regression")
+    def test_tk_high_dpi_small_work_area_keeps_save_and_reason_reachable(self):
+        try:
+            root = tk.Tk()
+        except tk.TclError as exc:
+            self.skipTest(str(exc))
+        self.addCleanup(root.destroy)
+        root.geometry("760x480+0+0")
+        root.tk.call("tk", "scaling", 2.0)
+        session = self.session(weight=20, description="STEEL DEMO 12000")
+        app = self.app(session)
+        app.root = root
+        app._style()
+        with patch.object(gui, "_monitor_work_area", return_value=(0, 0, 595, 430)):
+            app.edit_record(session.records[0]["record_id"])
+        root.update()
+        dialog = next(w for w in root.winfo_children() if isinstance(w, tk.Toplevel))
+
+        def descendants(parent):
+            for child in parent.winfo_children():
+                yield child
+                yield from descendants(child)
+
+        widgets = list(descendants(dialog))
+        save = next(w for w in widgets if isinstance(w, ttk.Button) and w.cget("text") == "Lưu chỉnh sửa / xác nhận")
+        cancel = next(w for w in widgets if isinstance(w, ttk.Button) and w.cget("text") == "Hủy")
+        reason = next(w for w in save.master.master.winfo_children() if isinstance(w, ttk.Entry))
+        self.assertLessEqual(dialog.winfo_rooty() + dialog.winfo_height(), 430)
+        self.assertTrue(dialog.bind("<Control-s>"))
+        self.assertTrue(dialog.bind("<Control-Return>"))
+        for widget in (reason, save, cancel):
+            self.assertTrue(widget.winfo_ismapped())
+            self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(), dialog.winfo_rooty() + dialog.winfo_height())
+        form_entry = next(w for w in widgets if isinstance(w, ttk.Entry) and w.get() == "20 STEEL DEMO 12000")
+        canvas = next(w for w in widgets if isinstance(w, tk.Canvas))
+        self.assertEqual(canvas.yview()[0], 0)
+        form_entry.focus_force()
+        root.update()
+        self.assertGreater(canvas.yview()[0], 0)
+        self.assertGreaterEqual(form_entry.winfo_rooty(), canvas.winfo_rooty())
+        self.assertLessEqual(form_entry.winfo_rooty() + form_entry.winfo_height(), canvas.winfo_rooty() + canvas.winfo_height() + 1)
+        form_entry.delete(0, "end")
+        form_entry.insert(0, "UPDATED GOODS")
+        reason.insert(0, "Verified on source")
+        reason.focus_force()
+        root.update()
+        reason.event_generate("<Return>")
+        root.update()
+        self.assertFalse(dialog.winfo_exists())
+        self.assertEqual(session.records[0]["Description"], "UPDATED GOODS")
+        self.assertTrue(app.dirty)
+        self.assertIn("Lưu đối chiếu", app.status.get())
+        with patch.object(gui, "_monitor_work_area", return_value=(0, 0, 595, 430)):
+            app.edit_record(session.records[0]["record_id"])
+        root.update()
+        reopened = next(w for w in root.winfo_children() if isinstance(w, tk.Toplevel))
+        reopened.focus_force()
+        reopened.event_generate("<Escape>")
+        root.update()
+        self.assertFalse(reopened.winfo_exists())
+        self.assertEqual(len(session.corrections), 1)
+
     def test_candidate_picker_requires_choice_and_reason(self):
         session = self.session(weight=20, description="STEEL DEMO 12000")
         app = self.app(session)
@@ -289,6 +389,43 @@ class GUIRegressionTests(unittest.TestCase):
             dialog.buttons["Lưu chỉnh sửa / xác nhận"]()
             self.assertEqual(session.records[0]["Weight_Value"], 12)
             self.assertNotIn("VIMC_LAYOUT_AMBIGUOUS", {i["code"] for i in session.validate()})
+
+    def test_equal_weight_candidate_leaves_unrelated_weight_edit_and_hides_after_resolution(self):
+        session = self.session(extra_lines=("DEMU1111111 40HC 20GP STEEL 25000",))
+        record = next(r for r in session.records if r["Container_No"] == "DEMU1111111")
+        session.update_record(record["record_id"], {"Weight_Value": 27}, "Separate weight correction")
+        app = self.app(session)
+        with fake_dialog() as dialog:
+            app.edit_record(record["record_id"])
+            button = dialog.buttons["Điền và xác nhận 3 trường"]
+            picker = next(w for w in dialog.widgets if isinstance(w.options.get("values"), list) and
+                          w.options["values"] and str(w.options["values"][0]).startswith("1. "))
+            picker.options["textvariable"].set(picker.options["values"][1])
+            button()
+            weight_index = EDITABLE_FIELDS.index("Weight_Value")
+            self.assertEqual(dialog.strings[weight_index].get(), "27")
+            self.assertFalse(dialog.bools[weight_index].get())
+            dialog.strings[-1].set("Confirmed alternate seal and size")
+            dialog.buttons["Lưu chỉnh sửa / xác nhận"]()
+        self.assertEqual((record["Seal_No"], record["Size_Type"], record["Weight_Value"]), ("40HC", "20GP", 27))
+        self.assertTrue(record["raw"]["ambiguous_candidates"])
+        with fake_dialog() as reopened:
+            app.edit_record(record["record_id"])
+            self.assertFalse(any(str(label).startswith("Điền và xác nhận") for label in reopened.buttons))
+
+    def test_ambiguous_weight_candidate_fills_and_confirms_conflicting_weight(self):
+        session = self.session(extra_lines=("DEMU1111111 40HC 20GP 28 STEEL 25000",))
+        record = next(r for r in session.records if r["Container_No"] == "DEMU1111111")
+        app = self.app(session)
+        with fake_dialog() as dialog:
+            app.edit_record(record["record_id"])
+            picker = next(w for w in dialog.widgets if isinstance(w.options.get("values"), list) and
+                          w.options["values"] and str(w.options["values"][0]).startswith("1. "))
+            picker.options["textvariable"].set(picker.options["values"][1])
+            dialog.buttons["Điền và xác nhận 4 trường"]()
+            weight_index = EDITABLE_FIELDS.index("Weight_Value")
+            self.assertEqual(dialog.strings[weight_index].get(), "28")
+            self.assertTrue(dialog.bools[weight_index].get())
 
     def issue_selected_app(self):
         session = self.session(extra_lines=("DEMU0000004 009998 20GP 0 THEP DEMO",))
@@ -434,6 +571,25 @@ class GUIRegressionTests(unittest.TestCase):
             self.assertEqual(values["Kích cỡ"], "40HC")
         self.assertEqual(session.records, before)
         self.assertFalse(session.corrections)
+
+    def test_preview_uses_saved_correction_history_and_only_an_entered_new_reason(self):
+        session = self.session()
+        rid = session.records[0]["record_id"]
+        session.update_record(rid, {"Seal_No": "001119"}, "Saved reason")
+        app = self.app(session)
+        with fake_dialog() as dialog, patch.object(gui, "preview_record_for_export", return_value={}) as preview:
+            app.edit_record(rid)
+            dialog.strings[EDITABLE_FIELDS.index("Seal_No")].set("001120")
+            dialog.buttons["Cập nhật xem trước theo các ô đang sửa"]()
+            self.assertEqual([item["reason"] for item in preview.call_args.args[0].corrections], ["Saved reason"])
+            self.assertTrue(any("Chưa nhập lý do" in w.options.get("text", "") for w in dialog.widgets))
+            dialog.strings[-1].set("Typed reason")
+            dialog.buttons["Cập nhật xem trước theo các ô đang sửa"]()
+            self.assertEqual([item["reason"] for item in preview.call_args.args[0].corrections],
+                             ["Saved reason", "Typed reason"])
+            self.assertFalse(any("Chưa nhập lý do" in w.options.get("text", "") for w in dialog.widgets))
+        self.assertEqual([item["reason"] for item in session.corrections], ["Saved reason"])
+        self.assertEqual(session.records[0]["Seal_No"], "001119")
 
     def test_source_trace_is_labelled_as_parse_time_snapshot_after_correction(self):
         session = self.session(weight=20, description="STEEL DEMO 12000")

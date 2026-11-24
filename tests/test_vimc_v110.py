@@ -222,7 +222,7 @@ class Vimc110Tests(unittest.TestCase):
         ], header=["", HEADER[0], "B/L", HEADER[1], HEADER[3]])
         result = parse_manifest(path)
         a, missing, b = result["records"]
-        self.assertEqual(result["metadata"]["profile_version"], "vimc-1.3")
+        self.assertEqual(result["metadata"]["profile_version"], "vimc-1.3.1")
         self.assertEqual([record["Cleaned_Consignee_Name_For_Output"] for record in (a, missing, b)],
                          ["TEST CONSIGNEE", "", "MAPPED CONSIGNEE"])
         evidence = next(entry for entry in a["raw"]["party_evidence"] if entry["role"] == "Consignee")

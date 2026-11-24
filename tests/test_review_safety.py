@@ -45,6 +45,22 @@ class ReviewSafetyTests(unittest.TestCase):
         session.update_record(session.records[0]["record_id"], {"Operator": "OTHER"}, "Kiểm tra trường hợp nhập sai")
         self.assertTrue(any(i["code"] == "UNKNOWN_OPERATOR" for i in session.validate()))
 
+    def test_conflicting_duplicate_weights_block_after_id_confirmations_and_follow_active_rows(self):
+        source = create_vimc(self.root / "duplicates.xlsx", extra_lines=("DEMU0000002 001235 20GP 30 THEP DEMO",))
+        session = process_manifest(source, "VIMC")
+        for row in session.records:
+            session.update_record(row["record_id"], {}, "Mã trùng nguồn", verified_fields=["Container_No"])
+            session.acknowledge_record(row["record_id"], "Đã kiểm mã")
+        issues = session.validate()
+        self.assertEqual([i["code"] for i in issues], ["VIMC_CONTAINER_DATA_CONFLICT"] * 2)
+        self.assertEqual(issues[0]["resolution_fields"], ["Weight_Value"])
+        with self.assertRaises(ValueError):
+            build_port_rows(session)
+        session.set_excluded(session.records[-1]["record_id"], True, "Dòng ghi trùng")
+        self.assertFalse(session.validate())
+        session.set_excluded(session.records[-1]["record_id"], False, "Xét lại")
+        self.assertEqual(len(session.validate()), 2)
+
     def test_legacy_master_group_quantity_is_preserved_without_counting_copies(self):
         session = self.session()
         first = session.records[0]

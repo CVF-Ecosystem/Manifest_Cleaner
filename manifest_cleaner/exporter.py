@@ -17,7 +17,30 @@ import xlsxwriter
 from .common import seal_text, text_value
 from . import __version__
 from .carriers import CARRIER_PROFILES
-from .engine import ManifestSession, assert_source_unchanged, source_sha256
+from .engine import EDITABLE_FIELDS, FIELD_LABELS, ManifestSession, assert_source_unchanged, source_sha256
+
+
+def _edit_notes(corrections, records):
+    """Report the most recent reason for each touched field. JSON keeps the full history."""
+    notes = defaultdict(list)
+    seen = defaultdict(set)
+    verified = {row["record_id"]: set(row.get("_current_verified_fields", row.get("_verified_fields", [])))
+                for row in records}
+    for change in reversed(corrections):
+        if change.get("action") != "edit":
+            continue
+        rid = change.get("record_id")
+        parts = []
+        for key, label in (("changed_fields", "Đã sửa"), ("verified_fields", "Đã đối chiếu")):
+            names = [name for name in EDITABLE_FIELDS if name in (change.get(key) or ()) and name not in seen[rid]]
+            if key == "verified_fields":
+                names = [name for name in names if name in verified.get(rid, set())]
+            if names:
+                parts.append(label + " " + ", ".join(FIELD_LABELS[name] for name in names))
+                seen[rid].update(names)
+        if parts:
+            notes[rid].append(". ".join(parts) + ". " + text_value(change.get("reason")))
+    return notes
 
 
 def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_record: dict | None = None) -> tuple[list[str], list[list]]:
@@ -40,23 +63,20 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_re
     for record in records:
         quantities[quantity_key(record)].add(text_value(record.get("Container_No")))
     by_record = defaultdict(list)
-    general = []
     for item in issues:
-        if item.get("record_id"):
+        if item.get("record_id") and item.get("severity") in {"warning", "error"}:
             by_record[str(item["record_id"])].append(item)
-        else:
-            general.append(item)
+    edits = _edit_notes(session.corrections, records)
     columns = profile.columns
     rows = []
     for index, record in enumerate(records, 1):
-        local_issues = by_record[record["record_id"]] + general
+        local_issues = by_record[record["record_id"]]
         # Compatibility column: a rule-based score, never measured accuracy.
         confidence = max(0, min(float(record.get("Confidence") if record.get("Confidence") is not None else 100), 80 if local_issues else 100))
-        if record.get("_manual_review_reason"):
-            confidence = min(confidence, 100)
         remarks = list(dict.fromkeys(i["message"] for i in local_issues if i.get("message")))
+        remarks.extend(reversed(edits[record["record_id"]]))
         if record.get("_manual_review_reason"):
-            remarks.append("Đã đối chiếu: " + record["_manual_review_reason"])
+            remarks.append("Đã đối chiếu dòng. " + record["_manual_review_reason"])
         weight = record.get("Weight_Value")
         if weight is not None:
             try:
