@@ -5,10 +5,10 @@ Status: ACTIVE
 ## Current State
 
 - Project: Manifest_Cleaner
-- Current mode: BUILD
-- Active phase: BUILD
+- Current mode: REVIEW
+- Active phase: REVIEW
 - Active role: ORCHESTRATOR
-- Next allowed move: Implement the reviewed real-manifest compatibility repair on separate carrier paths.
+- Next allowed move: Reconcile the documented VOSCO source gaps when evidence is supplied and continue Port acceptance checks.
 - Parked operator checkpoint: none
 
 ## Seven-Step Control Chain
@@ -65,4 +65,8 @@ CVF Agent Declaration: Manifest_Cleaner, pinned Core b6d5a51a at workspace sibli
 
 ## Legacy compatibility dispatch
 
-ORCHESTRATOR, BUILD, pinned Core b6d5a51a, risk ceiling R2, live provider evidence required if claimed. New action reviewed independently. Packet WO_MC_LEGACY_COMPAT and recorded diagnostic. Prior release baseline 81d424c9. Material-SHA marker for this action: pending. Next move: dispatch isolated carrier work. Operator checkpoint: none.
+ORCHESTRATOR, BUILD, pinned Core b6d5a51a, risk ceiling R2, live provider evidence required if claimed. New action reviewed independently. Packet WO_MC_LEGACY_COMPAT and recorded diagnostic. Prior release baseline 81d424c9. Material-SHA marker for this action: f3b5aea486fc717c086545831bb5df4030ef5e82. Next move: dispatch isolated carrier work. Operator checkpoint: none.
+
+## Bàn giao 1.2.1
+
+Sol và Terra bàn giao hai bản sửa parser, cùng kiểm tra hồi quy bằng dữ liệu giả lập. Astra kiểm độc lập bản cuối và xác nhận kết quả MC51–MC53 theo dữ liệu có sẵn. Orchestrator kiểm bộ nguồn, EXE Windows và xuất Excel thử, rồi ghi các vai trò commit steward và session-sync steward. Chi tiết tại docs/reviews/LEGACY_COMPAT_REVIEW.md. Project quay lại ORCHESTRATOR trong REVIEW. Trọng lượng thiếu, xung đột F/E của VOSCO và thử nghiệm tại Cảng cần bằng chứng nghiệp vụ tiếp theo.

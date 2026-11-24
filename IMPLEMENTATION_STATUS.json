@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "projectName": "Manifest_Cleaner",
-  "overallStatus": "IN_PROGRESS",
-  "currentPhase": "BUILD",
+  "overallStatus": "IN_REVIEW",
+  "currentPhase": "REVIEW",
   "completedCapabilities": [
     "M01",
     "M11",
@@ -10,19 +10,25 @@
     "M21",
     "M22",
     "M31",
-    "M41"
+    "M41",
+    "MC51",
+    "MC52",
+    "MC53",
+    "MC54"
   ],
   "activeWorkOrders": [
-    "docs/work_orders/WO_MC_ROADMAP.md",
-    "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
+    "docs/work_orders/WO_MC_ROADMAP.md"
   ],
   "knownLimitations": [
     "M32 verified on this Windows machine. Clean/offline machine and Port import acceptance remain pending.",
-    "M42 awaits a carrier and business-accepted source and expected output."
+    "M42 awaits a carrier and business-accepted source and expected output.",
+    "MC52 FF2601S has ten container records with missing weights in one source row and two explicit EMPTY/high-weight conflicts. Export remains blocked by the missing weights.",
+    "MC53 uses the legacy VINAFCO program replay on three manifests as the reference. Previously saved outputs for those voyages were unavailable."
   ],
   "evidence": [
     "docs/reviews/ROADMAP_1_2_REVIEW.md",
-    "docs/reviews/activation-roadmap/pre-dispatch-admitted.json"
+    "docs/reviews/activation-roadmap/pre-dispatch-admitted.json",
+    "docs/reviews/LEGACY_COMPAT_REVIEW.md"
   ],
   "updatedAt": "2026-11-24"
 }

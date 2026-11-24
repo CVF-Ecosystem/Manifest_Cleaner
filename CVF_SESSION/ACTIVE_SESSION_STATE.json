@@ -2,8 +2,8 @@
   "schemaVersion": "1.0",
   "continuityContract": "cvf.downstreamContinuityContract@1.0.0",
   "projectName": "Manifest_Cleaner",
-  "currentMode": "BUILD",
-  "activePhase": "BUILD",
+  "currentMode": "REVIEW",
+  "activePhase": "REVIEW",
   "phaseModel": [
     "INTAKE",
     "DESIGN",
@@ -14,7 +14,7 @@
     "FREEZE"
   ],
   "activeHandoff": "CVF_SESSION/handoffs/AGENT_HANDOFF_V1_2026-11-24.md",
-  "nextAllowedMove": "Implement the reviewed real-manifest compatibility repair on separate carrier paths.",
+  "nextAllowedMove": "Reconcile the documented VOSCO source gaps when evidence is supplied and continue Port acceptance checks.",
   "parkedOperatorCheckpoint": null,
   "activeRole": "ORCHESTRATOR",
   "roleRoute": "SINGLE_AGENT_MULTI_ROLE_ALLOWED",
