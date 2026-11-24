@@ -253,3 +253,13 @@ Operator yêu cầu sửa hết các điểm còn lại và bỏ dòng "Đang d�
 
 Thêm hai test GUI và cập nhật một test sao chép. Người sửa cũng là người review lượt này. Phạm vi R1 cho phép một agent giữ hai vai khi có bằng chứng kiểm. Cần reviewer khác nếu operator muốn tách vai.
 
+### Build và chạy thử EXE 1.2.7 · 25-11-2026
+
+Build từ commit `d58ff6292f2253bf603f6b844b7187a624842783` vào `dist/1.2.7/ManifestCleaner`, PyInstaller 6.22.3, Python 3.11.9 x64, dependency theo pin. Các bản build cũ giữ nguyên. Gói chứa đủ ba adapter, lớp hiển thị vấn đề và giao diện. Ngoài thư mục samples, gói không chứa manifest nghiệp vụ. SHA-256 EXE `0dc136197c0e4d6a15eb335206b06a26e75e87e7ae01171b4c90b256aed652e0`.
+
+Chạy bản sao của gói từ thư mục có dấu tiếng Việt và khoảng trắng, thư mục làm việc ngoài gói. Cửa sổ mở với tiêu đề phiên bản 1.2.7. Mở `DEMO_VOSCO_INPUT.xlsx` qua hộp thoại chọn file: 1 container, 0 lỗi chặn, 0 cảnh báo. Xuất thành công, thông báo giữ mẫu 16 cột VOSCO và hiện nút Mở thư mục kết quả.
+
+Sự cố trong lúc chạy thử: script điều khiển hộp thoại lưu không đổi được tên file trong hộp thoại kiểu mới của Windows. Hai lần, app xuất cặp Excel/JSON mẫu vào thư mục dùng gần nhất `Manifest Cleaner Final/VOSCO`. Reviewer đã xác nhận thời điểm tạo, xóa đúng hai cặp file mẫu và kiểm Git của repo đó sạch. Không file gốc nào bị đổi. Nội dung hai file xuất từ EXE chưa được kiểm độc lập vì đã xóa. Đường xuất từ nguồn cùng commit đã có hồi quy giữ nguyên byte nội dung ô.
+
+Phát hiện mới, có từ trước 1.2.7: hộp thoại Xuất file và Lưu đối chiếu không đặt thư mục ban đầu. Windows mở thư mục dùng gần nhất, có thể là thư mục của hãng khác. Đề xuất lượt sau: đặt thư mục ban đầu là thư mục của manifest đang xử lý và thêm test.
+

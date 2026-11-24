@@ -161,3 +161,5 @@ Operator yêu cầu sửa hết các điểm còn lại của review 1.2.7 và b
 
 Operator yêu cầu commit 1.2.7 rồi build EXE. Orchestrator ghi chuyển vai sang COMMIT_STEWARD và SESSION_SYNC_STEWARD, cập nhật IMPLEMENTATION_STATUS, chạy pre-commit trên phần đã stage và commit cục bộ. Sau commit, build EXE duy nhất từ đúng commit đó vào dist/1.2.7/ManifestCleaner, giữ nguyên các bản build cũ. Kết quả build và chạy thử ghi ở docs/reviews/ui-1.2.7/README.md.
 
+Build 1.2.7 hoàn tất tại dist/1.2.7/ManifestCleaner, SHA-256 EXE 0dc136197c0e4d6a15eb335206b06a26e75e87e7ae01171b4c90b256aed652e0. EXE khởi động, mở mẫu VOSCO và xuất thành công. Script chạy thử hai lần ghi nhầm cặp file mẫu vào Manifest Cleaner Final/VOSCO qua hộp thoại lưu; reviewer đã xóa và kiểm repo đó sạch. Phát hiện mở: hộp thoại xuất và lưu đối chiếu không đặt thư mục ban đầu. Project về ORCHESTRATOR trong REVIEW. Bước tiếp theo: sửa thư mục ban đầu của hộp thoại lưu, và nghiệm thu nhập Cảng theo M32.
+
