@@ -813,14 +813,28 @@ class GUIRegressionTests(unittest.TestCase):
         app = self.app(session)
         app.dirty = True
         output = self.folder / "port.xlsx"
-        with patch.object(gui.filedialog, "asksaveasfilename", return_value=str(output)), patch.object(gui.messagebox, "askyesno", return_value=True), patch.object(gui.messagebox, "showinfo"), patch.object(gui.messagebox, "showerror") as error:
+        with patch.object(gui.filedialog, "asksaveasfilename", return_value=str(output)) as ask, patch.object(gui.messagebox, "askyesno", return_value=True), patch.object(gui.messagebox, "showinfo"), patch.object(gui.messagebox, "showerror") as error:
             app.export()
         error.assert_not_called()
+        self.assertEqual(ask.call_args.kwargs["title"], "Xuất file Manifest")
+        self.assertEqual(ask.call_args.kwargs["initialdir"], str(app.selected_path.parent))
         self.assertTrue(output.is_file())
         review = output.with_suffix(".review.json")
         self.assertTrue(review.is_file())
         self.assertEqual(load_review(review).records[0]["Container_No"], session.records[0]["Container_No"])
         self.assertFalse(app.dirty)
+
+    def test_save_dialogs_start_beside_the_manifest_in_use(self):
+        session = self.session()
+        app = self.app(session)
+        review = self.folder / "phiên.json"
+        with patch.object(gui.filedialog, "asksaveasfilename", return_value=str(review)) as ask, patch.object(gui.messagebox, "showerror") as error:
+            app.save_review()
+        error.assert_not_called()
+        self.assertEqual(ask.call_args.kwargs["initialdir"], str(Path(session.metadata["source_path"]).parent))
+        self.assertTrue(review.is_file())
+        app.selected_path = self.folder / "đã xóa" / "input.xlsx"
+        self.assertIsNone(app._output_directory())
 
     def test_settings_noop_does_not_invalidate_session(self):
         session = self.session()

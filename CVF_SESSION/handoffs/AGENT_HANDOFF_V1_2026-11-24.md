@@ -163,3 +163,5 @@ Operator yêu cầu commit 1.2.7 rồi build EXE. Orchestrator ghi chuyển vai 
 
 Build 1.2.7 hoàn tất tại dist/1.2.7/ManifestCleaner, SHA-256 EXE 0dc136197c0e4d6a15eb335206b06a26e75e87e7ae01171b4c90b256aed652e0. EXE khởi động, mở mẫu VOSCO và xuất thành công. Script chạy thử hai lần ghi nhầm cặp file mẫu vào Manifest Cleaner Final/VOSCO qua hộp thoại lưu; reviewer đã xóa và kiểm repo đó sạch. Phát hiện mở: hộp thoại xuất và lưu đối chiếu không đặt thư mục ban đầu. Project về ORCHESTRATOR trong REVIEW. Bước tiếp theo: sửa thư mục ban đầu của hộp thoại lưu, và nghiệm thu nhập Cảng theo M32.
 
+Operator yêu cầu sửa thư mục mặc định của hộp thoại lưu và đổi nhãn "Xuất file nhập Cảng" thành "Xuất file Manifest". Orchestrator ghi chuyển vai REPAIR_WORKER cho lượt sửa giao diện R1 này trong cùng work order MC54, không đổi engine, exporter hay đầu ra. Kết quả ở docs/reviews/ui-1.2.7/README.md. Commit cục bộ theo yêu cầu operator với vai COMMIT_STEWARD, chưa build. Operator sẽ tự kiểm rồi build EXE.
+

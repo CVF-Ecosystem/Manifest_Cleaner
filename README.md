@@ -95,7 +95,7 @@ Ba adapter VOSCO/VIMC/VINAFCO đều ghi nhận đoạn nguồn theo phạm vi b
 
 ### 4. Xuất và giữ phiên làm việc
 
-Bấm **Xuất file nhập Cảng** khi không còn lỗi chặn. Cảnh báo còn lại cần được đối chiếu và xác nhận xuất.
+Bấm **Xuất file Manifest** khi không còn lỗi chặn. Hộp thoại lưu mở sẵn thư mục chứa manifest đang xử lý. Cảnh báo còn lại cần được đối chiếu và xác nhận xuất.
 
 Mặc định tùy chọn **Xuất kèm đối chiếu JSON để mở lại phiên** được bật:
 

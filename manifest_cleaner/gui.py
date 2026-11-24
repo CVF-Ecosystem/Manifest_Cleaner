@@ -475,7 +475,7 @@ class ManifestApp:
         outputs.grid(row=0, column=2, sticky="e")
         self.review_button = ttk.Button(outputs, text="Lưu đối chiếu…", command=self.save_review, state="disabled")
         self.review_button.pack(side="left", padx=(0, gap))
-        self.export_button = ttk.Button(outputs, text="Xuất file nhập Cảng…", style="Primary.TButton", command=self.export, state="disabled")
+        self.export_button = ttk.Button(outputs, text="Xuất file Manifest…", style="Primary.TButton", command=self.export, state="disabled")
         self.export_button.pack(side="left")
         self.export_hint_label = _wrapped_label(self.actionbar, textvariable=self.export_hint, style="Muted.TLabel")
         self.export_hint_label.grid(row=1, column=0, columnspan=3, sticky="e", pady=(gap // 2, 0))
@@ -1579,7 +1579,8 @@ class ManifestApp:
             parent=self.root,
         ):
             return
-        path = filedialog.asksaveasfilename(title="Xuất file nhập hệ thống Cảng", defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")],
+        path = filedialog.asksaveasfilename(title="Xuất file Manifest", defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")],
+                                          initialdir=self._output_directory(),
                                           initialfile=f"{self.selected_path.stem}_{self.session.carrier}_CLEAN.xlsx", confirmoverwrite=False, parent=self.root)
         if path:
             try:
@@ -1603,6 +1604,11 @@ class ManifestApp:
             except Exception as exc:
                 messagebox.showerror("Không xuất được", str(exc), parent=self.root)
 
+    def _output_directory(self):
+        """Start save dialogs beside the manifest in use, not in the folder Windows used last."""
+        folder = self.selected_path.parent if self.selected_path else None
+        return str(folder) if folder is not None and folder.is_dir() else None
+
     def open_export_folder(self):
         if self.export_directory is None:
             return
@@ -1616,6 +1622,7 @@ class ManifestApp:
         if not self.session:
             return
         path = filedialog.asksaveasfilename(title="Lưu bản đối chiếu", defaultextension=".json", filetypes=[("Đối chiếu JSON", "*.json")],
+                                          initialdir=self._output_directory(),
                                           initialfile=f"{self.selected_path.stem}_DOI_CHIEU.json", parent=self.root)
         if path:
             try:

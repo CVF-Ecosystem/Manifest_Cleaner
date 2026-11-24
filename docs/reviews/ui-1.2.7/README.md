@@ -263,3 +263,7 @@ Sự cố trong lúc chạy thử: script điều khiển hộp thoại lưu kh�
 
 Phát hiện mới, có từ trước 1.2.7: hộp thoại Xuất file và Lưu đối chiếu không đặt thư mục ban đầu. Windows mở thư mục dùng gần nhất, có thể là thư mục của hãng khác. Đề xuất lượt sau: đặt thư mục ban đầu là thư mục của manifest đang xử lý và thêm test.
 
+### Thư mục mặc định của hộp thoại lưu · 25-11-2026
+
+Theo yêu cầu operator, hộp thoại Xuất file và Lưu đối chiếu mở sẵn thư mục chứa manifest đang xử lý. Nếu thư mục đó không còn, Windows dùng thư mục mặc định của hệ thống. Nút và tiêu đề hộp thoại xuất đổi thành "Xuất file Manifest". Kiểm trên Windows thật: khi Windows còn nhớ thư mục tham chiếu từ lần trước, cả hai hộp thoại vẫn mở đúng thư mục của manifest; phép kiểm chỉ đọc thanh địa chỉ rồi bấm Cancel, không ghi file. Thêm một test và mở rộng test xuất. Đã commit theo yêu cầu operator, chưa build EXE; operator tự kiểm trước khi build.
+
