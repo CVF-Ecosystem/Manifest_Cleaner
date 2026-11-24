@@ -4,6 +4,10 @@
     "MC1": {
       "path": "docs/roadmaps/MANIFEST_CLEANER.md",
       "heading": "## Mốc và tiêu chí nghiệm thu"
+    },
+    "MC2": {
+      "path": "docs/roadmaps/MC_LEGACY_COMPAT.md",
+      "heading": "## Tiêu chí nghiệm thu"
     }
   }
 }

@@ -27,6 +27,16 @@
         "M32",
         "M41"
       ]
+    },
+    {
+      "packet": "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+      "sha256": "09e61bc7964253dfbb65a97864a5cbd3c5fe8b5a398d920ae18e02a159849b59",
+      "criteria": [
+        "MC51",
+        "MC52",
+        "MC53",
+        "MC54"
+      ]
     }
   ],
   "supplemental": [
@@ -43,6 +53,10 @@
         {
           "path": "docs/reviews/activation-roadmap/SUPPLEMENTAL_ASSESSMENT.json",
           "sha256": "9ee2c4dc08c52de9a54f8e84341f056cb58973920124662586798cdc2d5948fd"
+        },
+        {
+          "path": "docs/reviews/activation-legacy/SUPPLEMENTAL_ASSESSMENT.json",
+          "sha256": "cfbd6843430c91109c2ccae567db8f1e506798584cbdbbb7d48e349a11c875be"
         }
       ]
     }
@@ -54,7 +68,8 @@
       "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
       "reason": "Installed bundle, profile and runner match the verified pinned Core.",
       "actions": [
-        "docs/work_orders/WO_MC_ROADMAP.md"
+        "docs/work_orders/WO_MC_ROADMAP.md",
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
       ],
       "actionBindings": [
         {
@@ -69,6 +84,16 @@
             "M32",
             "M41"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+          "sha256": "09e61bc7964253dfbb65a97864a5cbd3c5fe8b5a398d920ae18e02a159849b59",
+          "criteria": [
+            "MC51",
+            "MC52",
+            "MC53",
+            "MC54"
+          ]
         }
       ],
       "criteria": [
@@ -78,7 +103,11 @@
         "M22",
         "M31",
         "M32",
-        "M41"
+        "M41",
+        "MC51",
+        "MC52",
+        "MC53",
+        "MC54"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -93,6 +122,10 @@
         {
           "path": "docs/reviews/activation-roadmap/CVF-DG-INST-01.json",
           "sha256": "39d8ae303295d8776868a2e535ad5465247d6c8e1bf1f8f96054046d83021709"
+        },
+        {
+          "path": "docs/reviews/activation-legacy/CVF-DG-INST-01.json",
+          "sha256": "57c22e2468fc75ed0a70c9c36c03af6eb98c833054523dd8a14e15804892b18c"
         }
       ]
     },
@@ -102,7 +135,8 @@
       "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
       "reason": "Project memory, active state, handoff and order agree.",
       "actions": [
-        "docs/work_orders/WO_MC_ROADMAP.md"
+        "docs/work_orders/WO_MC_ROADMAP.md",
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
       ],
       "actionBindings": [
         {
@@ -117,6 +151,16 @@
             "M32",
             "M41"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+          "sha256": "09e61bc7964253dfbb65a97864a5cbd3c5fe8b5a398d920ae18e02a159849b59",
+          "criteria": [
+            "MC51",
+            "MC52",
+            "MC53",
+            "MC54"
+          ]
         }
       ],
       "criteria": [
@@ -126,7 +170,11 @@
         "M22",
         "M31",
         "M32",
-        "M41"
+        "M41",
+        "MC51",
+        "MC52",
+        "MC53",
+        "MC54"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -141,6 +189,10 @@
         {
           "path": "docs/reviews/activation-roadmap/CVF-DG-CONT-01.json",
           "sha256": "85fe6c52f842b6a73c4005a2cd68d79f50d06ce2f013f06f780ddab0e69c6cad"
+        },
+        {
+          "path": "docs/reviews/activation-legacy/CVF-DG-CONT-01.json",
+          "sha256": "cdd3673644b5cc1665d660a335191f5d5a0ee554bad2f40e4dea7467c0ffa466"
         }
       ]
     },
@@ -150,7 +202,8 @@
       "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
       "reason": "Reviewed initial Git baseline and actual worktree scope, six candidates and zero deletions.",
       "actions": [
-        "docs/work_orders/WO_MC_ROADMAP.md"
+        "docs/work_orders/WO_MC_ROADMAP.md",
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
       ],
       "actionBindings": [
         {
@@ -165,6 +218,16 @@
             "M32",
             "M41"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+          "sha256": "09e61bc7964253dfbb65a97864a5cbd3c5fe8b5a398d920ae18e02a159849b59",
+          "criteria": [
+            "MC51",
+            "MC52",
+            "MC53",
+            "MC54"
+          ]
         }
       ],
       "criteria": [
@@ -174,7 +237,11 @@
         "M22",
         "M31",
         "M32",
-        "M41"
+        "M41",
+        "MC51",
+        "MC52",
+        "MC53",
+        "MC54"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -189,6 +256,10 @@
         {
           "path": "docs/reviews/activation-roadmap/CVF-DG-RANGE-01.json",
           "sha256": "f0c38efb992d4187ff3fe7d9dfb7d3a8bffae14565adff6a9a4a2851a2384a7a"
+        },
+        {
+          "path": "docs/reviews/activation-legacy/CVF-DG-RANGE-01.json",
+          "sha256": "178534d34e0689a4ab3dd662e3755daff4d0cc7d27b27945e750bf5d47929717"
         }
       ]
     },
@@ -198,7 +269,8 @@
       "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
       "reason": "READY order and required gate-to-role closeability graph were checked.",
       "actions": [
-        "docs/work_orders/WO_MC_ROADMAP.md"
+        "docs/work_orders/WO_MC_ROADMAP.md",
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
       ],
       "actionBindings": [
         {
@@ -213,6 +285,16 @@
             "M32",
             "M41"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+          "sha256": "09e61bc7964253dfbb65a97864a5cbd3c5fe8b5a398d920ae18e02a159849b59",
+          "criteria": [
+            "MC51",
+            "MC52",
+            "MC53",
+            "MC54"
+          ]
         }
       ],
       "criteria": [
@@ -222,7 +304,11 @@
         "M22",
         "M31",
         "M32",
-        "M41"
+        "M41",
+        "MC51",
+        "MC52",
+        "MC53",
+        "MC54"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -237,6 +323,10 @@
         {
           "path": "docs/reviews/activation-roadmap/CVF-DG-APPL-01.json",
           "sha256": "695bd6f4846c0b7a87b6a0b67f7fd4aa8f6db2d83440e333a9676492497a8fa8"
+        },
+        {
+          "path": "docs/reviews/activation-legacy/CVF-DG-APPL-01.json",
+          "sha256": "5719b62b4e3f9a439f2157ba98096c832e7c3b5fc1385598d202338d5e9fddb4"
         }
       ]
     },
@@ -246,7 +336,8 @@
       "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
       "reason": "INITIAL dispatch was checked for the exact packet.",
       "actions": [
-        "docs/work_orders/WO_MC_ROADMAP.md"
+        "docs/work_orders/WO_MC_ROADMAP.md",
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
       ],
       "actionBindings": [
         {
@@ -261,6 +352,16 @@
             "M32",
             "M41"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+          "sha256": "09e61bc7964253dfbb65a97864a5cbd3c5fe8b5a398d920ae18e02a159849b59",
+          "criteria": [
+            "MC51",
+            "MC52",
+            "MC53",
+            "MC54"
+          ]
         }
       ],
       "criteria": [
@@ -270,7 +371,11 @@
         "M22",
         "M31",
         "M32",
-        "M41"
+        "M41",
+        "MC51",
+        "MC52",
+        "MC53",
+        "MC54"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -285,6 +390,10 @@
         {
           "path": "docs/reviews/activation-roadmap/CVF-DG-ROUTE-01.json",
           "sha256": "9c19701e53112bb507736c2735d5bc9ab618a88cf019d445ddbb2e2cf7847c2d"
+        },
+        {
+          "path": "docs/reviews/activation-legacy/CVF-DG-ROUTE-01.json",
+          "sha256": "de8a7246bded7252a40a1e215eb198c7ff878295580cd705805b23bbe7a7e97d"
         }
       ]
     },
@@ -294,7 +403,8 @@
       "authority": "Operator-approved roadmap and sibling development project, delegated independent technical review",
       "reason": "Bound authority, selected criteria and owned M42 remainder were checked.",
       "actions": [
-        "docs/work_orders/WO_MC_ROADMAP.md"
+        "docs/work_orders/WO_MC_ROADMAP.md",
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
       ],
       "actionBindings": [
         {
@@ -309,6 +419,16 @@
             "M32",
             "M41"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+          "sha256": "09e61bc7964253dfbb65a97864a5cbd3c5fe8b5a398d920ae18e02a159849b59",
+          "criteria": [
+            "MC51",
+            "MC52",
+            "MC53",
+            "MC54"
+          ]
         }
       ],
       "criteria": [
@@ -318,7 +438,11 @@
         "M22",
         "M31",
         "M32",
-        "M41"
+        "M41",
+        "MC51",
+        "MC52",
+        "MC53",
+        "MC54"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -333,6 +457,10 @@
         {
           "path": "docs/reviews/activation-roadmap/CVF-DG-COV-01.json",
           "sha256": "5dcefee63fe131daabeb3a3867707e70637f8bf7e2d7f8476979a801d4ccc1b9"
+        },
+        {
+          "path": "docs/reviews/activation-legacy/CVF-DG-COV-01.json",
+          "sha256": "59b63cd1fa07427d35dab7f564ac51144169399299457dc6699d31b457e37145"
         }
       ]
     }

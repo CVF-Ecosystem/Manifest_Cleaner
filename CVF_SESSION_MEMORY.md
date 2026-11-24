@@ -8,8 +8,8 @@ not provider-specific memory and not a chat transcript.
 ## Current Truth
 
 - Contract: cvf.downstreamContinuityContract@1.0.0
-- Current mode: REVIEW
-- Active phase: REVIEW
+- Current mode: BUILD
+- Active phase: BUILD
 - Active handoff: CVF_SESSION/handoffs/AGENT_HANDOFF_V1_2026-11-24.md
 
 Update these four lines together with `CVF_SESSION/ACTIVE_SESSION_STATE.json`,

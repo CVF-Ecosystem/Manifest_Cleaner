@@ -5,10 +5,10 @@ Status: ACTIVE
 ## Current State
 
 - Project: Manifest_Cleaner
-- Current mode: REVIEW
-- Active phase: REVIEW
+- Current mode: BUILD
+- Active phase: BUILD
 - Active role: ORCHESTRATOR
-- Next allowed move: Retain local 1.2.0 evidence and review M32/M42 when an independent Windows environment and operator business inputs are available.
+- Next allowed move: Implement the reviewed real-manifest compatibility repair on separate carrier paths.
 - Parked operator checkpoint: none
 
 ## Seven-Step Control Chain
@@ -58,3 +58,11 @@ Material-SHA marker: 9c7e68eb76facead1a90e0ce2be5aed0fbf769d4.
 ## Bàn giao 1.2.0
 
 Implementation workers returned their changes and focused results. Astra 6.2 Medium independently reviewed the product logic and rechecked all material findings after repair. Orchestrator integrated the verified revision, ran Windows build and EXE flow, then recorded role transitions as commit steward and session-sync steward. Project returns to ORCHESTRATOR in REVIEW. Use ROADMAP.md and docs/reviews/ROADMAP_1_2_REVIEW.md. M32/M42 remain open.
+
+## Legacy compatibility intake
+
+CVF Agent Declaration: Manifest_Cleaner, pinned Core b6d5a51a at workspace sibling, WORK_ORDER, ceiling R2, live evidence required for provider claims, ORCHESTRATOR, current handoff, independent review next, no parked checkpoint. Bootstrap read model absent. Operator reported business-data mismatch on the local build. Orchestrator recorded SPEC_AUTHOR and WORK_ORDER_AUTHOR transitions for MC2 and returned to ORCHESTRATOR. Read-only source comparison established the initial evidence.
+
+## Legacy compatibility dispatch
+
+ORCHESTRATOR, BUILD, pinned Core b6d5a51a, risk ceiling R2, live provider evidence required if claimed. New action reviewed independently. Packet WO_MC_LEGACY_COMPAT and recorded diagnostic. Prior release baseline 81d424c9. Material-SHA marker for this action: pending. Next move: dispatch isolated carrier work. Operator checkpoint: none.

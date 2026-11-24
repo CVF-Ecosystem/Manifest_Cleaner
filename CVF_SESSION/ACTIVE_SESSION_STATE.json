@@ -2,8 +2,8 @@
   "schemaVersion": "1.0",
   "continuityContract": "cvf.downstreamContinuityContract@1.0.0",
   "projectName": "Manifest_Cleaner",
-  "currentMode": "REVIEW",
-  "activePhase": "REVIEW",
+  "currentMode": "BUILD",
+  "activePhase": "BUILD",
   "phaseModel": [
     "INTAKE",
     "DESIGN",
@@ -14,7 +14,7 @@
     "FREEZE"
   ],
   "activeHandoff": "CVF_SESSION/handoffs/AGENT_HANDOFF_V1_2026-11-24.md",
-  "nextAllowedMove": "Retain local 1.2.0 evidence and review M32/M42 when an independent Windows environment and operator business inputs are available.",
+  "nextAllowedMove": "Implement the reviewed real-manifest compatibility repair on separate carrier paths.",
   "parkedOperatorCheckpoint": null,
   "activeRole": "ORCHESTRATOR",
   "roleRoute": "SINGLE_AGENT_MULTI_ROLE_ALLOWED",

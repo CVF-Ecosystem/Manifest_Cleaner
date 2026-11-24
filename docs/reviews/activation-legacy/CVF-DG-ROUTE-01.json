@@ -1,0 +1,22 @@
+{
+  "action": {
+    "packet": "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+    "sha256": "09e61bc7964253dfbb65a97864a5cbd3c5fe8b5a398d920ae18e02a159849b59",
+    "criteria": [
+      "MC51",
+      "MC52",
+      "MC53",
+      "MC54"
+    ]
+  },
+  "controlId": "CVF-DG-ROUTE-01",
+  "purpose": "INVOCATION",
+  "reviewer": "Independent activation reviewer, Astra 6.2 Medium",
+  "authority": "Operator correction and delegated independent technical review for local Manifest Cleaner compatibility",
+  "decision": "ACCEPTED",
+  "reason": "Independent replay at 81d424c9 reproduced this control PASS on the exact legacy-compatibility packet.",
+  "diagnostic": {
+    "path": "docs/reviews/activation-legacy/pre-dispatch-diagnostic.json",
+    "sha256": "28e734c441ad96bef7b3b118f7d3eed86073bc7a926737b919fb349f466c05a9"
+  }
+}

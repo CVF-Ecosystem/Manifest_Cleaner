@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "projectName": "Manifest_Cleaner",
-  "overallStatus": "IMPLEMENTED_PENDING_ACCEPTANCE",
-  "currentPhase": "REVIEW",
+  "overallStatus": "IN_PROGRESS",
+  "currentPhase": "BUILD",
   "completedCapabilities": [
     "M01",
     "M11",
@@ -13,7 +13,8 @@
     "M41"
   ],
   "activeWorkOrders": [
-    "docs/work_orders/WO_MC_ROADMAP.md"
+    "docs/work_orders/WO_MC_ROADMAP.md",
+    "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
   ],
   "knownLimitations": [
     "M32 verified on this Windows machine. Clean/offline machine and Port import acceptance remain pending.",
