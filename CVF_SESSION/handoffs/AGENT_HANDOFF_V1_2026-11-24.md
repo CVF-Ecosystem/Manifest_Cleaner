@@ -165,3 +165,53 @@ Build 1.2.7 hoàn tất tại dist/1.2.7/ManifestCleaner, SHA-256 EXE 0dc136197c
 
 Operator yêu cầu sửa thư mục mặc định của hộp thoại lưu và đổi nhãn "Xuất file nhập Cảng" thành "Xuất file Manifest". Orchestrator ghi chuyển vai REPAIR_WORKER cho lượt sửa giao diện R1 này trong cùng work order MC54, không đổi engine, exporter hay đầu ra. Kết quả ở docs/reviews/ui-1.2.7/README.md. Commit cục bộ theo yêu cầu operator với vai COMMIT_STEWARD, chưa build. Operator sẽ tự kiểm rồi build EXE.
 
+
+## Đối chiếu ba cặp Manifest ngày 25-11-2026
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER trong lượt BUILD giới hạn, trạng thái project REVIEW, work order docs/work_orders/WO_MC_LEGACY_COMPAT.md MC51, MC52 và MC54. Core ../.Controlled-Vibe-Framework-CVF tại b6d5a51a1e90c1c03426baa3d355834089ac652a, risk R2, live YES cho tuyên bố quản trị, không có checkpoint. Activation CURRENT_ASSESSED, pre-dispatch PASS 7/7. Bằng chứng nguồn nghiệp vụ dùng chỉ đọc tại Manifest/. Bước tiếp theo là sửa các lỗi có căn cứ và trả bộ kiểm source cho review.
+
+Project dùng chuẩn phát triển của Core đã pin, SHA-256 391619dd9877acd57baa95d60ee4c8b2a4bfe9dcc79211cefb522e273a18338d. MC51 đối chiếu số lượng theo cỡ từ tổng EMPTY với MARKS cùng B/L. MC52 loại đúng nhãn giao nhận và nối trọng lượng khi cùng B/L, khớp số lượng và tổng. MC54 giữ mẫu 16 cột và dữ liệu khai báo, làm nổi cảnh báo chưa xác nhận trong Excel, chỉnh tiêu đề và chân cửa sổ. Báo riêng phần nguồn còn xung đột. Workspace doctor 28/29 ghi BEHIND_PUBLIC_REMOTE, nhưng lịch sử không phân kỳ, bản Core sạch và khớp pin, đủ khả năng chạy và nằm trong origin/main. Kết luận làm mới workspace tách khỏi kích hoạt CORE_ONLY đã đạt của project. Không cập nhật Core hoặc pin trong lần sửa này.
+
+Lượt kiểm tập trung đầu chạy 112 ca trong 11,6 giây, lỗi ở hai nhánh của ca màu Excel: `ValueError: Còn 1 lỗi cần xử lý trước khi xuất file nhập Cảng. Có thể lưu bản đối chiếu JSON.` Probe 1,5 giây xác nhận mẫu tổng hợp gắn tiêu đề COC LADEN cho cả dòng RF EMPTY, phát sinh VIMC_STATUS_SCOPE_CONFLICT đúng quy tắc trước khi tạo Excel. Sửa fixture để kiểm màu trên nhóm không có tiêu đề xung đột. Không nới chốt dữ liệu. Ba manifest thật đã tái hiện kết quả mới 138/0/0, 490/1/6 và 317/0/18 theo thứ tự dòng/lỗi/cảnh báo.
+
+Lượt tập trung tiếp theo 112 ca, 12,4 giây, còn hai sai lệch trong phép đo màu: `AssertionError: '' is not None` do XlsxWriter giữ chuỗi trống, và `AssertionError: Tuples differ: ('A2:P4', 'A3:P3') != ('A3:P3', 'A2:P4')` do Excel lưu vùng theo vị trí, còn thứ tự áp dụng nằm trong priority. Trace xác nhận màu, cột seal và trọng lượng ở nhánh trước đều qua kiểm. Sửa phép kiểm đọc priority và nhận đúng giá trị trống. Không có sai lệch của luồng đọc ba manifest ở hai lượt này.
+
+Probe hồi quy năm file cũ ban đầu gặp AssertionError vì chưa chọn sheet MANIFEST ở ba workbook VINAFCO nhiều bảng. Probe xác nhận VINAFCO_MULTIPLE_TABLES đúng hành vi khi để tự chọn. Lặp lại theo cùng cấu hình lần trước đạt 788/0/3. Excel COM trả 0x800A03EC khi mở file màu mẫu, kể cả khi thử bản sao ở thư mục tạm. Kết quả màu xác minh từ rules OOXML và số thứ tự của dòng cảnh báo.
+
+Bàn giao nguồn tại HEAD a74c224 với test phát hành PASS 290 ca và 137 SHA-256. Bảng ba cặp workbook, các ô trọng yếu và giới hạn ở docs/reviews/LEGACY_COMPAT_REVIEW.md. Replay và log trong .cvf/runtime/manifest-nov25. SHA-256 sáu workbook của người dùng đều giữ nguyên. Giao diện Tk có tiêu đề Manifest Cleaner 1.2.7 và chân cửa sổ Tien - Tan Thuan Port @2026, đo ở 100%, 125% và 150%. Chưa commit hay build EXE. Xung đột kích cỡ BDNA tại L699/S699 cần xác nhận trước khi xuất.
+
+### Phản hồi nghiệp vụ về reefer, tank và vị trí tác giả
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER, MC51/MC52/MC54 theo WO_MC_LEGACY_COMPAT.md. Project REVIEW, Core pin b6d5a51a1e90c1c03426baa3d355834089ac652a, CORE_ONLY, CURRENT_ASSESSED, pre-dispatch PASS 7/7, trần R2, live evidence YES cho tuyên bố quản trị, không có checkpoint. Cùng working tree a74c224 và handoff active. Operator xác nhận dòng 40HC có MARKS 40RF và mô tả lạnh là reefer cao có hàng, được xuất kèm cảnh báo. Sửa rule có điều kiện, dùng thông số reefer theo hãng khai thác cho ngưỡng cảnh báo rỗng, rồi kiểm Excel và giao diện. Đặt tác giả giữa hàng chọn hãng khi đủ chỗ. Core và dữ liệu đầu vào dùng chỉ đọc.
+
+Lượt kiểm tập trung 116 ca, 16,0 giây. Ở 150%, nhận `AssertionError: 1 != 0` cho vị trí tác giả và `AssertionError: 0 is not true : .!notebook.!frame2.!frame2.!frame.!frame2.!text` cho vùng chi tiết. Probe 2,7 giây đo màn hình Tk 1536 × 960 và tổng ba nhóm trên thanh 1629 px chưa tính padding. Dòng bổ sung dưới thanh làm panel chỉ còn 91 px ở minsize. Điều chỉnh tác giả vào hàng chân trang hiện có khi thiếu chỗ, giữ chiều cao thanh và kiểm cả hai vị trí.
+
+Probe Tk sau reflow 2,9 giây, ca minsize qua cả ba tỷ lệ. Phép so vị trí trả `AssertionError: <tkinter.ttk.Frame object .!frame> != '.!frame'` ở thanh hãng và cùng lỗi kiểu ở chân trang. Trace cho thấy `place_info()['in']` trả đối tượng ttk.Frame đúng, test đang so chuỗi. Chuyển cả hai phía sang tên widget Tcl. Replay ba file thật cùng xuất Excel/mở lại JSON đều đạt 490/0/7, 138/0/0 và 317/0/3.
+
+Bàn giao sửa reefer tại HEAD a74c224. Full release PASS 294 test và 137 mục SHA-256. Các phép kiểm Tk qua 100/125/150%, xác minh tác giả căn giữa khoảng trên cùng khi đủ rộng và chân trang khi quá hẹp. Replay xác nhận cả ba manifest xuất Excel 16 cột, đúng tập cảnh báo tô vàng, mở lại JSON và giữ SHA-256 cả sáu file nguồn. Năm manifest hồi quy 788/0/3. Quy tắc nguồn và tham chiếu Hapag-Lloyd, BIC, Seaco trong hồ sơ LEGACY_COMPAT_REVIEW. Bằng chứng cục bộ tại .cvf/runtime/reefer-nov25. Chưa commit và chưa build EXE.
+
+Kiểm ảnh đã chụp cả hai bố cục trong 1,4 giây. Ở minsize 125%, dòng tác giả căn giữa đúng nhưng nút Cấu hình đọc sát mép và bị cắt viền. Theo số đo Tk, hai nhóm nút cần 1171 px, trong khi client 1175 px còn phải dành padding hai bên. Tăng chiều rộng tối thiểu vừa đủ và đưa cả hai nút phải vào phép kiểm bounds.
+
+### Căn giữa tên tác giả ở chân cửa sổ
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER theo MC54, project REVIEW, Core b6d5a51a1e90c1c03426baa3d355834089ac652a, CURRENT_ASSESSED, pre-dispatch PASS 7/7. Trần R2, lượt sửa Tk R1, live evidence YES cho tuyên bố quản trị, không có checkpoint. Operator làm rõ tên tác giả luôn nằm giữa chân cửa sổ. Kiểm vị trí ở các độ rộng và DPI, cập nhật hồ sơ, chạy gate bàn giao.
+
+Dòng tác giả là widget của chân cửa sổ, luôn căn theo trục giữa và ngang với tùy chọn JSON. Kiểm Tk thật ở 100%, 125% và 150% tại chiều rộng tối thiểu và chiều rộng thường. Check release PASS 294 test và 137 mục SHA-256. Bằng chứng cục bộ trong .cvf/runtime/author-footer. Chưa commit hoặc build EXE.
+
+### Bỏ dòng nhắc lặp ở chân cửa sổ
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER theo MC54, project REVIEW, Core b6d5a51a1e90c1c03426baa3d355834089ac652a, CURRENT_ASSESSED, pre-dispatch PASS 7/7. Trần R2, lượt chỉnh hiển thị R1, live evidence YES cho tuyên bố quản trị, không có checkpoint. Operator yêu cầu bỏ dòng nhắc ban đầu và dòng tóm tắt đọc xong ở chân cửa sổ. Bước tiếp theo sửa bản hiển thị, kiểm hồi quy và chạy gate bàn giao.
+
+Tk thật với workbook tổng hợp xác nhận chân cửa sổ trống khi mở app và khi đọc xong file có cảnh báo; dải số đếm và tab Cần kiểm tra vẫn có cảnh báo. Kiểm trạng thái đang đọc, lỗi đọc và xuất thành công. Check release PASS 294 test, 137 mục SHA-256. Ảnh và log trong .cvf/runtime/footer-copy. Chưa commit hay build EXE.
+
+### Trình bày trọng lượng và đối chiếu mã trong Excel
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER, MC54 theo WO_MC_LEGACY_COMPAT.md, project REVIEW, Core b6d5a51a1e90c1c03426baa3d355834089ac652a, CURRENT_ASSESSED, pre-dispatch PASS 7/7. Trần R2 do kiểm workbook thật cục bộ, live evidence YES cho tuyên bố quản trị, không có checkpoint. Operator yêu cầu số nguyên hiện không có dấu chấm và ghi chú, màu cho mã cần đối chiếu. Dùng định dạng General của Excel VOSCO cũ, các mẫu tô màu seal theo hãng và các cảnh báo mã container đang hiệu lực. Đối chiếu seal là tham chiếu trình bày, giữ nguyên giá trị xuất và điều kiện chặn.
+
+Bàn giao Excel General và tô ô định danh theo STT để đi cùng dòng khi sắp xếp. Xác nhận riêng trường seal sẽ bỏ dấu tham chiếu khi xuất. VFON 317 dòng, 0 lỗi chặn, 3 cảnh báo phiên, 96 dòng seal trùng bản cũ, hai cột seal nguyên giá trị đối chứng. Check release PASS 296 test và 137 SHA-256. Đọc ba workbook liên quan cục bộ và kiểm SHA-256 trước/sau. Ảnh gốc, workbook và EXE không bị thay đổi. Log cùng chứng cứ tại .cvf/runtime/export-reference. Chưa commit hay build EXE.
+
+### README theo quy trình và lần push đầu lên GitHub
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER theo MC54. Project REVIEW, Core b6d5a51a1e90c1c03426baa3d355834089ac652a, activation CURRENT_ASSESSED, pre-dispatch PASS 7/7, trần R2, live evidence YES cho tuyên bố quản trị, không có checkpoint. Operator yêu cầu viết README theo quy trình và push repo đích đã nêu. Repo GitHub công khai, chưa có ref. Phạm vi bàn giao gồm mã nguồn và kiểm thử đã làm trong working tree cùng README. Bước tiếp theo kiểm source kit, các tệp đã theo dõi và lịch sử trước khi chuyển COMMIT_STEWARD.
+
+COMMIT_STEWARD theo yêu cầu push của operator, project tiếp tục REVIEW. README 40 dòng theo luồng Windows, đối chiếu và xuất. Đã kiểm lệnh CLI bằng mẫu tổng hợp, check release PASS 296 test và 137 mục SHA-256, worker-return PASS 7/7. Lịch sử chỉ theo dõi workbook mẫu và fixture; rà 309 blob văn bản theo mẫu token, khóa và số giấy tờ không phát hiện ứng viên. .gitignore bỏ qua Manifest/ có dữ liệu thật. Bước tiếp theo stage đúng tập tệp mã nguồn, tài liệu và test, chạy pre-commit rồi push main tới GitHub.

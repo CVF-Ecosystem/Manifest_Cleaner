@@ -9,6 +9,7 @@ import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
+from itertools import groupby
 from pathlib import Path
 
 import pandas as pd
@@ -18,6 +19,10 @@ from .common import seal_text, text_value
 from . import __version__
 from .carriers import CARRIER_PROFILES
 from .engine import EDITABLE_FIELDS, FIELD_LABELS, ManifestSession, assert_source_unchanged, source_sha256
+
+
+SEAL_REFERENCE_NOTE = "⚠️ Seal không hợp lệ"
+IDENTIFIER_COLUMNS = {"Container_No": "Số Container", "Seal_No": "Số niêm chì"}
 
 
 def _edit_notes(corrections, records):
@@ -43,7 +48,8 @@ def _edit_notes(corrections, records):
     return notes
 
 
-def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_record: dict | None = None) -> tuple[list[str], list[list]]:
+def _port_rows(session: ManifestSession, *, allow_errors: bool = False,
+               extra_record: dict | None = None) -> tuple[list[str], list[list], dict[str | None, list[int]]]:
     profile = CARRIER_PROFILES[session.carrier].export
     issues = session.validate()
     errors = [i for i in issues if i.get("severity") == "error"]
@@ -69,11 +75,29 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_re
     edits = _edit_notes(session.corrections, records)
     columns = profile.columns
     rows = []
+    highlights = defaultdict(list)
     for index, record in enumerate(records, 1):
         local_issues = by_record[record["record_id"]]
+        warnings = [item for item in local_issues if item["severity"] == "warning"]
+        if warnings:
+            highlights[None].append(index)
+        identifier_fields = {item.get("field") for item in warnings if item.get("field") in IDENTIFIER_COLUMNS}
         # Compatibility column: a rule-based score, never measured accuracy.
         confidence = max(0, min(float(record.get("Confidence") if record.get("Confidence") is not None else 100), 80 if local_issues else 100))
         remarks = list(dict.fromkeys(i["message"] for i in local_issues if i.get("message")))
+        seal = seal_text(record.get("Seal_No"))
+        seal_reference = seal.strip()
+        verified = record.get("_current_verified_fields", record.get("_verified_fields", ()))
+        if (profile.seal_reference_lengths and seal_reference and "Seal_No" not in verified
+                and (len(seal_reference) not in profile.seal_reference_lengths
+                     or not (seal_reference.isascii() and seal_reference.isdigit()))):
+            identifier_fields.add("Seal_No")
+            if SEAL_REFERENCE_NOTE not in remarks:
+                remarks.append(SEAL_REFERENCE_NOTE)
+        for field in identifier_fields:
+            highlights[IDENTIFIER_COLUMNS[field]].append(index)
+        if identifier_fields:
+            highlights["Ghi chú"].append(index)
         remarks.extend(reversed(edits[record["record_id"]]))
         if record.get("_manual_review_reason"):
             remarks.append("Đã đối chiếu dòng. " + record["_manual_review_reason"])
@@ -98,7 +122,7 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_re
                   "Kích cỡ": text_value(record.get(profile.primary_size_field)),
                   "Kích cỡ VTOS": text_value(record.get("VTOS_Size")), "Loại Container": text_value(record.get("VTOS_Size")),
                   "F/E": text_value(record.get("FE_Status")), "TL hàng": weight, "Trọng lượng (Tấn)": weight,
-                  "Số niêm chì": seal_text(record.get("Seal_No")), "Số niêm chì 1": seal_text(record.get("Seal_No")),
+                  "Số niêm chì": seal, "Số niêm chì 1": seal,
                   "Chủ hàng": text_value(record.get("Cleaned_Consignee_Name_For_Output")),
                   "Hàng hóa": description,
                   "Loại hàng": text_value(record.get("Cargo_Type")), "Độ chính xác (%)": confidence,
@@ -109,17 +133,18 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False, extra_re
                 if isinstance(value, str) and len(value) > 32767:
                     raise ValueError(f"Dòng {index}, cột {name} dài quá giới hạn 32767 ký tự của Excel; cần rút gọn giá trị xuất, dữ liệu gốc vẫn được giữ.")
         rows.append(row)
-    return list(columns), rows
+    return list(columns), rows, highlights
 
 
 def build_port_rows(session: ManifestSession) -> tuple[list[str], list[list]]:
     """Build validated import rows; previews never bypass this export gate."""
-    return _port_rows(session)
+    columns, rows, _ = _port_rows(session)
+    return columns, rows
 
 
 def preview_record_for_export(session: ManifestSession, record: dict) -> dict:
     """Read-only preview using the very same sixteen-column conversion rules."""
-    columns, rows = _port_rows(session, allow_errors=True, extra_record=record)
+    columns, rows, _ = _port_rows(session, allow_errors=True, extra_record=record)
     records = session.active_records()
     index = next((i for i, r in enumerate(records) if r["record_id"] == record["record_id"]), len(records))
     return dict(zip(columns, rows[index]))
@@ -134,7 +159,7 @@ def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: 
     if path.exists() and not overwrite:
         raise FileExistsError("File đã tồn tại; chọn tên mới hoặc xác nhận ghi đè.")
     assert_source_unchanged(session)
-    columns, rows = build_port_rows(session)
+    columns, rows, highlights = _port_rows(session)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_name = tempfile.mkstemp(prefix=".manifest_export_", suffix=".xlsx", dir=path.parent)
     os.close(fd)
@@ -150,6 +175,8 @@ def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: 
             text_format = book.add_format({"num_format": "@"})
             numeric_format = book.add_format({"num_format": CARRIER_PROFILES[session.carrier].export.weight_format})
             empty_format = book.add_format({"bg_color": "#DAEEF3"})
+            warning_format = book.add_format({"bg_color": "#FFF4D8"})
+            identifier_format = book.add_format({"bg_color": "#FFFF00"})
             for col_index, label in enumerate(columns):
                 sheet.write_string(0, col_index, label, header)
                 width = min(45, max(len(label) + 2, max((len(str(row[col_index] or "")) for row in rows), default=0) + 2))
@@ -167,7 +194,29 @@ def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: 
             fe_col = xl_col_to_name(columns.index("F/E"))
             last_col = xl_col_to_name(len(columns) - 1)
             if rows:
-                sheet.conditional_format(f"A2:{last_col}{len(rows)+1}", {"type": "formula", "criteria": f'=${fe_col}2="E"', "format": empty_format})
+                data_range = f"A2:{last_col}{len(rows) + 1}"
+                index_cell = f"${xl_col_to_name(columns.index('STT'))}2"
+                # STT follows complete rows when sorted. Give the identity
+                # cells priority over the general warning and empty-row colors.
+                for label in ("Số Container", "Số niêm chì", "Ghi chú", None):
+                    target = data_range
+                    if label is not None:
+                        letter = xl_col_to_name(columns.index(label))
+                        target = f"{letter}2:{letter}{len(rows) + 1}"
+                    conditions = []
+                    numbers = highlights.get(label, ())
+                    for _, run in groupby(enumerate(numbers), key=lambda item: item[1] - item[0]):
+                        first, *rest = (number for _, number in run)
+                        conditions.append(f"AND({index_cell}>={first},{index_cell}<={rest[-1]})"
+                                          if rest else f"{index_cell}={first}")
+                    for start in range(0, len(conditions), 100):
+                        formula = "=OR(" + ",".join(conditions[start:start + 100]) + ")"
+                        sheet.conditional_format(target, {
+                            "type": "formula", "criteria": formula,
+                            "format": identifier_format if label is not None else warning_format,
+                            "stop_if_true": True,
+                        })
+                sheet.conditional_format(data_range, {"type": "formula", "criteria": f'=${fe_col}2="E"', "format": empty_format})
             sheet.freeze_panes(1, 0)
             sheet.autofilter(0, 0, len(rows), len(columns) - 1)
         os.replace(temp_name, path)

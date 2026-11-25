@@ -222,7 +222,7 @@ class Vimc110Tests(unittest.TestCase):
         ], header=["", HEADER[0], "B/L", HEADER[1], HEADER[3]])
         result = parse_manifest(path)
         a, missing, b = result["records"]
-        self.assertEqual(result["metadata"]["profile_version"], "vimc-1.3.1")
+        self.assertEqual(result["metadata"]["profile_version"], "vimc-1.3.3")
         self.assertEqual([record["Cleaned_Consignee_Name_For_Output"] for record in (a, missing, b)],
                          ["TEST CONSIGNEE", "", "MAPPED CONSIGNEE"])
         evidence = next(entry for entry in a["raw"]["party_evidence"] if entry["role"] == "Consignee")
@@ -262,6 +262,86 @@ class Vimc110Tests(unittest.TestCase):
                 record, = process_manifest(path, "VIMC").records
                 self.assertEqual((record["Operator"], record["FE_Status"]), ("VMC", "F"))
                 self.assertNotIn("ownership_total", record["raw"])
+
+    def test_empty_total_matches_marks_on_both_pages(self):
+        marks = "DEMU1234567/20RF\nDEMU1234568/40RF"
+        for total, operator in (("TOTAL: 1X20RF+2X40RF, COC EMPTY", "VMC"),
+                                ("TOTAL: 1X20RF & 2X40RF SOC RF EMPTY", "SVM")):
+            with self.subTest(total=total):
+                session = process_manifest(self.workbook([
+                    ["B/L NO:", marks, "BL-1", total],
+                    [PARTY, "", "", ""],
+                    ["", "DEMU1234569/40RF", "", ""],
+                    ["B/L NO:", "", "BL-2", ""],
+                    [PARTY, "", "", GOOD],
+                ]), "VIMC")
+                self.assertEqual([(r["FE_Status"], r["Operator"], r["Weight_Value"]) for r in session.records],
+                                 [("E", operator, None)] * 3 + [("F", "VMC", 20)])
+                self.assertEqual(session.statistics()["errors"], 0)
+                evidence = session.records[2]["raw"]["empty_total_evidence"]
+                self.assertEqual((evidence["source_row"], evidence["source_column"], evidence["declared_sizes"]),
+                                 (2, 4, {"20RF": 1, "40RF": 2}))
+
+    def test_empty_total_must_match_entire_marks_list(self):
+        for description in ("TOTAL: 2X20RF, SOC EMPTY", "TOTAL: 1X40RF, SOC EMPTY",
+                            "TOTAL: 1X20RF, SOC EMPTY\nCOC LADEN",
+                            "TOTAL: 1X20RF, SOC EMPTY\nTOTAL: 1X20RF, SOC EMPTY"):
+            with self.subTest(description=description):
+                session = process_manifest(self.workbook([
+                    ["B/L NO:", "DEMU1234567/20RF", "BL-1", description],
+                    [PARTY, "", "", ""],
+                ]), "VIMC")
+                record, = session.records
+                self.assertNotEqual(record["FE_Status"], "E")
+                self.assertNotIn("empty_total_evidence", record["raw"])
+                self.assertGreater(session.statistics()["errors"], 0)
+
+    def test_rf_empty_is_exact_status_on_detail(self):
+        session = process_manifest(self.standard([
+            "DEMU1234567 001237 40RF 4.3 SOC RF EMPTY",
+            "DEMU1234568 001238 40RF 25 EMPTY BOTTLES",
+        ]), "VIMC")
+        empty, full = session.records
+        self.assertEqual((empty["FE_Status"], empty["Weight_Value"], full["FE_Status"]), ("E", 4.3, "F"))
+        self.assertNotIn("VIMC_STATUS_GOODS_CONFLICT", {issue["code"] for issue in session.validate()})
+
+    def test_hc_height_and_reefer_evidence_resolve_to_exportable_warning(self):
+        marks = "DEMU1234567/40RF"
+        line = "DEMU1234567 001237 40HC 20 RF TEST -18OC"
+        session = process_manifest(self.workbook([
+            ["B/L NO:", marks, "BL-1", line], [PARTY, "", "", ""],
+        ]), "VIMC")
+        record, = session.records
+        self.assertEqual((record["Size_Type"], record["Physical_ISO_Size"], record["FE_Status"]),
+                         ("40RH", "45R1", "F"))
+        self.assertEqual(record["raw"]["size_type"], "40HC")
+        self.assertEqual(record["raw"]["marks_evidence"][0]["size_type"], "40RF")
+        self.assertEqual([(i["code"], i["severity"]) for i in session.validate()],
+                         [("VIMC_REEFER_SIZE_REVIEW", "warning")])
+        columns, (row,) = build_port_rows(session)
+        self.assertEqual(row[columns.index("Loại Container")], "40RH")
+        self.assertEqual(row[columns.index("Loại hàng")], "REEFER")
+        self.assertEqual(row[columns.index("Số niêm chì")], "001237")
+        self.assertIn("MARKS ghi 40RF", row[columns.index("Ghi chú")])
+        review = self.root / "reefer.review.json"
+        session.save_review(review)
+        self.assertEqual(build_port_rows(load_review(review)), (columns, [row]))
+
+    def test_marks_conflict_stays_blocking_without_consistent_cold_evidence(self):
+        for marks, line in (
+            ("DEMU1234567/40RF", "DEMU1234567 001237 40HC 20 STEEL"),
+            ("DEMU1234567/20RF", "DEMU1234567 001237 40HC 20 RF TEST"),
+            ("DEMU1234567/40RF\nDEMU1234567/20RF", "DEMU1234567 001237 40HC 20 RF TEST"),
+        ):
+            with self.subTest(marks=marks, line=line):
+                session = process_manifest(self.workbook([
+                    ["B/L NO:", marks, "BL-1", line], [PARTY, "", "", ""],
+                ]), "VIMC")
+                self.assertEqual(session.records[0]["Size_Type"], "40HC")
+                self.assertIn(("VIMC_MARKS_SIZE_CONFLICT", "error"),
+                              {(i["code"], i["severity"]) for i in session.validate()})
+                with self.assertRaises(ValueError):
+                    build_port_rows(session)
 
     def test_compact_id_preserved_only_when_separate_marks_corrobates_same_bill(self):
         compact = "DEMU1234"

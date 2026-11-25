@@ -50,7 +50,7 @@ WEIGHT_PAD = "\u2007\u2007"
 GAP = 8
 PAD = 16
 WINDOW_PREFERRED = (1440, 820)
-WINDOW_MINIMUM = (940, 620)
+WINDOW_MINIMUM = (975, 620)
 STAT_ITEMS = (
     ("containers", "Container", "Count"), ("full", "F · Có hàng", "Success"),
     ("empty", "E · Rỗng", "Count"), ("errors", "Lỗi chặn", "Error"),
@@ -103,19 +103,29 @@ def _source_field(record, field):
             cell = f"{xl_col_to_name(column - 1)}{row}"
             sheet = text_value(record.get("source_sheet"))
             address = f"{sheet}!{cell}" if sheet else cell
-            return f"{address} · dòng {line} trong ô · {value}"
+            evidence = f"{address} · dòng {line} trong ô · {value}"
+            unit = raw.get("weight_unit_evidence")
+            if isinstance(unit, dict):
+                unit_column = unit.get("source_column")
+                if isinstance(unit_column, int) and unit_column > 0 and unit.get("source_row") and unit.get("text"):
+                    unit_cell = f"{xl_col_to_name(unit_column - 1)}{unit['source_row']}"
+                    evidence += f" | Đơn vị tại {unit_cell} · dòng {unit.get('source_line', 1)} · {unit['text']}"
+            return evidence
     if field == "BL_No" and raw.get("bl_evidence"):
         return " | ".join(f"{item.get('position', '')}: {item.get('value', '')}" for item in raw["bl_evidence"] if item.get("value"))
     if field == "Cleaned_Consignee_Name_For_Output":
         party = raw.get("party_values") or {}
         return text_value(raw.get("consignee") or party.get("Consignee") or record.get("Consignee")) or "Xem khối người nhận trong nguồn"
     if field == "FE_Status":
+        total = raw.get("empty_total_evidence") or {}
+        if total.get("text"):
+            return f"Dòng {total.get('source_row', '')} · {total['text']}"
         evidence = [f"Tiêu đề: {raw['context_status']}"] if raw.get("context_status") else []
         if raw.get("row_status"):
             evidence.append(f"Dòng: {raw['row_status']}")
         return " | ".join(evidence) or text_value(raw.get("comm") or raw.get("matched_description") or raw.get("description")) or "Xem mô tả và quy tắc suy luận"
     if field == "Operator":
-        owner_total = raw.get("ownership_total") or {}
+        owner_total = raw.get("ownership_total") or raw.get("empty_total_evidence") or {}
         if owner_total.get("text"):
             return f"Dòng {owner_total.get('source_row', '')} · {owner_total['text']}"
         return "SOC" if raw.get("is_soc") is True else "Xem dấu SOC/COC trong nguồn"
@@ -314,7 +324,7 @@ def _wrapped_label(parent, **options):
 class ManifestApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title(f"Manifest Cleaner {__version__} — Nhập hệ thống Cảng")
+        self.root.title(f"Manifest Cleaner {__version__}")
         self.root.withdraw()
         self.root.configure(bg=PAGE)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
@@ -336,7 +346,7 @@ class ManifestApp:
         self.only_issues = tk.BooleanVar(value=False)
         self.show_excluded = tk.BooleanVar(value=False)
         self.include_review = tk.BooleanVar(value=True)
-        self.status = tk.StringVar(value="Chọn hãng tàu và mở một file manifest để bắt đầu.")
+        self.status = tk.StringVar()
         self.file_label = tk.StringVar(value="Chưa chọn manifest")
         self.summary = tk.StringVar()
         self.filter_status = tk.StringVar()
@@ -429,20 +439,23 @@ class ManifestApp:
         pad = _pixels(self.root, PAD)
         toolbar = ttk.Frame(self.root, style="Toolbar.TFrame", padding=(pad, gap))
         toolbar.pack(fill="x")
-        ttk.Label(toolbar, text="Manifest Cleaner", style="Title.Toolbar.TLabel").pack(side="left", padx=(0, pad))
-        ttk.Label(toolbar, text="Hãng tàu", style="Toolbar.TLabel", font=FONT_BOLD).pack(side="left", padx=(0, gap))
-        self.carrier_box = ttk.Combobox(toolbar, textvariable=self.carrier, values=CARRIERS,
+        toolbar.columnconfigure(1, weight=1)
+        controls = ttk.Frame(toolbar, style="Toolbar.TFrame")
+        controls.grid(row=0, column=0, sticky="w")
+        ttk.Label(controls, text="Manifest Cleaner", style="Title.Toolbar.TLabel").pack(side="left", padx=(0, pad))
+        ttk.Label(controls, text="Hãng tàu", style="Toolbar.TLabel", font=FONT_BOLD).pack(side="left", padx=(0, gap))
+        self.carrier_box = ttk.Combobox(controls, textvariable=self.carrier, values=CARRIERS,
                                        state="readonly", width=8, font=FONT)
         self.carrier_box.pack(side="left", padx=(0, gap))
         self.carrier_box.bind("<<ComboboxSelected>>", self.carrier_changed)
-        self.open_button = ttk.Button(toolbar, text="Mở manifest…", style="Primary.TButton", command=self.choose_file)
+        self.open_button = ttk.Button(controls, text="Mở manifest…", style="Primary.TButton", command=self.choose_file)
         self.open_button.pack(side="left", padx=(0, gap))
-        self.resume_button = ttk.Button(toolbar, text="Mở phiên đã lưu…", command=self.choose_review)
+        self.resume_button = ttk.Button(controls, text="Mở phiên đã lưu…", command=self.choose_review)
         self.resume_button.pack(side="left", padx=(0, gap))
-        self.reload_button = ttk.Button(toolbar, text="Xử lý lại", command=self.reprocess, state="disabled")
+        self.reload_button = ttk.Button(controls, text="Xử lý lại", command=self.reprocess, state="disabled")
         self.reload_button.pack(side="left")
         extras = ttk.Frame(toolbar, style="Toolbar.TFrame")
-        extras.pack(side="right")
+        extras.grid(row=0, column=2, sticky="e")
         ttk.Button(extras, text="Hướng dẫn", command=self.help).pack(side="left")
         ttk.Button(extras, text="Cấu hình đọc…", command=self.number_settings).pack(side="left", padx=(gap, 0))
 
@@ -453,13 +466,14 @@ class ManifestApp:
         self.json_check = ttk.Checkbutton(footer, text="Xuất kèm đối chiếu JSON để mở lại phiên",
                                           variable=self.include_review)
         self.json_check.grid(row=0, column=0, sticky="w", pady=(0, gap // 2))
+        self.author_label = ttk.Label(footer, text="Tien - Tan Thuan Port @2026", style="Muted.TLabel")
+        self.author_label.place(relx=.5, y=gap // 2, anchor="n", bordermode="outside")
         self.progress = ttk.Progressbar(footer, mode="determinate", length=_pixels(self.root, 110))
         self.progress.grid(row=1, column=1, sticky="e", padx=(gap, 0))
         self.status_label = _wrapped_label(footer, textvariable=self.status, style="Muted.TLabel")
         self.status_label.grid(row=1, column=0, sticky="w")
         footer.bind("<Configure>", lambda event: self.status_label.configure(
             wraplength=max(100, event.width - self.progress.winfo_reqwidth() - 3 * pad)), add="+")
-
         self.actionbar = ttk.Frame(self.root, padding=(pad, gap, pad, 0))
         self.actionbar.pack(side="bottom", fill="x")
         edits = ttk.Frame(self.actionbar)
@@ -1127,13 +1141,7 @@ class ManifestApp:
         self._update_export_state(stats)
         self.review_button.configure(state="normal")
         self._tab_changed()
-        if stats["errors"]:
-            next_step = ""  # The reason beside the export button already points to the blocking errors.
-        elif stats["warnings"]:
-            next_step = "Xem cảnh báo trong mục Cần kiểm tra. Có thể xác nhận để tiếp tục xuất."
-        else:
-            next_step = "Có thể xuất. Mở từng dòng để xem bằng chứng từ nguồn."
-        self.status.set(f"Đã đọc {stats['detected_records']} bản ghi. {next_step}".strip())
+        self.status.set("")
 
     def _refresh_issues(self, findings, query, matches):
         tree = self.issue_tree

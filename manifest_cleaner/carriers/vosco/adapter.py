@@ -10,6 +10,7 @@ from decimal import Decimal
 import math
 from pathlib import Path
 import re
+from typing import NamedTuple
 
 import pandas as pd
 
@@ -19,7 +20,7 @@ from ...common import (
 )
 from .. import CARRIER_PROFILES
 from .mappings import (
-    SAFETY_MARGIN_TONS, SIZE_TO_VTOS, TANK_TARE_WEIGHTS_TONS, TARE_WEIGHTS_TONS,
+    REEFER_EMPTY_TARE_REFERENCE_TONS, SAFETY_MARGIN_TONS, SIZE_TO_VTOS, TANK_TARE_WEIGHTS_TONS, TARE_WEIGHTS_TONS,
     TANK_WEIGHT_WARNING_RANGE,
 )
 from .parsers import get_vtos_size, is_valid_bl, parse_container_line
@@ -66,7 +67,7 @@ def _is_container_header(line):
 # Explicit delivery-mode annotations observed in the source container column.
 # Treat only complete labels as metadata; malformed/unknown text remains an
 # unresolved container candidate, preserving the existing review safeguard.
-_DELIVERY_MODE_LABELS = {"DOOR-DOOR", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY"}
+_DELIVERY_MODE_LABELS = {"DOOR-DOOR", "DOOR/OTI", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY"}
 
 
 def _is_delivery_mode(line):
@@ -155,6 +156,17 @@ def _aligned_partial_weights(container_cell, description_cell, weight_cell, vali
 
 _WEIGHT_LINE = re.compile(r"^([0-9][0-9.,]*)\s*(TONS?|KGS?)$", re.I)
 _TOTAL_LINE = re.compile(r"^(?:TOTAL|TONG CONG)\s*[:=]\s*([0-9][0-9.,]*)(?:\s*(TONS?|KGS?))?$", re.I)
+_WEIGHT_UNIT = re.compile(r"TONS?|KGS?", re.I)
+_UNITLESS_WEIGHT = re.compile(r"[0-9][0-9.,]*")
+
+
+class _WeightContinuation(NamedTuple):
+    row: int
+    cell: str
+    weights: list[dict]
+    raw_weights: list[str]
+    offset: int
+    split_weight: dict | None
 
 
 def _continuation_weights(rows, source_row, context, assigned, assigned_raw, settings):
@@ -162,8 +174,12 @@ def _continuation_weights(rows, source_row, context, assigned, assigned_raw, set
     missing = sum(weight is None for weight in assigned)
     if not missing or not context.get("BL_No") or any(weight is None for weight in assigned[:-missing]):
         return None, []
-    # Explicit units must support every prefix weight, not only the tail.
-    if any(not _WEIGHT_LINE.fullmatch(str(line).strip()) for line in assigned_raw[:-missing]):
+    # A page break can put just the last prefix weight's unit in the next cell.
+    prefix = [line.strip() for line in assigned_raw[:-missing]]
+    if not prefix or any(not _WEIGHT_LINE.fullmatch(line) for line in prefix[:-1]):
+        return None, []
+    split_unit = not _WEIGHT_LINE.fullmatch(prefix[-1])
+    if split_unit and not _UNITLESS_WEIGHT.fullmatch(prefix[-1]):
         return None, []
     # Locate the actual start of this occurrence, and reject earlier competing
     # detail in K or adjacent columns. The B/L row may carry a layout label.
@@ -175,7 +191,7 @@ def _continuation_weights(rows, source_row, context, assigned, assigned_raw, set
             return None, []
         if index != source_row - 1:
             other = _cell(row, COL_CONTAINER)
-            if other and not (bill and _is_container_header(other)):
+            if other and not (bill and (_is_container_header(other) or _is_delivery_mode(other))):
                 return None, []
         if bill:
             boundary_found = (is_valid_bl(bill) and bill == context["BL_No"]
@@ -222,6 +238,17 @@ def _continuation_weights(rows, source_row, context, assigned, assigned_raw, set
     lines = value.splitlines()
     if any(not line.strip() for line in lines):
         return None, candidates
+    split_weight = None
+    offset = 0
+    if split_unit:
+        if not lines or not _WEIGHT_UNIT.fullmatch(lines[0].strip()):
+            return None, candidates
+        offset = 1
+        split_weight = parse_weight(prefix[-1] + " " + lines[0].strip(),
+                                    number_format=settings.get("number_format", "legacy"))
+        if split_weight is None:
+            return None, candidates
+        lines = lines[1:]
     # The total may carry its unit on the following physical line.
     if len(lines) not in (missing + 1, missing + 2):
         return None, candidates
@@ -239,7 +266,7 @@ def _continuation_weights(rows, source_row, context, assigned, assigned_raw, set
         return None, candidates
     unit = total_match.group(2)
     if len(lines) == missing + 2:
-        if unit or not re.fullmatch(r"TONS?|KGS?", lines[-1].strip(), re.I):
+        if unit or not _WEIGHT_UNIT.fullmatch(lines[-1].strip()):
             return None, candidates
         unit = lines[-1].strip()
     if not unit:
@@ -249,11 +276,14 @@ def _continuation_weights(rows, source_row, context, assigned, assigned_raw, set
                          number_format=settings.get("number_format", "legacy"))
     if total is None:
         return None, candidates
-    summed = sum((Decimal(str(weight["value"])) for weight in assigned if weight is not None), Decimal(0))
+    prefix_weights = assigned[:-missing]
+    if split_weight:
+        prefix_weights[-1] = split_weight
+    summed = sum((Decimal(str(weight["value"])) for weight in prefix_weights), Decimal(0))
     summed += sum((Decimal(str(weight["value"])) for weight in weights), Decimal(0))
     if abs(summed - Decimal(str(total["value"]))) > Decimal("0.000001"):
         return None, candidates
-    return (row_number, value, weights, lines[:missing]), candidates
+    return _WeightContinuation(row_number, value, weights, lines[:missing], offset, split_weight), candidates
 
 
 def _scan_contexts(rows, sheet, first_data_index=0):
@@ -457,7 +487,9 @@ def current_weight_issues(record, settings=None):
                 f"Mô tả ghi EMPTY nhưng trọng lượng hàng là {value:g} tấn (> 0); đối chiếu F/E và trọng lượng.",
                 severity="error", details={"weight_tons": value, "threshold_tons": 0, "weight_kind": kind})
         elif kind != "cargo":
-            tare = reference_tare(record)
+            tare = REEFER_EMPTY_TARE_REFERENCE_TONS.get(size)
+            if tare is None:
+                tare = reference_tare(record)
             if tare is not None and value > tare + SAFETY_MARGIN_TONS:
                 threshold = tare + SAFETY_MARGIN_TONS
                 add("EMPTY_WEIGHT_CONFLICT",
@@ -487,7 +519,7 @@ def parse_manifest(path, *, settings=None, progress=None):
     sheets = read_workbook(path)
     issues, records, source_fragments = [], [], []
     metadata = {
-        "carrier": "VOSCO", "adapter_version": "1.1.4", "profile_version": "vosco-1.1.4",
+        "carrier": "VOSCO", "adapter_version": "1.1.6", "profile_version": "vosco-1.1.6",
         "source_file": source_file,
         "source_baseline": "e5a78dd0444349990b08992ceb57758aa074dcb8",
         "available_sheets": [name for name, _ in sheets],
@@ -599,6 +631,7 @@ def parse_manifest(path, *, settings=None, progress=None):
                 assigned_weights = [None] * len(valid)
                 assigned_raw_weights = [""] * len(valid)
         continuation = None
+        first_missing = len(assigned_weights)
         if physical_alignment and any(weight is None for weight in assigned_weights):
             continuation, continuation_candidates = _continuation_weights(
                 rows, source_row, context, assigned_weights, assigned_raw_weights, settings)
@@ -608,11 +641,12 @@ def parse_manifest(path, *, settings=None, progress=None):
                     "status": "corroborating" if continuation else "unresolved",
                     "reason": "weight_continuation_matched" if continuation else "weight_continuation_ambiguous"})
             if continuation:
-                continuation_row, continuation_cell, extra_weights, extra_lines = continuation
                 first_missing = next(i for i, value in enumerate(assigned_weights) if value is None)
-                assigned_weights[first_missing:] = extra_weights
-                assigned_raw_weights[first_missing:] = extra_lines
-                assigned_weight_lines[first_missing:] = list(range(1, len(extra_lines) + 1))
+                assigned_weights[first_missing:] = continuation.weights
+                assigned_raw_weights[first_missing:] = continuation.raw_weights
+                assigned_weight_lines[first_missing:] = list(range(1 + continuation.offset, len(continuation.weights) + 1 + continuation.offset))
+                if continuation.split_weight:
+                    assigned_weights[first_missing - 1] = continuation.split_weight
         first_description = clean_description_text(description_cell)
         fe_statuses = [
             determine_fe(first_description, weight, parsed.get("type"), weight_kind=weight_kind)
@@ -698,9 +732,11 @@ def parse_manifest(path, *, settings=None, progress=None):
             notify = party_values.get("Notify", "")
             if "SAME AS CONSIGNEE" in notify.upper():
                 notify = cleaned_consignee or consignee
-            from_continuation = bool(continuation and index > len(valid) - len(continuation[2]))
-            weight_source_row = continuation[0] if from_continuation else source_row
-            source_weight_cell = continuation[1] if from_continuation else native_weight_value
+            from_continuation = index > first_missing
+            unit_from_continuation = bool(continuation and continuation.split_weight and index == first_missing)
+            total_matched = from_continuation or unit_from_continuation
+            weight_source_row = continuation.row if from_continuation else source_row
+            source_weight_cell = continuation.cell if from_continuation else native_weight_value
             record = {
                 "record_id": record_id, "BL_No": context["BL_No"],
                 "Master_BL_Group_ID": context["Master_BL_Group_ID"],
@@ -720,12 +756,14 @@ def parse_manifest(path, *, settings=None, progress=None):
                     "container_line": raw_line, "container_line_number": line_number,
                     "weight_cell": source_weight_cell if from_continuation else weight_cell, "weight_line": raw_weight,
                     "weight_source_row": weight_source_row, "weight_source_column": COL_WEIGHT + 1,
-                    "weight_total_source_row": continuation[0] if from_continuation else None,
-                    "weight_total_source_column": COL_WEIGHT + 1 if from_continuation else None,
-                    "weight_total_source_line": len(continuation[2]) + 1 if from_continuation else None,
+                    "weight_total_source_row": continuation.row if total_matched else None,
+                    "weight_total_source_column": COL_WEIGHT + 1 if total_matched else None,
+                    "weight_total_source_line": len(continuation.weights) + 1 + continuation.offset if total_matched else None,
+                    **({"weight_unit_evidence": {"source_row": continuation.row, "source_column": COL_WEIGHT + 1,
+                          "source_line": 1, "text": continuation.cell.splitlines()[0]}} if unit_from_continuation else {}),
                     "weight_source_line": assigned_weight_lines[index - 1],
                     "weight_expected_source_line": line_number if physical_alignment and not from_continuation else None,
-                    "weight_alignment": ("continuation_total_matched" if from_continuation else "physical_line_matched" if weight else "trailing_source_weight_missing")
+                    "weight_alignment": ("continuation_total_matched" if total_matched else "physical_line_matched" if weight else "trailing_source_weight_missing")
                         if physical_alignment else None,
                     "weight_cell_value": source_weight_cell,
                     "weight_source_unit": weight.get("source_unit") if weight else None,
@@ -741,7 +779,7 @@ def parse_manifest(path, *, settings=None, progress=None):
                           "vosco.operator-soc-coc", "vosco.port-mappings",
                           f"vosco.description.{match.match_type.lower()}",
                           "weight.normalized-tonnes" if weight else "weight.unresolved",
-                          *(["vosco.weight.continuation-total"] if from_continuation else
+                          *(["vosco.weight.continuation-total"] if total_matched else
                             ["vosco.weight.physical-line-alignment"] if assigned_weight_lines[index - 1] is not None else []),
                           "fe.explicit-empty" if is_explicit_empty(raw_description) else
                           "fe.cargo-mass-no-tare" if weight_kind == "cargo" else "fe.vosco-legacy-inference"],

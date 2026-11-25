@@ -87,7 +87,7 @@ class Export110Tests(unittest.TestCase):
             else:
                 self.assertFalse(path.exists(), str(path))
 
-    def test_seal_export_preserves_verbatim_text_without_shape_warning(self):
+    def test_seal_export_preserves_verbatim_text_with_excel_reference_only(self):
         session = self.session()
         rid = session.records[0]["record_id"]
         seal = " =ab-001  /  xy/02 "
@@ -101,9 +101,100 @@ class Export110Tests(unittest.TestCase):
             for col in ("D", "E"):
                 self.assertEqual(sheet[f"{col}2"].value, seal)
                 self.assertEqual(sheet[f"{col}2"].data_type, "s")
-            self.assertEqual(len(sheet.conditional_formatting), 1)  # EMPTY row format only
+            self.assertIn("⚠️ Seal không hợp lệ", sheet["P2"].value)
+            rules = {str(entry.sqref): sheet.conditional_formatting[entry][0]
+                     for entry in sheet.conditional_formatting}
+            self.assertEqual(set(rules), {"D2", "P2", "A2:P2"})
+            for field in ("D2", "P2"):
+                self.assertEqual(rules[field].dxf.fill.bgColor.rgb[-6:], "FFFF00")
+                self.assertLess(rules[field].priority, rules["A2:P2"].priority)
         finally:
             book.close()
+
+    def test_vosco_excel_keeps_numeric_weight_and_uses_general_display(self):
+        session = self.session("VOSCO")
+        record, = session.records
+        for weight in (9, 16.055, 12.123456):
+            with self.subTest(weight=weight):
+                session.update_record(record["record_id"], {"Weight_Value": weight}, "Đối chiếu trọng lượng")
+                output = exporter.export_port_excel(session, self.outputs / "weight.xlsx", overwrite=True)
+                with open(output, "rb") as stream:
+                    book = load_workbook(stream)
+                    cell = book.active["I2"]
+                    self.assertEqual((cell.value, cell.data_type, cell.number_format), (weight, "n", "General"))
+                    book.close()
+
+    def test_excel_identifier_color_and_notes_follow_reference_and_verification(self):
+        for carrier, show_seal in (("VOSCO", True), ("VIMC", False), ("VINAFCO", False)):
+            with self.subTest(carrier=carrier):
+                session = self.session(carrier)
+                record, = session.records
+                rid = record["record_id"]
+                session.update_record(rid, {"Seal_No": "0064556"}, "Đối chiếu dữ liệu mẫu")
+                message = "Số container cần đối chiếu."
+                session.base_issues.append({"code": "TEST_CONTAINER_WARNING", "severity": "warning",
+                                            "message": message, "field": "Container_No", "record_id": rid})
+                target = self.outputs / f"{carrier}.xlsx"
+                for seal_verified in (False, True):
+                    if seal_verified:
+                        session.update_record(rid, {}, "Đã xem seal gốc", verified_fields=["Seal_No"])
+                    exporter.export_port_excel(session, target, overwrite=seal_verified)
+                    book = load_workbook(target)
+                    try:
+                        sheet = book.active
+                        seal_cell = "D2" if carrier == "VIMC" else "J2"
+                        container_cell = "C2" if carrier == "VIMC" else "D2"
+                        expected_seal = show_seal and not seal_verified
+                        self.assertEqual(sheet[seal_cell].value, "0064556")
+                        self.assertEqual(sheet[seal_cell].data_type, "s")
+                        self.assertIn(message, sheet["P2"].value)
+                        self.assertEqual("⚠️ Seal không hợp lệ" in sheet["P2"].value, expected_seal)
+                        highlighted = {str(entry.sqref) for entry in sheet.conditional_formatting
+                                       for rule in sheet.conditional_formatting[entry]
+                                       if rule.dxf.fill.bgColor.rgb[-6:] == "FFFF00"}
+                        expected_highlights = {container_cell, "P2"} | ({seal_cell} if expected_seal else set())
+                        self.assertEqual(highlighted, expected_highlights)
+                    finally:
+                        book.close()
+
+    def test_excel_highlights_active_warning_rows_without_changing_cells(self):
+        source = create_vimc(self.root / "warnings.xlsx", extra_lines=(
+            "DEMU0000004 001234 40RF 4.3 SOC RF EMPTY",
+            "DEMU0000005 001237 40HC 25 THEP",
+        ))
+        fixture = load_workbook(source)
+        fixture.active["D3"] = None
+        fixture.save(source)
+        fixture.close()
+        session = process_manifest(source, "VIMC")
+        message = "Cảnh báo đầy đủ để đối chiếu."
+        for record in session.records[:2]:
+            session.base_issues.append({"code": "TEST_ROW_WARNING", "severity": "warning",
+                                        "message": message, "record_id": record["record_id"]})
+        output = self.outputs / "warnings.xlsx"
+        for verified in (False, True):
+            with self.subTest(verified=verified):
+                if verified:
+                    session.acknowledge_record(session.records[0]["record_id"], "Đã xem nguồn")
+                exporter.export_port_excel(session, output, overwrite=verified)
+                book = load_workbook(output)
+                try:
+                    sheet = book.active
+                    rules = sorted(((str(entry.sqref), rule) for entry in sheet.conditional_formatting
+                                    for rule in sheet.conditional_formatting[entry]), key=lambda pair: pair[1].priority)
+                    (warn_range, warning), (empty_range, empty) = rules
+                    self.assertEqual((warn_range, empty_range), ("A2:P4", "A2:P4"))
+                    self.assertEqual(warning.formula, ["OR($A2=2)" if verified else "OR(AND($A2>=1,$A2<=2))"])
+                    self.assertEqual(warning.dxf.fill.bgColor.rgb[-6:], "FFF4D8")
+                    self.assertTrue(warning.stopIfTrue)
+                    self.assertLess(warning.priority, empty.priority)
+                    self.assertEqual(sheet["D3"].value, "001234")
+                    self.assertEqual(sheet["L3"].value, 4.3)
+                    self.assertEqual(sheet["P3"].value, message)
+                    self.assertIn(sheet["P4"].value, (None, ""))
+                    self.assertEqual([cell.value for cell in sheet[1]], VIMC_COLUMNS)
+                finally:
+                    book.close()
 
     def test_excel_notes_apply_to_this_row_and_retain_current_field_reasons(self):
         session = process_manifest(create_vimc(self.root / "notes.xlsx",

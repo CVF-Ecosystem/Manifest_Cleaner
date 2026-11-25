@@ -1,260 +1,40 @@
-# Manifest Cleaner Unified 1.2.6
+# Manifest Cleaner
 
-Ứng dụng **local**, xử lý **một manifest của một hãng tàu mỗi phiên**, hỗ trợ đối chiếu dữ liệu và xuất Excel theo mẫu nhập hệ thống quản lý container của Cảng.
+Ứng dụng Windows xử lý manifest của **VOSCO**, **VIMC** và **VINAFCO**. Mỗi phiên đọc một workbook, hỗ trợ đối chiếu theo container và xuất Excel **16 cột** theo mẫu của hãng để chuẩn bị nhập hệ thống Cảng. Dữ liệu được xử lý cục bộ.
 
-**Bắt đầu:** giải nén toàn bộ thư mục, dùng Python 3.12 64-bit và chạy `START.cmd`. Mở [START_HERE.html](START_HERE.html) để xem hướng dẫn tiếng Việt dùng được offline.
+## Bắt đầu
 
-**Bản 1.2.6** cảnh báo trọng lượng tổng của container có hàng thấp hơn vỏ tham chiếu và chuỗi kg dùng dấu chấm dạng nhóm nghìn theo quy ước legacy. Đối chiếu ô nguồn, rồi xác nhận trường trọng lượng trong form sửa dòng hoặc dùng Đã đối chiếu cho cả dòng nếu giữ giá trị. Sửa dòng sau đó sẽ kiểm lại cảnh báo.
+- **Gói Windows** — Giải nén cả thư mục `ManifestCleaner` rồi mở `ManifestCleaner.exe` trong thư mục đó.
+- **Mã nguồn** — Cài Python 3.12 64-bit có Tcl/Tk, rồi chạy `START.cmd` ở thư mục dự án. Lần đầu cần kết nối để cài thư viện.
 
-**Bản 1.2.5** giữ nút Lưu ở chân cửa sổ đối chiếu, sửa cách so số lượng VOSCO và cách ghi cảnh báo từng dòng.
+Dùng [mẫu tổng hợp trong samples/](samples/) để thử quy trình trước khi mở manifest nghiệp vụ.
 
-**Bản 1.2.4** áp dụng tổng trọng lượng vỏ và hàng cho cả ba hãng. Seal được ghi nguyên văn theo manifest và đối chiếu khi container xuống bãi.
+## Quy trình sử dụng
 
-**Bản 1.2.3** đọc phần trọng lượng VOSCO nằm ở ô nối tiếp trong cùng vận đơn khi số lượng và tổng trọng lượng nguồn khớp. Màn hình đối chiếu hiển thị tọa độ ô chứa trọng lượng.
+1. **Mở manifest.** Chọn hãng tàu, bấm **Mở manifest…** và chọn tệp Excel. Chọn sheet chi tiết nếu ứng dụng phát hiện nhiều bảng phù hợp.
+2. **Đối chiếu dữ liệu.** Xem số dòng, lỗi chặn và cảnh báo trên dải tóm tắt. Trong tab **Cần kiểm tra**, chọn vấn đề để xem container, B/L, thông báo và vị trí nguồn.
+3. **Sửa hoặc xác nhận.** Dùng **Xem / sửa dòng** để so dữ liệu nguồn với giá trị sẽ xuất. Ghi lý do khi lưu chỉnh sửa, xác nhận cảnh báo hoặc loại dòng. Dùng **Lưu đối chiếu…** để giữ phiên đang làm.
+4. **Xuất Excel.** Khi đã xử lý hết lỗi chặn, bấm **Xuất file Manifest…**. Excel ghi chú và tô màu các mục cần đối chiếu. Tùy chọn xuất kèm JSON lưu phiên ngay cạnh Excel. Bấm **Mở thư mục kết quả** để xem tệp.
+5. **Làm tiếp phiên đã lưu.** Chọn **Mở phiên đã lưu…** và mở JSON đối chiếu. Nếu manifest gốc đã chuyển thư mục, chọn lại tệp có cùng nội dung.
 
-**Bản 1.2.2** hiển thị **Số niêm chì** ngay sau **Số container** trong bảng Container. Giá trị hiển thị giữ số 0 đầu và cập nhật khi sửa seal.
+**Trọng lượng** là tổng vỏ và hàng, thể hiện bằng tấn. **Seal** được ghi dạng văn bản theo khai báo, kể cả chữ và số 0 đầu. Màu seal trong Excel là dấu tham chiếu theo mẫu của hãng để đối chiếu.
 
-**Bản 1.2.1** đọc đúng khối người nhận và dòng tổng SOC của VIMC trong mẫu BS2622S-TT. VOSCO giữ ký hiệu giao nhận trong bằng chứng nguồn và tính số lượng từ các dòng container. [Kết quả đối chiếu manifest thực tế](docs/reviews/LEGACY_COMPAT_REVIEW.md).
+## Dòng lệnh và kiểm thử
 
-**Bản 1.2.0** bổ sung chọn sheet VINAFCO, đối soát bảng tổng hợp với phần chi tiết, rà ứng viên container lệch cột ở VOSCO và sửa chuyển hướng đầu ra CLI Windows. [Ghi chú bản 1.2.0](docs/RELEASE_NOTES_V1_2.md).
+Dùng các lệnh sau trong thư mục dự án sau khi chạy `SETUP.cmd` hoặc `START.cmd`.
 
-**Bản nền 1.1.1:** [Hướng dẫn 1.1.1](docs/V1_1_1_GUIDE.html) và [ghi chú bản vá](docs/RELEASE_NOTES_V1_1_1.md) mô tả việc bảo vệ cặp Excel/JSON khi xuất thất bại.
-
-**Lịch sử 1.1.0:** [Tổng hợp nâng cấp](docs/RELEASE_NOTES_V1_1.html) gồm ma trận F01–F09 và kết quả kiểm thử tại lần phát hành đó.
-
-Gói mã nguồn gồm launcher, dữ liệu thử và hướng dẫn đóng gói. Bản EXE Windows dùng nguyên thư mục do PyInstaller tạo. [Quy trình kiểm trước khi sử dụng tại Cảng](docs/WINDOWS_RELEASE_CHECKLIST.md).
-
-## Phạm vi và hợp đồng dữ liệu
-
-- Chọn **VOSCO / VIMC / VINAFCO** theo hãng tàu. Tên tàu không quyết định parser.
-- VIMC nhận dạng bố cục từ dữ liệu, gồm trọng lượng trước mô tả theo tấn và trọng lượng sau mô tả theo kg. Dòng có nhiều cách đọc phải được đối chiếu.
-- VOSCO/VINAFCO giữ tên và thứ tự **16 cột** của mẫu xuất hiện có; VIMC giữ mẫu 16 cột riêng. Hãng đang xử lý quyết định mẫu xuất.
-- Mapping kích cỡ, operator và loại hàng tiếp tục theo từng hãng. Các lỗi đã tái hiện được sửa mà không đồng nhất tùy tiện quy tắc giữa các hãng.
-- Đường dẫn/dấu kiểm tra file nguồn, vị trí dữ liệu, các bằng chứng được adapter thu thập và lịch sử chỉnh sửa được giữ trong phiên đối chiếu. Dòng còn thiếu thông tin được giữ để sửa hoặc loại có lý do trong các biến thể đã nhận diện.
-- Luồng xử lý không cần tài khoản AI/API. Đọc manifest, sửa và xuất dữ liệu diễn ra trên máy sử dụng.
-
-## Chạy trên Windows
-
-1. Giải nén toàn bộ thư mục vào nơi tài khoản có quyền ghi, ví dụ Documents. Không chạy ngay trong cửa sổ xem ZIP.
-2. Cài Python **3.12 64-bit**; phạm vi Python khai báo của gói là 3.10–3.13.
-3. Chạy `START.cmd`. Lần chuẩn bị đầu tiên tạo `.venv` riêng và cài các thư viện trong `requirements.txt`, cần kết nối để tải phụ thuộc.
-4. Chọn hãng, mở một file `.xls`, `.xlsx` hoặc `.xlsm`, rồi làm theo quy trình đối chiếu bên dưới.
-
-Nếu đã có môi trường Python phù hợp:
-
-```bash
-python -m pip install -r requirements.txt
-python app.py
+```powershell
+.\.venv\Scripts\python.exe -m manifest_cleaner.cli "samples\DEMO_VIMC_INPUT.xlsx" --carrier VIMC --output "dist\exports\demo.xlsx"
+.\.venv\Scripts\python.exe -m manifest_cleaner.cli --help
+.\.venv\Scripts\python.exe -B scripts\check_release.py --tests
 ```
 
-Sau khi chuẩn bị đủ phụ thuộc, thao tác manifest không cần tải dữ liệu lên dịch vụ bên ngoài. Máy hạn chế mạng có thể được agent local chuẩn bị bộ thư viện offline.
+## Đóng gói và chia sẻ
 
-### Đóng gói EXE
+Chạy `BUILD_EXE.cmd` để kiểm thử và đóng gói vào `dist/ManifestCleaner/`. Có thể lưu gói bàn giao theo phiên bản tại `dist/<phiên bản>/ManifestCleaner/`. Khi gửi gói, chỉ nén thư mục `ManifestCleaner` cùng các tệp bên trong.
 
-`BUILD_EXE.cmd` chạy kiểm thử rồi tạo gói Windows cục bộ. Bản bàn giao theo phiên bản nằm ở `dist/<phiên bản>/ManifestCleaner/ManifestCleaner.exe`.
+Dùng `Manifest/` cho tệp nghiệp vụ cục bộ. Giữ manifest thật, Excel xuất và JSON đối chiếu ngoài Git.
 
-Chỉ gửi hoặc nén thư mục `dist/<phiên bản>/ManifestCleaner` cùng toàn bộ tệp bên trong. Tránh nén cả `dist/<phiên bản>` vì thư mục `exports` có thể chứa manifest nghiệp vụ và JSON đối chiếu.
+[Hướng dẫn offline](START_HERE.html) · [Danh mục tài liệu](docs/INDEX.md) · [Hợp đồng bộ đọc](ADAPTER_CONTRACT.md) · [Nguồn kế thừa](SOURCE_PROVENANCE.json)
 
-Bộ script/spec là đầu vào cho bước build ở máy Windows; việc có sẵn chúng không đồng nghĩa EXE đã được kiểm tra. Các giới hạn Windows và nghiệm thu Cảng được nêu ở cuối tài liệu.
-
-## Quy trình sử dụng 1.1.1
-
-### 1. Mở nguồn và xem cấu hình hiệu lực
-
-Chọn hãng rồi bấm **Mở manifest**. Phía trên bảng hiển thị quy ước số, ý nghĩa trọng lượng, sheet và bộ quy tắc đang dùng. Bảng tổng hợp phân biệt số container duy nhất, số dòng đang giữ, F/E, lỗi theo dòng, lỗi toàn file và dòng đã loại.
-
-Nếu file có nhiều bảng hoặc cần chỉ định sheet, dùng **Cấu hình đọc** để chọn đúng sheet rồi **Xử lý lại**. Khi đổi hãng hoặc cấu hình, kết quả cũ không được xuất theo lựa chọn mới. Nếu đã sửa dữ liệu, lưu đối chiếu trước khi chủ động xử lý lại.
-
-### 2. Xử lý đúng lỗi, đúng container
-
-Mở tab **Cần kiểm tra**, nhấp đúp một lỗi để sửa container liên quan. Nút **Xem / sửa dòng**, **Đã đối chiếu**, **Loại / khôi phục dòng** luôn dùng dòng được chọn trong tab đang mở. Lỗi toàn file không áp dụng các thao tác theo dòng.
-
-Trong cửa sổ sửa:
-
-- Dấu `*` và nhãn nổi bật chỉ trường liên quan lỗi/cảnh báo.
-- **Trường đã thay đổi** được ghi nhận cùng giá trị trước/sau.
-- **Trường giữ nguyên** chỉ được xác nhận khi tích ô **Đã đối chiếu** của chính trường đó.
-- Mở rồi lưu form không tự xác nhận tất cả trường. Sửa seal không làm mất lỗi F/E hoặc trọng lượng chưa được giải quyết.
-- Nhập lý do rồi bấm **Lưu chỉnh sửa / xác nhận** ở chân cửa sổ hoặc nhấn **Ctrl+S** trong cửa sổ sửa để cập nhật phiên. Dùng **Lưu đối chiếu** ở màn hình chính để lưu phiên ra JSON.
-
-Trọng lượng sửa trên giao diện luôn là **tấn**, dùng dấu phẩy hoặc dấu chấm thập phân. F là có hàng; E là rỗng.
-
-Với dòng VIMC có hai cách đọc, đối chiếu nguồn rồi chọn phương án và bấm **Điền và xác nhận** cho các trường liên quan. Ứng dụng điền giá trị theo cách đọc đã chọn; người dùng vẫn phải ghi căn cứ và lưu. Không có phương án được tự chọn sẵn.
-
-**Đã đối chiếu** ở thanh công cụ dùng để ghi căn cứ cho cảnh báo; không tự xóa lỗi dữ liệu. Dòng lặp hoặc dòng không thuộc manifest có thể **Loại** với lý do. Dialog nêu rõ số container/B/L; dòng vẫn được giữ trong phiên và có thể khôi phục.
-
-### 3. So nguồn với giá trị sẽ xuất
-
-Tab **Nguồn và giá trị xuất** trong cửa sổ sửa cho xem nguyên văn nguồn, bằng chứng theo trường và giá trị ghi vào mẫu 16 cột. Xem trước dùng cùng quy tắc chuyển đổi với exporter, bao gồm mapping, cách làm tròn và nhãn `EMPTY`. Xem trước không bỏ qua lỗi chặn xuất và không tự lưu các ô đang sửa.
-
-Cột **Ghi chú** của Excel ghi cảnh báo của chính dòng và lý do cho từng trường đã sửa hoặc xác nhận. Cảnh báo toàn file xem ở tab **Cần kiểm tra**. Quy tắc đọc, bằng chứng nguồn và lịch sử đầy đủ nằm trong JSON.
-
-Phần JSON kỹ thuật được thu gọn. Nút **Tra nguồn** ở cửa sổ chính cho xem các đoạn nguồn mà adapter đã ghi nhận, vị trí và lý do nhận diện/bỏ qua/chờ đối chiếu. Những nhãn này là **trạng thái tại lần đọc nguồn**, không phải số lỗi hiện tại sau chỉnh sửa. Một đoạn đã nhận diện vẫn có thể còn lỗi trường dữ liệu. Số đoạn nguồn không phải số container hay tỷ lệ chính xác.
-
-Ba adapter VOSCO/VIMC/VINAFCO đều ghi nhận đoạn nguồn theo phạm vi bố cục của mình. Đây là các đoạn parser đã thu thập, không phải xác nhận đã kiểm kê toàn bộ mọi ô trong workbook. Nếu một phiên không có danh sách này, giao diện thông báo rõ; nguồn từng container vẫn xem được trong form.
-
-### 4. Xuất và giữ phiên làm việc
-
-Bấm **Xuất file Manifest** khi không còn lỗi chặn. Hộp thoại lưu mở sẵn thư mục chứa manifest đang xử lý. Cảnh báo còn lại cần được đối chiếu và xác nhận xuất.
-
-Mặc định tùy chọn **Xuất kèm đối chiếu JSON để mở lại phiên** được bật:
-
-```text
-manifest_VIMC_CLEAN.xlsx
-manifest_VIMC_CLEAN.review.json
-```
-
-- Excel là file nhập hệ thống Cảng.
-- JSON lưu phiên đối chiếu, nguồn, cấu hình và lịch sử; không dùng JSON để nhập Cảng.
-- Nếu Excel hoặc JSON cùng tên đã tồn tại, ứng dụng yêu cầu xác nhận ghi đè cả bộ.
-- Giữ thêm manifest gốc để có thể mở lại phiên. Bản JSON không thay thế workbook gốc.
-- Có thể dùng **Lưu đối chiếu** trước khi xử lý hết lỗi để tiếp tục công việc sau.
-
-Nếu tắt xuất kèm JSON, các chỉnh sửa chưa lưu đối chiếu vẫn có cảnh báo khi đóng/mở phiên khác. JSON từ lần xuất trước, nếu có, không được cập nhật khi chỉ xuất Excel; nên dùng tên mới để tránh nhầm cặp file.
-
-Phím tắt: **Ctrl+O** mở manifest, **Ctrl+S** xuất, **F1** hướng dẫn.
-
-## Lưu và mở lại phiên: review v2
-
-Bấm **Mở phiên đã lưu** rồi chọn JSON do bản 1.1 tạo. Ứng dụng kiểm tra cấu trúc phiên, dấu kiểm tra nội dung và **SHA-256 của manifest nguồn** trước khi khôi phục.
-
-- Các sửa đổi, xác nhận, dòng đã loại và cấu hình đã lưu được khôi phục; không chạy lại parser để thay các sửa đổi.
-- Nếu manifest gốc đã di chuyển, chọn lại đúng file có cùng nội dung.
-- Nếu nội dung nguồn đã đổi, dùng đúng bản nguồn cũ để tiếp tục phiên cũ, hoặc mở bản đã đổi thành phiên mới.
-- Mở phiên lỗi không thay thế phiên hiện tại.
-- Quy ước đang chờ áp dụng ở giao diện không được dùng thay cấu hình đã tạo phiên. Sau resume, giao diện hiển thị cấu hình của phiên đã lưu.
-
-**JSON của bản 1.0 là báo cáo tham khảo, chưa phải phiên resumable.** Giữ bản đó để đối chiếu và mở manifest gốc bằng 1.1 để tạo phiên mới; không chỉ đổi nhãn version trong JSON cũ.
-
-Các file REVIEW trong `samples/` của bản 1.1 dùng đường dẫn nguồn tương đối với thư mục JSON để có thể mở sau khi giải nén. Giữ INPUT cạnh REVIEW. Phiên làm việc thông thường lưu đường dẫn nguồn tuyệt đối; khi nguồn được chuyển chỗ, dùng chức năng chọn lại nguồn ở GUI hoặc `--source` ở CLI.
-
-## Cấu hình đọc
-
-Giao diện tự tìm `settings.json` cạnh ứng dụng; nếu chưa có file này, dùng mặc định. Có thể bắt đầu từ `settings.example.json` hoặc dùng **Cấu hình đọc**. Cấu hình sâu nằm trong tài liệu từng hãng và [docs/DEVELOPER_HANDOFF.md](docs/DEVELOPER_HANDOFF.md).
-
-### Quy ước số và đơn vị
-
-| Tùy chọn | Ý nghĩa |
-|---|---|
-| `legacy` | Giữ quy ước nguồn cũ: dấu phẩy theo ngữ cảnh kg/tấn; khi có cả hai dấu, dấu cuối là thập phân trong cách viết hợp lệ. |
-| `decimal_comma` | Dấu phẩy thập phân, ví dụ `25.000,50`. |
-| `decimal_dot` | Dấu chấm thập phân, ví dụ `25,000.50`. |
-| `default_weight_unit` | Đơn vị mặc định khi nguồn không ghi rõ, với hãng có hỗ trợ tùy chọn này. |
-| `selected_sheet` | Tên chính xác của sheet cần xử lý. Tên không tồn tại báo lỗi. |
-
-Số đã lưu dạng numeric trong Excel giữ nguyên giá trị; không được diễn giải lại theo locale. Đơn vị ghi rõ trong ô/header được bộ đọc xử lý theo quy tắc của hãng; nội bộ dùng tấn, chưa làm tròn sớm. Không thay quy ước chỉ để làm mất cảnh báo.
-
-### Tổng trọng lượng và seal khai báo
-
-Manifest VOSCO, VIMC và VINAFCO dùng tổng trọng lượng vỏ container và hàng bên trong (`gross`). Khi xuất, app quy đổi tổng về tấn theo mẫu của hãng. Các quy tắc xác định F/E vẫn theo từng hãng, với VIMC đọc từ ngữ cảnh dòng hoặc nhóm.
-
-Mỗi lần đọc mới áp dụng `gross`, kể cả khi file cấu hình cũ ghi `cargo` hoặc `unknown`. Mở lại phiên đã lưu sẽ khôi phục dữ liệu và quy ước của phiên đó. Để áp dụng quy tắc mới cho phiên cũ, lưu phần chỉnh sửa cần giữ rồi đọc lại manifest gốc.
-
-Số niêm chì được ghi nhận theo khai báo trong manifest, gồm chữ, số 0 đầu và dấu phân cách. Hai cột seal trong Excel lưu dạng văn bản. Việc đối chiếu seal thực tế diễn ra khi container được dỡ xuống bãi.
-
-## Các tình huống từ audit đã được xử lý trong 1.1
-
-Bảng này tóm tắt hành vi của bản sửa cho các ca đã tái hiện; không phải cam kết nhận diện mọi biến thể manifest.
-
-| Finding | Thay đổi chính |
-|---|---|
-| F01 — Form tự xác nhận toàn bộ trường | Chỉ gửi thay đổi; xác nhận trường giữ nguyên phải được chọn riêng. |
-| F02 — Mã container VIMC hỏng bị bỏ qua | Giữ các ứng viên có cấu trúc đã hỗ trợ như mã có khoảng trắng/gạch nối hoặc thiếu chữ; yêu cầu sửa/xác nhận phù hợp, không ngầm coi mã hỏng là đúng. |
-| F03 — VINAFCO đọc tên cột nhưng mất đơn vị | Nhận tên cột và đơn vị cùng một lần; header lặp đổi cột/đơn vị làm dừng và chặn xuất để đối chiếu. |
-| F04 — VOSCO ghép lệch mô tả do dòng PORT | Dùng cùng tập mô tả đã phân loại cho bước đếm và ghép, giữ bằng chứng dòng nguồn. |
-| F05 — Ý nghĩa trọng lượng VOSCO không tham gia suy luận | Phân biệt cargo/gross/unknown trong logic F/E và nêu mâu thuẫn cần xử lý. |
-| F06 — Nút thao tác dùng selection của tab khác | Thao tác theo tab hiện hành; lỗi toàn file vô hiệu hóa nút theo dòng. |
-| F07 — Công thức chưa có kết quả bị đọc như trống | Với XLSX/XLSM, công thức thiếu kết quả lưu hoặc có lỗi trong sheet được dùng tạo lỗi nguồn chặn xuất. Ứng dụng không tự tính công thức. |
-| F08 — CLI nhận đường dẫn cấu hình không tồn tại | Đã chỉ định `--settings` thì file thiếu/sai phải báo lỗi; không lặng lẽ đổi sang mặc định. |
-| F09 — Party VIMC ở dòng tiếp theo bị đọc thiếu | Đọc tiếp tên/địa chỉ trong cùng B/L, giữ tọa độ nguồn và dừng ở ranh giới phù hợp. |
-
-Nếu gặp lỗi công thức XLSX/XLSM, mở nguồn bằng Excel để tính lại và lưu, hoặc tạo bản chỉ chứa giá trị, rồi xử lý lại. Cơ chế kiểm tra cache này chưa bao phủ XLS nhị phân cũ; chuyển mẫu có công thức sang XLSX hoặc bản giá trị khi cần đối chiếu công thức.
-
-Ngoài các ca trên, VINAFCO giữ dòng có thuộc tính container nhưng thiếu mã để sửa/loại có lý do. Giới hạn chi tiết nằm tại [docs/CARRIER_FIXES_V110.md](docs/CARRIER_FIXES_V110.md), [docs/VINAFCO_FIXES_V110.md](docs/VINAFCO_FIXES_V110.md) và [docs/GUI_V110.md](docs/GUI_V110.md).
-
-## Những quy tắc nghiệp vụ tiếp tục được giữ
-
-| Hãng | Quy tắc tương thích |
-|---|---|
-| VOSCO | Operator `VOC/SVC`, bố cục A/B/F/K/O/S, các chiến lược ghép mô tả, mapping VTOS/loại hàng. |
-| VIMC | Operator `VMC/SVM`, nhóm B/L, kg/tấn theo kiểu dòng, tank xuất `GENERAL`, hai cột kích cỡ xuất nhãn VTOS của mẫu cũ. |
-| VINAFCO | Operator `VFC/SVF`, marker `(S)/(C)/(N)`, nhãn cột và mapping VTOS/loại hàng, quy tắc số lượng theo nhóm. |
-
-Hai cột seal và cột ghi chú được giữ. VIMC/VINAFCO làm tròn trọng lượng ở bước xuất theo hành vi pandas của mẫu cũ; VOSCO giữ giá trị số sau quy đổi. VIMC/VINAFCO xuất nhãn hàng `EMPTY` khi E; mô tả nguồn vẫn giữ để đối chiếu. VOSCO giữ bước tinh chỉnh mô tả riêng.
-
-Cột **Độ chính xác (%)** được giữ để tương thích. Đây là **điểm theo quy tắc**, không phải accuracy hay xác suất đã đo trên dữ liệu vận hành.
-
-## Dùng dòng lệnh
-
-Các lệnh sau chạy bằng Python đã cài phụ thuộc. Trên Windows, có thể thay `python` bằng `.venv\Scripts\python.exe` trong thư mục ứng dụng.
-
-Kiểm tra nguồn và lưu phiên đối chiếu, kể cả khi còn lỗi:
-
-```bash
-python -m manifest_cleaner.cli input.xlsx --carrier VIMC --review review.json
-```
-
-Xuất Excel và JSON cùng tên mặc định:
-
-```bash
-python -m manifest_cleaner.cli input.xlsx --carrier VIMC --output output.xlsx
-```
-
-Dùng cấu hình/sheet cụ thể hoặc tên JSON riêng:
-
-```bash
-python -m manifest_cleaner.cli input.xlsx --carrier VINAFCO --settings settings.json --sheet Manifest --output output.xlsx --review review.json
-```
-
-Mở lại phiên, không truyền lại input/hãng/cấu hình:
-
-```bash
-python -m manifest_cleaner.cli --resume output.review.json --output output_2.xlsx
-```
-
-Manifest gốc đã di chuyển nhưng nội dung không đổi:
-
-```bash
-python -m manifest_cleaner.cli --resume output.review.json --source D:/Du_lieu/manifest_goc.xlsx --output output_2.xlsx
-```
-
-Chỉ xuất Excel hoặc chủ động cho phép ghi đè:
-
-```bash
-python -m manifest_cleaner.cli input.xlsx --carrier VOSCO --output output.xlsx --no-review
-python -m manifest_cleaner.cli --resume output.review.json --output output_2.xlsx --overwrite
-```
-
-Lưu ý CLI:
-
-- `--resume` dùng hãng/cấu hình trong phiên; không kết hợp input, `--carrier`, `--settings` hoặc `--sheet`.
-- `--source` chỉ dùng cùng `--resume`; nội dung nguồn phải khớp SHA-256 đã lưu.
-- Không kết hợp `--no-review` và `--review`.
-- Không tự tìm `settings.json` cạnh app như GUI: muốn dùng cấu hình riêng phải truyền `--settings`.
-- `--overwrite` cho phép thay bộ kết quả khi dữ liệu đủ điều kiện xuất. Khi còn lỗi chặn và Excel hoặc JSON đích đã có, CLI giữ nguyên các file đích kể cả khi có cờ này. Để lưu riêng báo cáo lỗi, bỏ `--output` và chọn tên `--review` mới. Nếu cả hai đích đều mới, lần xuất bị chặn vẫn lưu JSON khi đã chỉ định `--review` tường minh. Manifest nguồn luôn được bảo vệ.
-- Mã thoát **0**: không có lỗi chặn; **2**: kiểm tra dữ liệu còn lỗi khi không yêu cầu xuất, hoặc đối số CLI không hợp lệ; **1**: thao tác thất bại/xuất bị chặn.
-- CLI không có dialog xác nhận cảnh báo; người vận hành cần đọc `issues` và cấu hình hiệu lực trong kết quả trước khi dùng file xuất.
-
-## Dữ liệu thử và kiểm chứng
-
-Thư mục `samples/` có dữ liệu **tổng hợp** cho ba hãng và ca cần đối chiếu. Mở `DEMO_[HANG]_INPUT.xlsx`, xuất với tên mới và so sánh `DEMO_[HANG]_EXPECTED.xlsx`. Dùng `DEMO_VIMC_NEEDS_REVIEW.xlsx` để thử thiếu chủ hàng và dòng trọng lượng/mô tả mơ hồ.
-
-EXPECTED của demo là kết quả minh họa từ chương trình, không phải output được Cảng xác nhận. Bộ dữ liệu đối chiếu có giá trị kỳ vọng độc lập được mô tả tại [docs/GOLDEN_DATA_V110.md](docs/GOLDEN_DATA_V110.md).
-
-```bash
-python -m unittest discover -s tests -v
-python scripts/create_samples.py --output demo_generated
-```
-
-Trên Windows có thể chạy `RUN_TESTS.cmd`. Kết quả kiểm thử, phiên bản thư viện, phạm vi và giới hạn được cập nhật tại [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md); tài liệu này không tự ghi một con số test cố định.
-
-Các demo và golden được giữ nguyên từ 1.1.0 để đối chiếu tính tương thích; bản vá chỉ đổi nhánh CLI khi xuất thất bại. Không ghi đè mẫu đóng gói trong lúc kiểm checksum. Các phiên review v2 của 1.1.0 tiếp tục được mở bằng 1.1.1.
-
-### Giới hạn còn phải nghiệm thu
-
-- Chưa kiểm thử trực quan giao diện Tkinter native trên Windows trong môi trường bàn giao này.
-- Chưa build/chạy nghiệm thu bản EXE Windows; cần kiểm tra ở máy đích, gồm DPI, đường dẫn tiếng Việt và quyền ghi thư mục.
-- Chưa nhập thử trên hệ thống quản lý container của Cảng, chưa có corpus manifest thật kèm output được Cảng xác nhận.
-- Các ca hồi quy chứng minh hành vi cụ thể, không xác lập tỷ lệ chính xác vận hành hoặc bao phủ mọi định dạng chưa gặp.
-
-Nguồn kế thừa và commit được ghi tại [SOURCE_PROVENANCE.json](SOURCE_PROVENANCE.json). Chi tiết quy tắc lịch sử nằm trong `docs/VOSCO_CHANGES.md`, `docs/VIMC_CHANGES.md`, `docs/VINAFCO_CHANGES.md`; tài liệu 1.1 ghi những sửa đổi tiếp theo. Ghi công các tác giả và quy tắc nghiệp vụ của ba repo gốc; gói này phục vụ phạm vi công việc của chủ sở hữu các repo.
+**Tien - Tan Thuan Port @2026**

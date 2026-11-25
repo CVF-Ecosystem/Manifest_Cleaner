@@ -90,6 +90,10 @@ TARE_WEIGHTS_TONS: Dict[str, float] = {
 # Safety margin (in TONS) added to tare weight when determining F/E status
 SAFETY_MARGIN_TONS: float = 0.5
 
+# High end of Hapag-Lloyd's 40 ft reefer fleet examples, used only for
+# excessive-weight warnings on containers explicitly declared EMPTY.
+REEFER_EMPTY_TARE_REFERENCE_TONS = {"40RF": 4.8, "40RH": 4.8}
+
 
 # --- Tank Container Configuration ---
 # Tank containers have higher tare weight than standard containers

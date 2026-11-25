@@ -11,6 +11,8 @@ Chọn theme ttk `clam` tùy chỉnh vì theme Windows gốc lấy màu nền n�
 **Màn chính và phản hồi**  
 Thanh thao tác gọn nằm trên số liệu hiện tại, bộ lọc và hai bảng. Hàng nút, lý do khóa Xuất, ô JSON và tiến độ luôn dành chỗ ở chân cửa sổ. Hai số Lỗi chặn và Cảnh báo mở danh sách đã lọc. Bảng Container ghi số lỗi hoặc số cảnh báo, trạng thái xác nhận hoặc đã loại. Form dòng đã loại đọc lý do từ lịch sử phiên. Hai bảng hỗ trợ Ctrl+C dạng TSV.
 
+Dòng tác giả luôn căn giữa chân cửa sổ, ngang với ô xuất kèm JSON. Chân cửa sổ hiện phản hồi khi đang đọc, gặp lỗi hoặc hoàn tất thao tác lưu và xuất. Số dòng và cảnh báo sau khi đọc xong nằm ở dải tóm tắt và bảng đối chiếu.
+
 Bảng rỗng phân biệt chưa mở tệp, bộ lọc rỗng và không có lỗi. Khi đọc nền, vùng bảng báo đang đọc. Khi lỗi đọc, hộp thoại nêu nguyên nhân và bước thử lại. Dòng tóm tắt chỉ nêu sheet khi tệp có nhiều sheet, và chỉ nêu quy ước đọc khi khác mặc định của hãng, như phiên cũ dùng trọng lượng hàng. Cấu hình chi tiết nằm trong hộp thoại Cấu hình đọc và JSON. Giữ luồng đọc nền hiện có. Worker gọi bộ đọc đến khi có kết quả và hiện chưa có tín hiệu hủy hợp tác hay cơ chế khôi phục phiên cũ nguyên tử. Vì vậy lượt này giữ nút thao tác hiện có. Sau khi xuất, nút **Mở thư mục kết quả** dùng đường dẫn thư mục thực từ kết quả xuất.
 
 **Danh sách và chi tiết**  

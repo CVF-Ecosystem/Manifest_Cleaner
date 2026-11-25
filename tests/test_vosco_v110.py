@@ -86,7 +86,7 @@ class Vosco110Tests(unittest.TestCase):
         row[0], row[1], row[5], row[10], row[14], row[18] = (
             "(C)", "TEST", "VOSCO123456", "ABCU1234567/001234 40HC-C", "CARGO", "25 TONS")
         sheet.append(row)
-        for label in ("DOOR-DOOR", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY"):
+        for label in ("DOOR-DOOR", "DOOR/OTI", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY"):
             note = [""] * 19
             note[10] = label
             sheet.append(note)
@@ -97,7 +97,7 @@ class Vosco110Tests(unittest.TestCase):
         self.assertEqual(len(session.records), 1)
         self.assertFalse(any(i["code"] == "CONTAINER_UNPARSED" for i in session.validate()))
         self.assertEqual(len([f for f in session.metadata["source_fragments"]
-                              if f["reason"] == "delivery_mode_annotation"]), 5)
+                              if f["reason"] == "delivery_mode_annotation"]), 6)
         columns, rows = build_port_rows(session)
         self.assertEqual(rows[0][columns.index("Số lượng")], 1)
 
@@ -162,6 +162,24 @@ class Vosco110Tests(unittest.TestCase):
                           last["raw"]["weight_total_source_line"]), (7, 19, 2))
         self.assertIn("vosco.weight.continuation-total", last["rules"])
         self.assertFalse(any(i["code"] == "WEIGHT_INVALID" for i in result["issues"]))
+
+    def test_continuation_can_start_with_previous_weight_unit(self):
+        from openpyxl import load_workbook
+        for header, expected in (("KGS", [25, 26, 27]), ("TONS", [25, 26000, None])):
+            with self.subTest(header=header):
+                path = self.continuation_workbook(continuation=f"{header}\n27 TONS\nTotal:78\nTONS")
+                book = load_workbook(path)
+                book.active.cell(1, 19).value = "\n25 TONS\n26000"
+                book.save(path)
+                book.close()
+                result = parse_manifest(path)
+                self.assertEqual([r["Weight_Value"] for r in result["records"]], expected)
+                if header == "KGS":
+                    before, last = result["records"][1:]
+                    self.assertEqual(before["raw"]["weight_unit_evidence"],
+                                     {"source_row": 7, "source_column": 19, "source_line": 1, "text": "KGS"})
+                    self.assertEqual((last["raw"]["weight_source_line"], last["raw"]["weight_total_source_line"]),
+                                     (2, 3))
 
     def test_continuation_must_be_unique_scoped_and_total_checked(self):
         next_bill = [""] * 19
@@ -451,6 +469,26 @@ class Vosco110Tests(unittest.TestCase):
         existing = [i for i in result["issues"] if i["code"] == "EMPTY_WEIGHT_CONFLICT"]
         self.assertEqual(existing, current_weight_issues(record))
         self.assertEqual(record["FE_Status"], "E")
+
+    def test_declared_empty_40ft_reefer_uses_reefer_reference_for_warning(self):
+        for size in ("40RF", "40RH"):
+            container = f"ABCU1234567/001234 {size}-S"
+            for weight, warned in ((5, False), (5.3, False), (5.31, True)):
+                with self.subTest(size=size, weight=weight):
+                    session = process_manifest(self.workbook("EMPTY", containers=container,
+                                                             weight=f"{weight} TONS"), "VOSCO")
+                    record, = session.records
+                    self.assertEqual((record["FE_Status"], record["Weight_Value"]), ("E", weight))
+                    findings = [i for i in session.validate() if i["code"] == "EMPTY_WEIGHT_CONFLICT"]
+                    self.assertEqual(bool(findings), warned)
+                    if warned:
+                        self.assertEqual(findings[0]["details"]["threshold_tons"], 5.3)
+                    build_port_rows(session)
+        dry = {"Size_Type": "40HC", "FE_Status": "E", "Description": "EMPTY", "Weight_Value": 5}
+        self.assertEqual(current_weight_issues(dry)[0]["details"]["threshold_tons"], 4.8)
+        tank = {**dry, "Size_Type": "20TK"}
+        self.assertFalse(current_weight_issues(tank))
+        self.assertEqual(current_weight_issues({**tank, "Weight_Value": 11})[0]["details"]["threshold_tons"], 6)
 
     def test_legacy_explicit_empty_and_cargo_conflict_remains_visible(self):
         result = parse_manifest(self.workbook("EMPTY", containers=CONTAINERS.splitlines()[0], weight="2 TONS"),

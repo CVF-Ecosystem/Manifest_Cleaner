@@ -60,6 +60,7 @@ ISSUE_TITLES = {
     "VIMC_LAYOUT_AMBIGUOUS": "Trọng lượng chưa rõ đơn vị",
     "VIMC_LEGACY_COMPACT_CONTAINER": "Mã container dạng ngắn",
     "VIMC_MARKS_SIZE_CONFLICT": "Kích cỡ không khớp",
+    "VIMC_REEFER_SIZE_REVIEW": "Đối chiếu kích cỡ lạnh",
     "VIMC_NO_CONTAINERS": "Không có container",
     "VIMC_SEAL_TYPE_AMBIGUOUS": "Chưa rõ seal, cỡ",
     "VIMC_SIZE_MISSING": "Thiếu kích cỡ",

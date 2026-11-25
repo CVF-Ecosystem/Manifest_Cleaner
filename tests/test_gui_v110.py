@@ -292,7 +292,7 @@ class GUIRegressionTests(unittest.TestCase):
         self.assertNotIn("Đang dùng", app.summary.get() + app.configuration.get())
         self.assertNotIn("Trọng lượng:", app.summary.get())
         self.assertEqual(app.configuration.get(), "")
-        self.assertEqual(app.status.get(), f"Đã đọc {len(session.records)} bản ghi. Có thể xuất. Mở từng dòng để xem bằng chứng từ nguồn.")
+        self.assertEqual(app.status.get(), "")
         session.settings["weight_kind"] = "cargo"
         session.metadata["effective_settings"] = dict(session.settings)
         app.refresh()
@@ -305,7 +305,8 @@ class GUIRegressionTests(unittest.TestCase):
         app.refresh = gui.ManifestApp.refresh.__get__(app)
         app.refresh()
         self.assertGreater(session.statistics()["errors"], 0)
-        self.assertEqual(app.status.get(), f"Đã đọc {len(session.records)} bản ghi.")
+        self.assertEqual(app.status.get(), "")
+        self.assertIn("lỗi chặn xuất", app.export_hint.get())
 
     def test_seal_edit_does_not_clear_unrelated_fe_conflict(self):
         session = self.session(status="COC EMPTY")
@@ -354,7 +355,7 @@ class GUIRegressionTests(unittest.TestCase):
         app.refresh()
         self.assertFalse(app.tree.rows)
         self.assertFalse(app.issue_tree.rows)
-        self.assertIn("Có thể xuất", app.status.get())
+        self.assertEqual(app.export_hint.get(), "")
         with fake_dialog() as dialog:
             app.edit_record(rid)
             self.assertFalse(any("Đã ghi quy tắc đối soát" in w.options.get("text", "") for w in dialog.widgets))
@@ -465,9 +466,12 @@ class GUIRegressionTests(unittest.TestCase):
                 width, height = root.minsize()
                 root.geometry(f"{width}x{height}")
                 root.update()
+                toolbar = app.reload_button.master.master
+                extras = toolbar.grid_slaves(row=0, column=2)[0]
                 widgets = (app.open_button, app.resume_button, app.search_entry, app.tabs,
                            app.edit_button, app.ack_button, app.exclude_button, app.review_button,
-                           app.export_button, app.export_hint_label, app.json_check, app.status_label, app.progress)
+                           app.export_button, app.export_hint_label, app.json_check, app.author_label,
+                           app.status_label, app.progress, *extras.winfo_children())
                 for widget in widgets:
                     x = widget.winfo_rootx() - root.winfo_rootx()
                     y = widget.winfo_rooty() - root.winfo_rooty()
@@ -478,6 +482,8 @@ class GUIRegressionTests(unittest.TestCase):
                     self.assertLessEqual(x + widget.winfo_width(), root.winfo_width(), str(widget))
                     self.assertLessEqual(y + widget.winfo_height(), root.winfo_height(), str(widget))
                 self.assertIn("lỗi chặn xuất", app.export_hint.get())
+                self.assertEqual(root.title(), f"Manifest Cleaner {gui.__version__}")
+                self.assertEqual(app.author_label.cget("text"), "Tien - Tan Thuan Port @2026")
                 app.tabs.select(1)
                 root.update()
                 for widget in (app.issue_tree, app.issue_detail_text, app.issue_edit_button,
@@ -487,6 +493,27 @@ class GUIRegressionTests(unittest.TestCase):
                                          root.winfo_rootx() + root.winfo_width(), str(widget))
                     self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(),
                                          root.winfo_rooty() + root.winfo_height(), str(widget))
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows Tk geometry")
+    def test_author_stays_centered_in_footer_when_resizing(self):
+        for scale in (1, 1.25, 1.5):
+            with self.subTest(scale=scale), self.live_app(scale) as app:
+                root = app.root
+                self.assertEqual(app.status.get(), "")
+                minimum_width, minimum_height = root.minsize()
+                wide_width = min(root.winfo_screenwidth() - 20, gui._pixels(root, 1240))
+                label = app.author_label
+                self.assertIs(label.master, app.json_check.master)
+                for width in (minimum_width, wide_width):
+                    with self.subTest(width=width):
+                        root.geometry(f"{width}x{minimum_height}")
+                        root.update()
+                        self.assertTrue(label.winfo_viewable())
+                        label_center = label.winfo_rootx() + label.winfo_width() / 2
+                        self.assertAlmostEqual(label_center, root.winfo_rootx() + root.winfo_width() / 2, delta=2)
+                        self.assertGreaterEqual(label.winfo_rootx(), app.json_check.winfo_rootx() + app.json_check.winfo_width())
+                        self.assertGreaterEqual(label.winfo_rooty(), app.actionbar.winfo_rooty() + app.actionbar.winfo_height())
+                        self.assertLessEqual(label.winfo_rooty() + label.winfo_height(), app.status_label.winfo_rooty())
 
     @unittest.skipUnless(sys.platform == "win32", "Windows Tk action bindings")
     def test_summary_buttons_filter_issue_tab_and_clear_restores_rows(self):

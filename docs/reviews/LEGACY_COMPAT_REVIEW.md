@@ -60,4 +60,31 @@ Kiểm độc lập các seal có số 0 đầu, dấu phân cách, chữ thư�
 
 Các kiểm thử giả lập bao gồm sai số lượng thực, nhiều cỡ trên cùng dòng, tổng ghi riêng, phạm vi B/L lặp, mẫu ghi khối lượng trong mô tả hàng, trị số thay đổi sau xác nhận, dòng VIMC trùng có trọng lượng khác nhau và ghi chú toàn file. Bản xuất giữ 16 cột. Cột Ghi chú dùng vấn đề còn hiệu lực của từng dòng và căn cứ cho trường đã sửa hoặc xác nhận. JSON giữ lịch sử, quy tắc và vấn đề toàn file. Các dòng rõ dữ liệu, chưa chỉnh sửa có ghi chú trống.
 
+## Đối chiếu ba cặp workbook ngày 25-11-2026
+
+| Manifest | Số dòng Excel cũ | Số dòng app trước → sau | Lỗi chặn trước → sau | Cảnh báo trước → sau |
+| --- | ---: | ---: | ---: | ---: |
+| VIMC BDNG 2639S | 128 | 138 → 138 | 90 → 0 | 0 → 0 |
+| VIMC BDNA 2644S | 490 | 490 → 490 | 310 → 1 | 6 → 6 |
+| VOSCO VFON 2640S | 317 | 321 → 317 | 38 → 0 | 83 → 18 |
+
+- VIMC dùng dòng tổng EMPTY khi số lượng theo từng cỡ khớp toàn bộ MARKS của cùng B/L, kể cả khi MARKS bắt đầu ở trang trước. BDNG có thêm 10 cặp B/L–container trong nguồn so với Excel cũ. Chín nằm ở dòng hàng có chi tiết tại S625 và một nằm ở nhóm rỗng L662/S662. BDNA nhận đủ 107 dòng rỗng, gồm bốn dòng chi tiết ghi `SOC RF EMPTY`.
+- BDNA vẫn khóa xuất vì `Sheet1!L699` khai 40RF và `Sheet1!S699` khai 40HC cho cùng container. Sáu cảnh báo mã ngắn tiếp tục dùng bằng chứng đối chiếu giữa MARKS và dòng chi tiết. Bản cũ đã xuất 40HC cho dòng xung đột. Quyết định loại kích cỡ được giữ cho operator đối chiếu nguồn.
+- VOSCO coi `DOOR/OTI` là nhãn giao nhận. Tổng 669,10 tấn xác nhận 31 dòng ở K1243, gồm 10 trọng lượng tại S1283. Dòng đầu của S1283 là đơn vị TONS của số tại cuối S1243. 18 dòng còn cảnh báo đều ghi EMPTY, gồm 15 dòng 40RF nặng 5 tấn ở dòng nguồn 559 và 3 dòng 20TK nặng 11 tấn ở dòng 1058.
+- Cả ba file mới giữ đủ cặp B/L–container của bản cũ. Hai manifest không có lỗi chặn được xuất thử với đúng tiêu đề 16 cột. Kiểm rule màu trong Excel tạo từ VFON cho đúng 18 số thứ tự, ưu tiên vàng cho dòng cảnh báo và xanh nhạt cho dòng rỗng không có cảnh báo. Ghi chú giữ câu thông báo đầy đủ. Màu cảnh báo dựa vào vấn đề còn hiệu lực của phiên và không dùng quy tắc kiểm định dạng seal đã bỏ theo quyết định của operator.
+
+Chỉ đọc sáu workbook nghiệp vụ trong `Manifest/` và đối chiếu SHA-256 trước/sau. Kết quả xuất thử nằm trong thư mục tạm. Chạy lại năm file trong `dist/` với cùng lựa chọn sheet MANIFEST của VINAFCO đạt 788 dòng, 0 lỗi chặn và 3 cảnh báo. Log đọc có cảnh báo thư viện openpyxl về vùng in CGL trong workbook VINAFCO. Kiểm Tk thật ở ba mức tỷ lệ cho tiêu đề và tác giả. Kiểm màu và thứ tự ưu tiên qua OOXML, vì phiên Excel COM cục bộ từ chối mở file mẫu với mã `0x800A03EC`. Chưa kiểm lại bằng EXE.
+
 Trên Windows Tk, đã thử bố cục 595 × 430 với hệ số Tk 2.0, cuộn tới các trường, lưu bằng Enter và hủy bằng Escape. Thanh lý do, Lưu và Hủy hiển thị trong vùng làm việc. Việc lưu dòng áp dụng vào phiên hiện tại. Nút Lưu đối chiếu lưu phiên ra JSON. Xử lý lại từ manifest gốc để tính lại các cảnh báo cấu trúc của bản cũ.
+
+### Hiệu chỉnh theo xác nhận về container lạnh và container bồn
+
+- Danh mục Hapag-Lloyd đưa ví dụ container khô 40 ft vỏ 3,75 tấn và một số mẫu reefer cao 40 ft vỏ 4,30–4,80 tấn. VOSCO dùng mốc 4,80 tấn cộng biên 0,50 tấn hiện có để cảnh báo trọng lượng tổng của 40RF/40RH khai rỗng. Mốc dry, cách suy luận F/E và phép kiểm container có hàng giữ theo quy tắc trước. Container bồn 20TK đã có mốc riêng 5,50 tấn và ngưỡng cảnh báo rỗng 6,00 tấn. Một số bồn chuyên dụng Seaco công bố vỏ 4,50–5,50 tấn. [Dry Hapag-Lloyd](https://www.hapag-lloyd.com/en/services-information/cargo-fleet/container/40-standard.html), [Danh mục reefer Hapag-Lloyd, trang 43](https://static-cf.hapag-lloyd.com/content/dam/website/downloads/local_info/HPL-CONTAINER_SPECIFICATION.pdf), [Bồn chuyên dụng Seaco](https://seacoglobal.com/equipment/tank-containers/specialised-tanks/t20-t22-specialised-tanks/)
+- Với BDNA, xác nhận operator dùng chiều cao khai ở chi tiết 40HC và loại lạnh khai ở MARKS 40RF, được mô tả hàng lạnh củng cố. Khi hai nguồn thống nhất theo mẫu này trên một container F, VIMC ghi lại cả hai giá trị, quy đổi sang 40RH trong Excel, lưu mã vật lý tham chiếu 45R1 và xuất với cảnh báo. Chênh lệch chưa có đủ căn cứ vẫn dẫn đến lỗi chặn. [BIC Size & Type Codes](https://www.bic-code.org/size-type-code/), [Bảng mã thiết bị Hapag-Lloyd](https://www.hapag-lloyd.com/en/services-information/cargo-fleet/container/container-type-groups.html)
+- Cả ba manifest xuất thử và mở lại được JSON. BDNA đạt 490 dòng, 0 lỗi chặn, 7 cảnh báo. VFON đạt 317 dòng, 0 lỗi chặn, 3 cảnh báo cho 20TK khai rỗng 11 tấn. Mười lăm dòng 40RF khai rỗng 5 tấn vẫn giữ E, 5 tấn. BDNG đạt 138 dòng, 0 lỗi chặn, 0 cảnh báo. Quy tắc màu trong Excel đánh dấu đúng số thứ tự cảnh báo. Sáu workbook nguồn không đổi SHA-256. Năm manifest hồi quy cũ đạt 788 dòng, 0 lỗi chặn và 3 cảnh báo.
+
+### Định dạng trọng lượng và màu đối chiếu Excel
+
+VFON dùng định dạng **General** cho cột **TL hàng**, giống bản Excel cũ. Ô I2 lưu số 9 và số lẻ vẫn được ghi dạng số. Quy tắc tô vàng dùng đúng mẫu tham chiếu bên cột seal của tool cũ, gồm sáu chữ số cho VOSCO và sáu hoặc bảy chữ số cho VIMC/VINAFCO. Seal trống bỏ qua bước tham chiếu. Khi cần đánh dấu, bản xuất giữ câu **⚠️ Seal không hợp lệ** và tô vàng ô **Số niêm chì** cùng **Ghi chú**. Số container có cảnh báo còn hiệu lực cũng được đánh dấu trên ô tương ứng và ô ghi chú. Giá trị seal và quy tắc cho phép xuất lấy từ phiên, còn dấu tham chiếu định dạng seal chỉ áp dụng ở bản xem trước và Excel.
+
+Đối chiếu theo cặp B/L–container trên 317 dòng VFON. Excel xuất thử khớp đủ 96 dòng seal được đánh dấu với bản xử lý cũ. Hai cột seal khớp giá trị cũ. Kết quả phiên là 0 lỗi chặn và 3 cảnh báo nghiệp vụ. Các workbook đối chiếu được đọc cục bộ và giữ nguyên SHA-256.

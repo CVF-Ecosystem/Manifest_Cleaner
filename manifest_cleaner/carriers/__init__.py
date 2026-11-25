@@ -28,8 +28,9 @@ class PortExportProfile:
     group_quantity_by_master_bl: bool = False
     primary_size_field: str = "Size_Type"
     weight_digits: int | None = None
-    weight_format: str = "0.####"
+    weight_format: str = "General"
     empty_description: str | None = None
+    seal_reference_lengths: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,7 @@ CARRIER_PROFILES = {
         operators=("VOC", "SVC"),
         default_weight_unit="TONS",
         sheet_alias="sheet_name",
+        export=PortExportProfile(seal_reference_lengths=(6,)),
     ),
     "VIMC": CarrierProfile(
         adapter="manifest_cleaner.carriers.vimc.adapter",
@@ -67,7 +69,7 @@ CARRIER_PROFILES = {
         export=PortExportProfile(
             columns=VIMC_PORT_COLUMNS, group_quantity_by_master_bl=True,
             primary_size_field="VTOS_Size", weight_digits=2, weight_format="0.00",
-            empty_description="EMPTY",
+            empty_description="EMPTY", seal_reference_lengths=(6, 7),
         ),
     ),
     "VINAFCO": CarrierProfile(
@@ -83,7 +85,7 @@ CARRIER_PROFILES = {
         },
         export=PortExportProfile(
             group_quantity_by_master_bl=True, weight_digits=2,
-            weight_format="0.00", empty_description="EMPTY",
+            weight_format="0.00", empty_description="EMPTY", seal_reference_lengths=(6, 7),
         ),
     ),
 }

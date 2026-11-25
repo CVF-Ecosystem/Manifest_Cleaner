@@ -10,3 +10,4 @@ settings.json
 *.log
 .cvf/local-binding.json
 .cvf/runtime/
+/Manifest/

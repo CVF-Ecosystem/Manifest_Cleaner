@@ -19,11 +19,16 @@ from .parsers import (
 )
 
 SOURCE_COMMIT = "03e0d34e3fe4a27d8d2ce0d54d96ea9275370436"
-PROFILE_VERSION = "vimc-1.3.1"
+PROFILE_VERSION = "vimc-1.3.3"
 _BL_MARKER = re.compile(r"\bB\s*/?\s*L\s*NO\.?\s*:", re.I)
 _PARTY_MARKER = re.compile(r"^\s*([123])\s*[).]\s*(.*)$")
 _TRAILING_OWNER_TOTAL = re.compile(
     r"TOTAL\s*:\s*(\d{1,6})\s*[X×]\s*((?:20|40|45)'?[A-Z]{2,4})\s+(SOC|COC)\s+(LADEN|EMPTY)"
+)
+_EMPTY_TOTAL_ITEM = r"(\d{1,6})\s*[X×]\s*((?:20|40|45)'?[A-Z0-9]{2,4})"
+_EMPTY_MARKS_TOTAL = re.compile(
+    rf"TOTAL\s*:\s*(?P<sizes>{_EMPTY_TOTAL_ITEM}(?:\s*[,;+&]\s*{_EMPTY_TOTAL_ITEM})*)"
+    r"\s*,?\s*(?P<owner>SOC|COC)\s+(?:RF\s+)?EMPTY"
 )
 _COMPACT_IDENTIFIER = re.compile(r"[A-Z]{4}\d{4,6}")
 _COMPACT_MARK = re.compile(r"(?P<identifier>[A-Z]{4}[0-9]{4,6})[ \t]*/[ \t]*(?P<size>[A-Z0-9']{2,5})")
@@ -121,7 +126,7 @@ def _find_header(frame):
 def _status(text):
     """Read explicit container-status phrases; goods containing EMPTY are goods."""
     cleaned = normalize_text(text).strip(" ;,.:")
-    if is_explicit_empty(cleaned):
+    if is_explicit_empty(cleaned) or re.fullmatch(r"(?:SOC|COC) RF EMPTY", cleaned):
         return "E"
     # Some existing manifests put the quantity/type before the status.
     prefix_removed = re.sub(r"^\(?\d+\)?\s*[X×]\s*(?:20|40|45)'?\s*[A-Z0-9]+\s+", "", cleaned)
@@ -232,6 +237,34 @@ def _context(entry, markers, *, marks=False):
         status = marker["status"] or status
         owner = marker["owner"] or owner
     return status, owner
+
+
+def _empty_marks_total(group, marks_by_entry, markers, settings):
+    """Use a B/L-wide EMPTY total only when the entire MARKS list verifies it."""
+    if not group["BL_No"]:
+        return None
+    totals = [(entry, _EMPTY_MARKS_TOTAL.fullmatch(normalize_text(entry["text"])))
+              for entry in group["description"]]
+    totals = [(entry, match) for entry, match in totals if match]
+    if len(totals) != 1:
+        return None
+    entry, match = totals[0]
+    owner = match["owner"]
+    if any(marker["status"] == "F" or marker["owner"] not in (None, owner) for marker in markers):
+        return None
+    marks = [mark for _, found in marks_by_entry for mark in found]
+    if (not marks or len(marks) != len({mark["container_no"] for mark in marks})
+            or any(not is_valid_container(mark["container_no"]) or not is_supported_size_type(mark["size_type"], settings)
+                   for mark in marks)):
+        return None
+    declared = Counter()
+    for quantity, size in re.findall(_EMPTY_TOTAL_ITEM, match["sizes"]):
+        declared[size.replace("'", "")] += int(quantity)
+    actual = Counter(mark["size_type"].replace("'", "") for mark in marks)
+    if dict(declared) != dict(actual):
+        return None
+    return {"text": entry["text"], "source_row": entry["row"], "source_column": entry["col"] + 1,
+            "source_line": entry["line"], "owner": owner, "declared_sizes": dict(declared)}
 
 
 def _base_record(group, entry, segment_index, source_file, sheet, parsed, status, owner, settings):
@@ -384,13 +417,39 @@ def _validate_record(record, parsed, issues):
         _add_issue(issues, "VIMC_FE_UNRESOLVED", "Chưa xác định được trạng thái đầy/rỗng từ thông tin rõ ràng.", record=record, severity="error", field="FE_Status")
     if record["Weight_Value"] == 0 and record["FE_Status"] == "F":
         _add_issue(issues, "VIMC_ZERO_LOADED_WEIGHT", "Container có hàng có trọng lượng bằng 0; đã giữ đúng giá trị 0 để đối chiếu.", record=record, field="Weight_Value")
-    if record["FE_Status"] == "E" and record["Description"] and not is_explicit_empty(record["Description"]):
+    if record["FE_Status"] == "E" and record["Description"] and _status(record["Description"]) != "E":
         _add_issue(issues, "VIMC_STATUS_GOODS_CONFLICT", "Nhóm vận đơn ghi rỗng nhưng dòng container có mô tả hàng; đã giữ nguyên mô tả, cần kiểm tra F/E.", record=record, severity="error", field="FE_Status")
     if record["raw"].get("context_status") and record["raw"].get("row_status") and record["raw"]["context_status"] != record["raw"]["row_status"]:
         _add_issue(issues, "VIMC_STATUS_SCOPE_CONFLICT", "Trạng thái đầy/rỗng của dòng container khác tiêu đề nhóm trước đó; đã giữ trạng thái ghi trực tiếp trên dòng để kiểm tra.", record=record, severity="error", field="FE_Status")
     evidence = [item["value"] for item in record["raw"]["bl_evidence"] if item["value"]]
     if len(set(evidence)) > 1:
         _add_issue(issues, "VIMC_BL_CONFLICT", "Số vận đơn trong cột thứ ba khác số ghi cạnh nhãn B/L; đã giữ cả hai nguồn.", record=record, severity="error", field="BL_No")
+
+
+def _reconcile_marks_size(record, settings, issues):
+    raw = record["raw"]
+    marks = raw.get("marks_evidence", ())
+    detail_size = record["Size_Type"].replace("'", "")
+    if not marks or not detail_size:
+        return
+    mark_sizes = {text_value(mark.get("size_type")).replace("'", "") for mark in marks}
+    if (detail_size == "40HC" and mark_sizes == {"40RF"} and record["FE_Status"] == "F"
+            and raw["detail_source"] == "description"
+            and re.match(r"^(?:RF|REEFER)\b", record["Description"])):
+        # HC supplies the height, MARKS and the cargo description supply the
+        # equipment type. Preserve both declarations and keep the row reviewable.
+        record["Size_Type"] = "40RH"
+        record.update(refresh_derived_fields(record, settings))
+        record["rules"].append("vimc.high_cube_reefer_corroborated")
+        _add_issue(issues, "VIMC_REEFER_SIZE_REVIEW",
+                   "Chi tiết ghi 40HC, MARKS ghi 40RF và mô tả ghi hàng lạnh. "
+                   "Xuất 40RH (container lạnh cao), giữ F. Đối chiếu mã kích cỡ trên vỏ.",
+                   record=record, field="Size_Type")
+    elif any(size and size != detail_size and SIZE_TO_ISO.get(size) != record.get("Physical_ISO_Size")
+             for size in mark_sizes):
+        _add_issue(issues, "VIMC_MARKS_SIZE_CONFLICT",
+                   "Kích cỡ trong MARKS khác dòng chi tiết container; đã giữ cả hai nguồn.",
+                   record=record, severity="error", field="Size_Type")
 
 
 def _finalize_group(group, source_file, sheet, settings, issues, counters, source_fragments):
@@ -433,8 +492,9 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
     by_container = defaultdict(list)
     for record in records:
         by_container[record["Container_No"]].append(record)
+    empty_total = None if records else _empty_marks_total(group, marks_by_entry, markers, settings)
     for entry, parsed_marks in marks_by_entry:
-        status, owner = _context(entry, markers, marks=True)
+        status, owner = ("E", empty_total["owner"]) if empty_total else _context(entry, markers, marks=True)
         if not parsed_marks:
             fragment(entry, entry["text"], "ignored", "Nội dung MARKS không có cấu trúc container được hỗ trợ; giữ nguyên để đối chiếu.")
         for segment_index, parsed_mark in enumerate(parsed_marks, 1):
@@ -447,16 +507,16 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
                 fragment(entry, parsed_mark["raw"], "corroborating", "MARKS đối chiếu với dòng chi tiết.", by_container[container][0])
                 for record in by_container[container]:
                     record["raw"].setdefault("marks_evidence", []).append({**entry, **parsed_mark})
-                    if parsed_mark["size_type"] and record["Size_Type"] and parsed_mark["size_type"] != record["Size_Type"]:
-                        mark_iso = SIZE_TO_ISO.get(parsed_mark["size_type"].replace("'", ""))
-                        if mark_iso != record.get("Physical_ISO_Size"):
-                            _add_issue(issues, "VIMC_MARKS_SIZE_CONFLICT", "Kích cỡ trong MARKS khác dòng chi tiết container; đã giữ cả hai nguồn.", record=record, severity="error", field="Size_Type")
                 continue
             parsed = {**parsed_mark, "seal_no": None, "description": "EMPTY" if status == "E" else "",
                       "weight_raw": None, "weight_unit": None, "raw_line": entry["text"],
                       "layout": "marks_empty" if status == "E" else "marks_incomplete"}
             record = _base_record(group, entry, segment_index, source_file, sheet, parsed, status, owner, settings)
             record["raw"]["marks_evidence"] = [{**entry, **parsed_mark}]
+            if empty_total:
+                record["raw"]["empty_total_evidence"] = dict(empty_total)
+                record["raw"]["status_source"] = "marks_empty_total"
+                record["rules"].append("vimc.empty_total_matches_marks")
             _validate_record(record, parsed, issues)
             records.append(record)
             by_container[container].append(record)
@@ -464,6 +524,8 @@ def _finalize_group(group, source_file, sheet, settings, issues, counters, sourc
             unresolved = record["raw"].get("identifier_requires_review") or parsed["layout"] == "marks_incomplete"
             fragment(entry, parsed_mark["raw"], "unresolved" if unresolved else "parsed", parsed["layout"], record)
     for record in records:
+        if record["record_id"] in detail_fragments:
+            _reconcile_marks_size(record, settings, issues)
         if is_corroborated_compact_identifier(record):
             detail_fragments[record["record_id"]].update(
                 status="parsed", reason="legacy_compact_identifier_corroborated_in_marks",
