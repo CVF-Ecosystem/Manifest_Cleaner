@@ -28,7 +28,7 @@
     "VIMC reference tare reuses the VOSCO tare table; moving it to a shared carrier module remains open.",
     "1.2.7 interface was checked on the development Windows machine at 100%, 125% and 150% display scaling with synthetic samples and local real manifests. The operator waived a separate interface check on a Port machine on 2026-11-25; Port import acceptance remains open under M32.",
     "The 25-11-2026 interface refinement and 20'/40'/45' container counts are committed as 3a065f3 and pushed to CVF-Ecosystem/Manifest_Cleaner main. An EXE was built at dist/1.2.7-3a065f3 and smoke-started. The version string is still 1.2.7. There is no independent reviewer record and no Port-machine check for this build.",
-    "After dce9320 the working tree adds a recent-manifests list (5 entries, all carriers, recent_files.json beside settings.json), a SOC/COC card counted per row from operator codes, and an export preview that reuses the export row builder. The minimum window width is now 995 logical px. These changes are display-only, not committed, not built into an EXE and not independently reviewed."
+    "Commit c201da1 on main, pushed to CVF-Ecosystem/Manifest_Cleaner, adds the recent-manifests list, the per-row SOC/COC card and the Port export preview. An EXE was built at dist/1.2.7-c201da1 and smoke-started. The version string is still 1.2.7. There is no independent reviewer record and no Port-machine check for this build."
   ],
   "evidence": [
     "docs/reviews/ROADMAP_1_2_REVIEW.md",

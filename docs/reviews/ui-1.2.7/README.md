@@ -311,3 +311,7 @@ Operator so với app VIMC cũ và yêu cầu thêm thống kê SOC/COC (thẻ t
 - SHA-256 ba manifest gốc trước và sau phép kiểm không đổi.
 
 Giới hạn: chưa commit, chưa build EXE, chưa có reviewer độc lập.
+
+### Commit, push và build c201da1 · 25-11-2026
+
+Commit `c201da1` đã push lên `main` của `CVF-Ecosystem/Manifest_Cleaner`, fast-forward từ `dce9320`. EXE dựng vào `dist/1.2.7-c201da1/ManifestCleaner/`, SHA-256 `5842e8da7a1efcb0d4f19326ca17ba0aefdf0857b8e95416105f1f7bdf1d5289`. Mở thử 12 giây và không thoát. Số phiên bản vẫn là 1.2.7. Chưa có reviewer độc lập và chưa thử trên máy Cảng.

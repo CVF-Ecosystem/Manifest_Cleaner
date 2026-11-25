@@ -244,3 +244,13 @@ Mỗi mục lưu cả hãng nên bấm vào dùng đúng quy tắc hãng đó. D
 ### Thẻ SOC/COC và xem trước file
 
 Cùng khai báo MC54, R1, project REVIEW, CURRENT_ASSESSED. Operator chọn thẻ thứ 7 SOC/COC đếm theo dòng và cửa sổ xem trước 16 cột. SOC/COC đọc từ mã hãng khai thác của từng hãng. Bản xem trước gọi `preview_port_rows`, chung hàm dựng dòng với lệnh xuất. Test chứng minh khớp từng ô với Excel của ba mẫu tổng hợp. Chiều rộng tối thiểu 975 thành 995 px logic. Chi tiết và các lỗi đã sửa trong lúc kiểm ở docs/reviews/ui-1.2.7/README.md. Danh sách Gần đây, SOC/COC và xem trước cùng nằm trong working tree sau dce9320, chưa commit, chưa build EXE, chưa có reviewer độc lập.
+
+### Commit và build c201da1
+
+Ghi nhận cập nhật, không thay các mục trước. Các câu "chưa commit, chưa build EXE" ở trên áp dụng đến trước thời điểm này.
+
+- Commit `c201da1` trên `main`: danh sách Gần đây (5 mục, mọi hãng, lưu trong `recent_files.json`, đã git-ignore), thẻ SOC/COC đếm theo dòng và cửa sổ Xem trước 16 cột dùng chung hàm dựng dòng với lệnh xuất. Chiều rộng tối thiểu 995 px logic. Pre-commit đạt. Đã push fast-forward từ `dce9320` lên `https://github.com/CVF-Ecosystem/Manifest_Cleaner.git`; remote `main` hiện là `c201da1`.
+- EXE dựng từ `c201da1` vào `dist/1.2.7-c201da1/ManifestCleaner/ManifestCleaner.exe`, SHA-256 `5842e8da7a1efcb0d4f19326ca17ba0aefdf0857b8e95416105f1f7bdf1d5289`. Mở thử 12 giây, tiêu đề đúng, không thoát bất thường. Giữ nguyên các bản build trước.
+- Kiểm phát hành trước commit: 311 test, 137 checksum, gate worker-return đạt. Ba manifest gốc trong `Manifest/` không đổi SHA-256.
+- Chưa có reviewer độc lập cho lượt này. Chưa thử trên máy Cảng. Số phiên bản vẫn là 1.2.7. Nghiệm thu nhập Cảng của M32 vẫn mở.
+- Trạng thái không đổi: REVIEW, ORCHESTRATOR. Quyết định cần operator: giữ số 1.2.7 hay đổi sang số mới trước khi phát hành.
