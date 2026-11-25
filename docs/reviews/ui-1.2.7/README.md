@@ -285,3 +285,7 @@ Phản hồi operator sau khi dùng thử. `45' 1` là một cont 45 feet. Khi �
 - Thẻ F/E ghi `a / b`, hoặc `a / b / c` khi có 45'. Với VFON: F `129 / 153`, E `3 / 31 / 1`. Tổng E là 35, cont 45' không nằm trong 31. Thẻ Container ghi `20'/40'/45': 132/184/1`.
 - Bỏ dòng lý do khóa Xuất. Nút Xuất vẫn bị khóa theo cùng điều kiện. Trạng thái và thanh tiến độ nằm cùng dòng với tên file. Chân cửa sổ chỉ còn dòng tác giả, căn giữa, nên bảng được thêm khoảng hai dòng.
 - Cập nhật test kích thước nhỏ nhất, test vị trí tác giả và trạng thái, và test cách ghi số. Ảnh ở 150% với kích thước nhỏ nhất cho thấy đủ ba số và dòng phụ. Câu trạng thái dài nhất cùng thanh tiến độ đang chạy nằm vừa một dòng ở 125%.
+
+### Commit, push và build · 25-11-2026
+
+Commit `3a065f3` đã push lên `main` của `CVF-Ecosystem/Manifest_Cleaner`. Build EXE vào `dist/1.2.7-3a065f3/ManifestCleaner/`, SHA-256 `5a626edf2b5fdb2c18e43afde5dd018a168ad1b9c4e3b619d1fc286ca8bed1ba`. Mở thử 12 giây và không thoát. Thay thế dòng "Giới hạn: chưa build EXE" ở trên. Số phiên bản vẫn là 1.2.7. Chưa có reviewer độc lập và chưa thử trên máy Cảng.

@@ -225,3 +225,12 @@ Operator xem hai ảnh mô phỏng dữ liệu tổng hợp ngày 25-11-2026 và
 Bàn giao trên working tree HEAD 8f29120. Check release PASS 299 test và 137 mục SHA-256. Pre-dispatch và worker-return chạy từ Core đã pin, đều đạt. Test Tk đạt ở 100%, 125% và 150% tại kích thước nhỏ nhất. Đối chiếu VFON đọc cục bộ: F 129/153, E 3/31 cộng 1 cont 45', Container 317. SHA-256 ba manifest gốc không đổi. Ảnh mẫu tổng hợp, log và biên nhận gate ở .cvf/runtime/ui-polish. Kết quả và giới hạn ghi tại docs/reviews/ui-1.2.7/README.md. Chưa commit, chưa build EXE, chưa đổi số phiên bản. Cần reviewer độc lập nếu operator muốn tách vai.
 
 Phản hồi operator sau khi dùng thử, cùng MC54, R1, chỉ đổi phần hiển thị. Thẻ F/E ghi theo thứ tự 20'/40'/45' khi có 45'. Bỏ dòng lý do khóa Xuất. Trạng thái và thanh tiến độ chuyển lên cùng dòng với tên file. Chi tiết ở docs/reviews/ui-1.2.7/README.md.
+
+### Commit và build bản giao diện 25-11-2026
+
+Ghi nhận cập nhật, không thay các mục trước. Các câu "chưa commit, chưa build EXE" ở trên áp dụng đến trước thời điểm này.
+
+- Commit `3a065f3` trên `main`, nội dung tinh chỉnh giao diện và số cont 20'/40'/45', 8 file. Pre-commit đạt. Đã push lên `https://github.com/CVF-Ecosystem/Manifest_Cleaner.git`, fast-forward từ `8f29120`. Repo này do operator chỉ định, remote trước đó chưa được cấu hình.
+- EXE dựng từ `3a065f3` vào `dist/1.2.7-3a065f3/ManifestCleaner/ManifestCleaner.exe`, SHA-256 `5a626edf2b5fdb2c18e43afde5dd018a168ad1b9c4e3b619d1fc286ca8bed1ba`, PyInstaller 6.22.3, Python 3.11.9. Giữ nguyên `dist/1.2.7` và `dist/ManifestCleaner` (bản 1.2.0 cũ). Số phiên bản trong app vẫn là 1.2.7. Mở thử 12 giây, tiêu đề đúng, không thoát bất thường.
+- Chưa có reviewer độc lập cho lượt này. Chưa thử trên máy Cảng. Nghiệm thu nhập Cảng của M32 vẫn mở.
+- Trạng thái tiếp theo không đổi: REVIEW, ORCHESTRATOR. Quyết định cần operator: giữ số 1.2.7 hay đổi sang số mới trước khi phát hành.
