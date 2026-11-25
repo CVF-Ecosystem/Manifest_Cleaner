@@ -449,6 +449,51 @@ def _fit_window(window, parent, preferred, minimum):
     window.minsize(min(_pixels(window, minimum[0]), width), min(_pixels(window, minimum[1]), height))
 
 
+_TOPLEVEL = tk.Toplevel  # Captured at import so test doubles patched onto tkinter are recognised.
+
+
+def _allow_maximize(window):
+    """Give a modal dialog a maximize/restore button on Windows.
+
+    Tk drops both caption buttons from transient windows. Only maximize is restored: the dialogs hold
+    a grab on the main window, so a minimized dialog would leave the app looking frozen. Windows shows
+    the minimize button greyed whenever maximize is present.
+    """
+    if sys.platform != "win32" or not isinstance(window, _TOPLEVEL):
+        return
+
+    def apply(event=None):
+        if event is not None and event.widget is not window:
+            return  # <Map> also reaches the toplevel binding when its children are mapped.
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.WinDLL("user32", use_last_error=True)
+            user32.GetParent.argtypes = [wintypes.HWND]
+            user32.GetParent.restype = wintypes.HWND
+            user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+            user32.GetWindowLongW.restype = ctypes.c_long
+            user32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+            user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                                            ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+            frame = user32.GetParent(window.winfo_id())  # Tk's wrapper owns the caption.
+            if not frame:
+                return
+            style = user32.GetWindowLongW(frame, -16)  # GWL_STYLE
+            if style & 0x00010000:  # WS_MAXIMIZEBOX already present
+                return
+            user32.SetWindowLongW(frame, -16, style | 0x00010000)
+            # SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED redraws the caption.
+            user32.SetWindowPos(frame, None, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020)
+        except (AttributeError, OSError, tk.TclError):
+            pass
+
+    # Tk creates the Windows frame when the dialog is first shown, so apply on <Map>.
+    window.bind("<Map>", apply, add="+")
+    if window.winfo_ismapped():
+        apply()
+
+
 def _fit_dialog(dialog, parent, preferred=(940, 690), minimum=(475, 330)):
     _fit_window(dialog, parent, preferred, minimum)
 
@@ -1106,6 +1151,7 @@ class ManifestApp:
         dialog.title("Nguồn vấn đề")
         dialog.transient(self.root)
         _fit_dialog(dialog, self.root, (740, 460), (425, 280))
+        _allow_maximize(dialog)
         dialog.grab_set()
         frame = ttk.Frame(dialog, padding=PAD)
         frame.pack(fill="both", expand=True)
@@ -1328,6 +1374,7 @@ class ManifestApp:
         dialog.title("Chọn sheet manifest")
         dialog.transient(self.root)
         _fit_dialog(dialog, self.root, (740, 390), (420, 260))
+        _allow_maximize(dialog)
         dialog.grab_set()
         body = ttk.Frame(dialog, padding=PAD)
         body.pack(fill="both", expand=True)
@@ -1672,6 +1719,7 @@ class ManifestApp:
         dialog.title("Tra cứu các đoạn nguồn đã được ghi nhận")
         dialog.transient(self.root)
         _fit_dialog(dialog, self.root, (980, 630), (510, 355))
+        _allow_maximize(dialog)
         dialog.grab_set()
         body = ttk.Frame(dialog, padding=16)
         body.pack(fill="both", expand=True)
@@ -1763,6 +1811,7 @@ class ManifestApp:
         dialog.title(f"Đối chiếu container — {record.get('Container_No') or 'chưa có số'}")
         dialog.transient(self.root)
         _fit_dialog(dialog, self.root)
+        _allow_maximize(dialog)
         dialog.grab_set()
         body = ttk.Frame(dialog, padding=14)
         body.pack(fill="both", expand=True)
@@ -2076,6 +2125,7 @@ class ManifestApp:
         dialog.transient(self.root)
         dialog.configure(bg=PAGE)
         _fit_dialog(dialog, self.root, (1280, 720), (640, 360))
+        _allow_maximize(dialog)
         dialog.grab_set()
         top = ttk.Frame(dialog, padding=(pad, pad, pad, gap))
         top.pack(fill="x")
@@ -2164,6 +2214,7 @@ class ManifestApp:
         dialog.title("Cấu hình đọc manifest")
         dialog.transient(self.root)
         _fit_dialog(dialog, self.root, (660, 400), (420, 290))
+        _allow_maximize(dialog)
         dialog.grab_set()
         outer = ttk.Frame(dialog, padding=PAD)
         outer.pack(fill="both", expand=True)

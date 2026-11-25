@@ -254,3 +254,7 @@ Ghi nhận cập nhật, không thay các mục trước. Các câu "chưa commi
 - Kiểm phát hành trước commit: 311 test, 137 checksum, gate worker-return đạt. Ba manifest gốc trong `Manifest/` không đổi SHA-256.
 - Chưa có reviewer độc lập cho lượt này. Chưa thử trên máy Cảng. Số phiên bản vẫn là 1.2.7. Nghiệm thu nhập Cảng của M32 vẫn mở.
 - Trạng thái không đổi: REVIEW, ORCHESTRATOR. Quyết định cần operator: giữ số 1.2.7 hay đổi sang số mới trước khi phát hành.
+
+### Nút phóng to cho cửa sổ phụ
+
+Cùng khai báo MC54, R1, project REVIEW, CURRENT_ASSESSED. Working tree sạch tại ec770bb trước lượt này. Operator đồng ý thêm nút phóng to/khôi phục cho sáu cửa sổ phụ, không thêm thu nhỏ vì cửa sổ phụ khóa cửa sổ chính. Chi tiết ở docs/reviews/ui-1.2.7/README.md. Chưa commit, chưa build EXE, chưa có reviewer độc lập.

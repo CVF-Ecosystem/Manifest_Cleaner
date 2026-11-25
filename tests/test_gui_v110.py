@@ -1319,6 +1319,65 @@ class GUIRegressionTests(unittest.TestCase):
                     self.assertLessEqual(number.winfo_reqwidth(), card.winfo_width(), (key, scale))
                     self.assertTrue(number.winfo_viewable())
 
+    def test_every_dialog_offers_maximize(self):
+        """Each function that opens a Toplevel also restores its maximize button."""
+        tree = ast.parse(Path(gui.__file__).read_text(encoding="utf-8"))
+        opened, missing = 0, []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            calls = {ast.unparse(call.func) for call in ast.walk(node) if isinstance(call, ast.Call)}
+            if "tk.Toplevel" in calls:
+                opened += 1
+                if "_allow_maximize" not in calls:
+                    missing.append(node.name)
+        self.assertGreaterEqual(opened, 6)
+        self.assertEqual(missing, [])
+
+    @staticmethod
+    def _caption_style(window):
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.WinDLL("user32")
+        user32.GetParent.argtypes = [wintypes.HWND]
+        user32.GetParent.restype = wintypes.HWND
+        user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.GetWindowLongW.restype = ctypes.c_long
+        return user32.GetWindowLongW(user32.GetParent(window.winfo_id()), -16)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows caption buttons")
+    def test_dialog_maximize_button_maximizes_and_restores_without_minimize(self):
+        with self.live_app() as app:
+            root = app.root
+            app.session = self._sample_session("VOSCO")
+            app.carrier.set("VOSCO")
+            app.selected_path = Path(app.session.metadata["source_path"])
+            app.refresh()
+            app.preview_button.invoke()
+            root.update()
+            dialog = app.preview_dialog
+            style = self._caption_style(dialog)
+            self.assertTrue(style & 0x00010000, "WS_MAXIMIZEBOX")
+            self.assertFalse(style & 0x00020000, "WS_MINIMIZEBOX must stay off for a modal dialog")
+            normal_width = dialog.winfo_width()
+            dialog.state("zoomed")
+            root.update()
+            self.assertEqual(dialog.state(), "zoomed")
+            self.assertGreater(dialog.winfo_width(), normal_width)
+            dialog.state("normal")
+            root.update()
+            self.assertEqual(dialog.state(), "normal")
+            dialog.destroy()
+            # A plain transient Toplevel shown later gets the button once mapped.
+            other = tk.Toplevel(root)
+            other.transient(root)
+            gui._allow_maximize(other)
+            root.update()
+            self.assertTrue(self._caption_style(other) & 0x00010000)
+            other.destroy()
+        # Test doubles are ignored instead of failing.
+        gui._allow_maximize(Widget())
+
 
 if __name__ == "__main__":
     unittest.main()

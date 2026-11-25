@@ -28,6 +28,9 @@ Operator xem hai ảnh mô phỏng dữ liệu tổng hợp và chọn hướng 
 - Bảng có tiêu đề nền xanh nhạt chữ xanh đậm, dòng thường xen kẽ nền `#F7F9FB`, dòng đang chọn nền `#CFE3F4` chữ tối. Trạng thái dòng đủ dữ liệu là `✓`, cảnh báo `▲ n cảnh báo`, lỗi `✕ n lỗi`. Ctrl+C sao chép đúng chữ hiển thị.
 - Thanh cuộn mảnh màu xám. Thanh tiến độ giữ chỗ bên phải dòng tên file, chỉ hiện màu khi đang đọc.
 
+**Nút phóng to cho cửa sổ phụ, ngày 25-11-2026**  
+Sáu cửa sổ phụ (Xem trước, Đối chiếu container, Tra nguồn, Nguồn vấn đề, Chọn sheet, Cấu hình đọc) có nút phóng to/khôi phục cạnh nút đóng. Bấm đúp thanh tiêu đề cũng phóng to. Tk trên Windows bỏ hai nút này khỏi cửa sổ gắn với cửa sổ chính, nên app bật lại riêng nút phóng to qua Windows API. Không bật nút thu nhỏ: các cửa sổ này khóa cửa sổ chính cho tới khi đóng, nên cửa sổ phụ bị thu nhỏ sẽ làm app trông như bị treo. Windows hiện nút thu nhỏ màu xám khi có nút phóng to.
+
 **SOC/COC và xem trước file, ngày 25-11-2026**  
 Operator chọn thẻ thứ 7, đếm SOC/COC theo dòng. Số đọc từ mã hãng khai thác mà quy tắc của hãng ghi, không suy lại từ nguồn. Mã không khớp, hoặc cấu hình đặt hai mã giống nhau, được ghi là `khác`. Với 7 thẻ, chú thích tự xuống dòng khi thẻ hẹp, và số dạng `450 / 500 / 20` thu từ 17 pt xuống 13 pt khi thẻ không đủ rộng. Chiều rộng tối thiểu của cửa sổ tăng từ 975 lên 995 px logic để thêm nút Xem trước mà nút Xuất vẫn trong vùng nhìn thấy ở 125%.
 

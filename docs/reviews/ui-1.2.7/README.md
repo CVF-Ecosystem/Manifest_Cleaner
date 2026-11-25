@@ -315,3 +315,11 @@ Giới hạn: chưa commit, chưa build EXE, chưa có reviewer độc lập.
 ### Commit, push và build c201da1 · 25-11-2026
 
 Commit `c201da1` đã push lên `main` của `CVF-Ecosystem/Manifest_Cleaner`, fast-forward từ `dce9320`. EXE dựng vào `dist/1.2.7-c201da1/ManifestCleaner/`, SHA-256 `5842e8da7a1efcb0d4f19326ca17ba0aefdf0857b8e95416105f1f7bdf1d5289`. Mở thử 12 giây và không thoát. Số phiên bản vẫn là 1.2.7. Chưa có reviewer độc lập và chưa thử trên máy Cảng.
+
+### Nút phóng to cho cửa sổ phụ · 25-11-2026
+
+Operator đề nghị thêm nút phóng to và thu nhỏ cho các cửa sổ phụ. Sau khi trao đổi, operator đồng ý chỉ thêm phóng to/khôi phục, vì cửa sổ phụ khóa cửa sổ chính. IMPLEMENTATION_WORKER làm trong MC54, mức R1, chỉ đổi `manifest_cleaner/gui.py`. Hàm `_allow_maximize` bật cờ `WS_MAXIMIZEBOX` cho khung Windows của cả sáu cửa sổ khi chúng hiện lần đầu, qua một bản `user32` riêng. Hàm bỏ qua nền tảng khác Windows và các widget giả trong test.
+
+Thêm hai test: một test đọc mã nguồn để bảo đảm mọi hàm mở `Toplevel` đều gọi `_allow_maximize`, và một test Tk thật trên Windows kiểm cờ phóng to có mặt, cờ thu nhỏ tắt, rồi phóng to và khôi phục cửa sổ Xem trước. Ảnh thanh tiêu đề xác nhận nút phóng to và nút thu nhỏ màu xám.
+
+Giới hạn: chưa commit, chưa build EXE, chưa có reviewer độc lập.

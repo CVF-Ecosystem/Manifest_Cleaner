@@ -112,3 +112,7 @@ Nút **Xem trước…** cạnh **Lưu đối chiếu…** mở bảng đúng 16
 - Màu theo file Excel: nền vàng là dòng có cảnh báo, nền xanh là container rỗng, chữ nâu là dòng có ô container, seal hoặc ghi chú được tô vàng.
 - Khi còn lỗi chặn, vẫn xem trước được. Dòng còn lỗi có nền đỏ, nút xuất trong cửa sổ bị khóa và ghi rõ lý do.
 - **Xuất file Manifest…** trong cửa sổ đóng bản xem trước rồi chạy lệnh xuất như bình thường. Esc để đóng. Ctrl+C sao chép dòng đang chọn.
+
+## Phóng to cửa sổ phụ
+
+Các cửa sổ phụ có nút phóng to/khôi phục cạnh nút đóng, và bấm đúp thanh tiêu đề cũng phóng to. Nút thu nhỏ màu xám vì cửa sổ phụ khóa cửa sổ chính cho tới khi đóng.
