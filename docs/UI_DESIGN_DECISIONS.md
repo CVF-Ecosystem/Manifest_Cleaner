@@ -28,6 +28,14 @@ Operator xem hai ảnh mô phỏng dữ liệu tổng hợp và chọn hướng 
 - Bảng có tiêu đề nền xanh nhạt chữ xanh đậm, dòng thường xen kẽ nền `#F7F9FB`, dòng đang chọn nền `#CFE3F4` chữ tối. Trạng thái dòng đủ dữ liệu là `✓`, cảnh báo `▲ n cảnh báo`, lỗi `✕ n lỗi`. Ctrl+C sao chép đúng chữ hiển thị.
 - Thanh cuộn mảnh màu xám. Thanh tiến độ giữ chỗ bên phải dòng tên file, chỉ hiện màu khi đang đọc.
 
+**SOC/COC và xem trước file, ngày 25-11-2026**  
+Operator chọn thẻ thứ 7, đếm SOC/COC theo dòng. Số đọc từ mã hãng khai thác mà quy tắc của hãng ghi, không suy lại từ nguồn. Mã không khớp, hoặc cấu hình đặt hai mã giống nhau, được ghi là `khác`. Với 7 thẻ, chú thích tự xuống dòng khi thẻ hẹp, và số dạng `450 / 500 / 20` thu từ 17 pt xuống 13 pt khi thẻ không đủ rộng. Chiều rộng tối thiểu của cửa sổ tăng từ 975 lên 995 px logic để thêm nút Xem trước mà nút Xuất vẫn trong vùng nhìn thấy ở 125%.
+
+Cửa sổ xem trước dùng `preview_port_rows`, chung hàm dựng dòng và tô màu với lệnh xuất, nên không có cách chuyển đổi thứ hai. Dòng còn lỗi chặn nền đỏ chỉ có trong bản xem trước, vì file Excel không được ghi khi còn lỗi. Cửa sổ là modal, để phiên không bị sửa khi bản xem trước đang mở.
+
+**Danh sách Gần đây, ngày 25-11-2026**  
+Operator chọn 5 mục, hiện manifest của mọi hãng, đặt trong vùng bảng trống trước khi mở file. Danh sách không thêm hàng nào vào bố cục nên không đổi kích thước tối thiểu đã kiểm. Cửa sổ thấp hiện ít dòng hơn, tối thiểu một dòng. Mỗi mục lưu cả hãng, và bấm vào thì chuyển ô Hãng tàu rồi mới đọc, để file không bị đọc bằng quy tắc của hãng khác. Danh sách lưu trong `recent_files.json` riêng, không đặt trong `settings.json` vì `load_settings` từ chối mọi khóa không phải tên hãng. Đường dẫn manifest nghiệp vụ là dữ liệu cục bộ nên file này bị Git bỏ qua. Mở lại phiên JSON không ghi vào danh sách.
+
 **Quyết định operator ngày 24-11-2026**  
 Cột **Ghi chú** trong Excel 16 cột và JSON giữ nguyên câu thông báo đầy đủ. Tiêu đề ngắn chỉ dùng trong giao diện.
 

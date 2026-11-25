@@ -9,6 +9,7 @@ import ast
 import copy
 import csv
 import io
+import json
 import shutil
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
@@ -157,6 +158,8 @@ class GUIRegressionTests(unittest.TestCase):
         app.settings[session.carrier] = copy.deepcopy(session.settings)
         app.selected_path = Path(session.metadata["source_path"])
         app.config_path = self.folder / "settings.json"
+        app.recent_path = self.folder / gui.RECENT_FILE
+        app.recent = []
         app.busy = False
         app.dirty = False
         app.carrier = Variable(session.carrier)
@@ -186,7 +189,7 @@ class GUIRegressionTests(unittest.TestCase):
         app.issue_locations = {}
         app.issue_keys = {}
         for name in ("edit_button", "ack_button", "exclude_button", "reload_button", "export_button", "review_button",
-                     "open_button", "issue_panel", "issue_list", "issue_detail_toggle", "issue_edit_button",
+                     "open_button", "preview_button", "issue_panel", "issue_list", "issue_detail_toggle", "issue_edit_button",
                      "issue_ack_button", "issue_source_button", "issue_detail_title", "issue_detail_text",
                      "export_folder_button"):
             setattr(app, name, Widget())
@@ -446,7 +449,10 @@ class GUIRegressionTests(unittest.TestCase):
             self.skipTest(str(exc))
         try:
             root.tk.call("tk", "scaling", 96 / 72 * scale)
-            with patch.object(gui, "load_settings", side_effect=lambda *_: load_settings()):
+            # Keep the developer's real recent list out of the tests, and the tests out of it.
+            recent = Path(tempfile.mkdtemp(dir=self.folder)) / gui.RECENT_FILE
+            with patch.object(gui, "load_settings", side_effect=lambda *_: load_settings()), \
+                    patch.object(gui, "_recent_file_path", return_value=recent):
                 app = gui.ManifestApp(root)
             yield app
         finally:
@@ -470,7 +476,7 @@ class GUIRegressionTests(unittest.TestCase):
                 extras = toolbar.grid_slaves(row=0, column=2)[0]
                 widgets = (app.open_button, app.resume_button, app.search_entry, app.tabs,
                            app.edit_button, app.ack_button, app.exclude_button, app.review_button,
-                           app.export_button, app.json_check, app.author_label, app.file_name_label,
+                           app.export_button, app.preview_button, app.json_check, app.author_label, app.file_name_label,
                            app.status_label, app.progress, *extras.winfo_children())
                 for widget in widgets:
                     x = widget.winfo_rootx() - root.winfo_rootx()
@@ -1019,6 +1025,299 @@ class GUIRegressionTests(unittest.TestCase):
                 else:
                     self.assertTrue({"error", "warning", "excluded"} & set(tags), row)
             self.assertIn("Box.indicator", ttk.Style(app.root).layout("TCheckbutton")[0][1]["children"][0])
+
+    def test_recent_list_ignores_damaged_files_and_keeps_five_unique_newest_first(self):
+        path = self.folder / gui.RECENT_FILE
+        self.assertEqual(gui._load_recent(path), [])
+        for text in ("", "{not json", "[]", '{"items": 5}', '{"items": [1, "x", {"path": 3}]}'):
+            path.write_text(text, encoding="utf-8")
+            self.assertEqual(gui._load_recent(path), [], text)
+        path.write_bytes(b"\xff\xfe\x00")
+        self.assertEqual(gui._load_recent(path), [])
+        # Unknown hãng, empty paths and bad counts are dropped or normalised instead of failing the app.
+        path.write_text(json.dumps({"items": [
+            {"path": "a.xls", "carrier": "NOPE", "containers": 1}, {"path": " ", "carrier": "VOSCO"},
+            {"path": "b.xls", "carrier": "VIMC", "containers": True, "opened": 5},
+            {"path": "c.xls", "carrier": "VOSCO", "containers": -2, "opened": "2026-11-25T10:00"}]}), encoding="utf-8")
+        self.assertEqual([(i["path"], i["carrier"], i["containers"], i["opened"]) for i in gui._load_recent(path)],
+                         [("b.xls", "VIMC", None, ""), ("c.xls", "VOSCO", None, "2026-11-25T10:00")])
+        items = []
+        for number in range(7):
+            items = gui._remember_recent(items, self.folder / f"m{number}.xls", "VOSCO", number, "2026-11-25T10:00")
+        self.assertEqual([Path(i["path"]).name for i in items], ["m6.xls", "m5.xls", "m4.xls", "m3.xls", "m2.xls"])
+        # The same file is listed once, moves to the top and takes the hãng it was last read with.
+        items = gui._remember_recent(items, self.folder / "m3.xls", "VIMC", 99, "2026-11-26T09:30")
+        self.assertEqual([Path(i["path"]).name for i in items], ["m3.xls", "m6.xls", "m5.xls", "m4.xls", "m2.xls"])
+        self.assertEqual((items[0]["carrier"], items[0]["containers"]), ("VIMC", 99))
+        self.assertTrue(gui._save_recent(path, items))
+        self.assertEqual(gui._load_recent(path), items)
+        self.assertFalse(path.with_name(path.name + ".tmp").exists())
+        self.assertEqual(gui._recent_caption(items[0]), "VIMC · 99 cont · 26-11-2026")
+        self.assertEqual(gui._recent_caption({"carrier": "VOSCO", "containers": None, "opened": ""}), "VOSCO")
+
+    def test_recent_list_write_failure_is_silent(self):
+        with patch.object(Path, "write_text", side_effect=PermissionError("read-only folder")):
+            self.assertFalse(gui._save_recent(self.folder / gui.RECENT_FILE, []))
+
+    def test_recent_file_is_beside_settings_and_not_tracked_by_git(self):
+        self.assertEqual(gui._recent_file_path(Path("C:/App/settings.json")), Path("C:/App/recent_files.json"))
+        ignored = (Path(gui.__file__).resolve().parents[1] / ".gitignore").read_text(encoding="utf-8").split()
+        self.assertIn("recent_files.json", ignored)
+        # settings.json must stay free of this data, because load_settings rejects any key that is not a hãng.
+        with self.assertRaises(ValueError):
+            gui.load_settings(self._write_settings({"recent_files": []}))
+
+    def _write_settings(self, data):
+        path = self.folder / "settings-check.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        return path
+
+    def test_reading_a_manifest_remembers_it_but_not_while_a_sheet_is_still_to_be_chosen(self):
+        session = self.session()
+        app = self.app(session)
+        app._complete_read(session)
+        self.assertEqual([(Path(i["path"]).name, i["carrier"], i["containers"]) for i in app.recent],
+                         [("input.xlsx", "VIMC", session.statistics()["containers"])])
+        self.assertEqual(gui._load_recent(app.recent_path), app.recent)
+        pending = self.app(session)
+        pending.recent_path = self.folder / "pending" / gui.RECENT_FILE
+        pending.recent_path.parent.mkdir()
+        session.metadata["table_candidates"] = [{"source_sheet": "A"}]
+        with patch.object(pending, "_choose_sheet", return_value=None), patch.object(pending, "_start"):
+            pending._complete_read(session)
+        self.assertEqual(pending.recent, [])
+        self.assertFalse(pending.recent_path.exists())
+
+    def _recent_items(self, count=5):
+        items = []
+        for number, carrier in zip(range(count), ("VOSCO", "VIMC", "VINAFCO", "VOSCO", "VIMC")):
+            path = self.folder / f"tàu {number}.xls"
+            path.write_bytes(b"x")
+            items = gui._remember_recent(items, path, carrier, 100 + number, "2026-11-25T10:00")
+        return items
+
+    def test_open_recent_uses_the_saved_hang_and_drops_a_missing_file(self):
+        app = self.app(self.session())
+        app.recent = self._recent_items()
+        app._confirm_discard = Mock(return_value=True)
+        app._start = Mock()
+        app._update_table_states = Mock()
+        newest = app.recent[0]
+        app.carrier = Variable("VINAFCO")
+        app.open_recent(newest)
+        self.assertEqual(app.carrier.get(), newest["carrier"])
+        app._start.assert_called_once_with(Path(newest["path"]))
+        app._start.reset_mock()
+        Path(newest["path"]).unlink()
+        with patch.object(gui.messagebox, "showwarning") as warn:
+            app.open_recent(newest)
+        warn.assert_called_once()
+        self.assertIn("không tìm thấy", warn.call_args.args[0].lower())
+        app._start.assert_not_called()
+        self.assertNotIn(newest["path"], [i["path"] for i in app.recent])
+        self.assertEqual(len(gui._load_recent(app.recent_path)), 4)
+        app.busy = True
+        app.open_recent(app.recent[0])
+        app._start.assert_not_called()
+        app.busy, app.dirty = False, True
+        app._confirm_discard.return_value = False
+        app.open_recent(app.recent[0])
+        app._start.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows Tk rendering")
+    def test_recent_panel_lists_all_hang_before_a_file_is_open_and_fits_the_minimum_size(self):
+        for scale in (1, 1.25, 1.5):
+            with self.subTest(scale=scale), self.live_app(scale) as app:
+                root = app.root
+                items = self._recent_items()
+                gui._save_recent(app.recent_path, items)
+                app.recent = gui._load_recent(app.recent_path)
+                self.assertFalse(app.recent_panel.winfo_manager())
+                app._update_table_states()
+                width, height = root.minsize()
+                root.geometry(f"{width}x{height}")
+                root.update()
+                self.assertEqual(app.recent_panel.winfo_manager(), "place")
+                self.assertIn("Mở manifest", app.recent_message.cget("text"))
+                table = app.tree.master
+                visible = [row for row, _, _ in app.recent_rows if row.winfo_manager()]
+                self.assertGreaterEqual(len(visible), 1)
+                for row in visible:
+                    self.assertTrue(row.winfo_viewable())
+                    self.assertLessEqual(row.winfo_rooty() + row.winfo_height(), table.winfo_rooty() + table.winfo_height())
+                self.assertTrue(app.recent_clear_button.winfo_viewable())
+                # A taller window shows more rows, newest first. The screen may cap the height at high scaling,
+                # so all five are required only when the table area is tall enough to hold them.
+                root.geometry(f"{width}x{min(height + gui._pixels(root, 330), root.winfo_screenheight() - gui._pixels(root, 90))}")
+                root.update()
+                visible = [(b.cget("text"), d.cget("text")) for row, b, d in app.recent_rows if row.winfo_manager()]
+                roomy = table.winfo_height() >= gui._pixels(root, 320)
+                self.assertGreaterEqual(len(visible), 5 if roomy else 1)
+                self.assertEqual(visible[0][0], "tàu 4.xls")
+                self.assertIn("104 cont", visible[0][1])
+                if roomy:
+                    self.assertEqual({detail.split(" · ")[0] for _, detail in visible}, {"VOSCO", "VIMC", "VINAFCO"})
+                # The list is the only guidance while no session exists, and the empty label steps aside.
+                self.assertFalse(app.empty_labels[0].winfo_manager())
+                self.assertEqual(app.empty_labels[1].winfo_manager(), "place")
+                with patch.object(app, "_start") as start:
+                    app.recent_rows[0][1].invoke()
+                    start.assert_called_once_with(Path(items[0]["path"]))
+                self.assertEqual(app.carrier.get(), items[0]["carrier"])
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows Tk rendering")
+    def test_recent_panel_hides_with_a_session_when_busy_and_after_clearing(self):
+        with self.live_app() as app:
+            gui._save_recent(app.recent_path, self._recent_items(2))
+            app.recent = gui._load_recent(app.recent_path)
+            app._update_table_states()
+            self.assertEqual(app.recent_panel.winfo_manager(), "place")
+            app.busy = True
+            app._update_table_states()
+            self.assertFalse(app.recent_panel.winfo_manager())
+            self.assertEqual(app.empty_labels[0].winfo_manager(), "place")
+            app.busy = False
+            app._update_table_states()
+            self.assertEqual(app.recent_panel.winfo_manager(), "place")
+            app.session = self.session()
+            app.refresh()
+            self.assertFalse(app.recent_panel.winfo_manager())
+            app.session = None
+            app.tree.delete(*app.tree.get_children())
+            app.issue_tree.delete(*app.issue_tree.get_children())
+            app._update_table_states()
+            self.assertEqual(app.recent_panel.winfo_manager(), "place")
+            app.recent_clear_button.invoke()
+            self.assertEqual(app.recent, [])
+            self.assertEqual(gui._load_recent(app.recent_path), [])
+            self.assertFalse(app.recent_panel.winfo_manager())
+            self.assertEqual(app.empty_labels[0].winfo_manager(), "place")
+
+    def _sample_session(self, carrier):
+        """A copy of the synthetic sample, so the repository file is never the export source."""
+        source = self.folder / f"src-{carrier}.xlsx"
+        shutil.copyfile(Path(gui.__file__).resolve().parents[1] / "samples" / f"DEMO_{carrier}_INPUT.xlsx", source)
+        return process_manifest(source, carrier)
+
+    def test_ownership_counts_follow_each_carrier_operator_codes(self):
+        rows = lambda *codes: [{"Operator": code} for code in codes]
+        for carrier, coc, soc in (("VOSCO", "VOC", "SVC"), ("VIMC", "VMC", "SVM"), ("VINAFCO", "VFC", "SVF")):
+            with self.subTest(carrier=carrier):
+                counts = gui._ownership_counts(rows(soc, coc, coc.lower(), "XYZ", None), carrier)
+                self.assertEqual((counts["soc"], counts["coc"], counts["other"]), (1, 2, 2))
+        # Configured codes win over the carrier defaults.
+        counts = gui._ownership_counts(rows("ABC", "VFC", "abc"), "VINAFCO", {"operator_soc": "abc", "operator_coc": "VFC"})
+        self.assertEqual((counts["soc"], counts["coc"], counts["other"]), (2, 1, 0))
+        # Identical codes cannot tell SOC from COC, so those rows are not assigned to either side.
+        counts = gui._ownership_counts(rows("VFC"), "VINAFCO", {"operator_soc": "VFC", "operator_coc": "VFC"})
+        self.assertEqual(gui._ownership_display(counts), ("0 / 0", "khác 1"))
+        self.assertEqual(gui._ownership_display(gui.Counter(soc=81, coc=236)), ("81 / 236", ""))
+
+    def test_preview_marks_rows_like_the_workbook_and_blocking_rows_first(self):
+        columns = ["STT", "F/E", "Số Container", "Trọng lượng (Tấn)"]
+        rows = [[1, "F", "A", 9.0], [2, "E", "B", 2.5], [3, "E", "C", None], [4, "F", "D", 16.06]]
+        table = gui._preview_table(columns, rows, {None: [3, 4], "Số Container": [2]}, "0.00", errors=[4])
+        self.assertEqual([tags for _, tags in table], [(), ("empty", "identifier"), ("warning",), ("error",)])
+        self.assertEqual(table[0][0], ["1", "F", "A", "9.00"])
+        self.assertEqual(table[2][0][3], "")
+        self.assertEqual(gui._preview_cell("Trọng lượng (Tấn)", 16.055, "General"), "16.055")
+        self.assertEqual(gui._preview_cell("TL hàng", 9.0, "General"), "9")
+        self.assertEqual(gui._preview_cell("Số niêm chì", "001234"), "001234")
+
+    def test_preview_rows_match_the_exported_workbook_cell_for_cell(self):
+        for carrier in ("VOSCO", "VIMC", "VINAFCO"):
+            with self.subTest(carrier=carrier):
+                session = self._sample_session(carrier)
+                columns, rows, highlights = gui.preview_port_rows(session)
+                weight_format = gui.CARRIER_PROFILES[carrier].export.weight_format
+                table = gui._preview_table(columns, rows, highlights, weight_format)
+                result = export_port_bundle(session, self.folder / f"out-{carrier}.xlsx", include_review=False)
+                book = load_workbook(result["excel"], read_only=True)
+                try:
+                    exported = [list(row) for row in book.worksheets[0].iter_rows(values_only=True)]
+                finally:
+                    book.close()
+                self.assertEqual([str(value) for value in exported[0]], columns)
+                self.assertEqual(len(exported) - 1, len(table))
+                for (values, _), cells in zip(table, exported[1:]):
+                    shown = [gui._preview_cell(column, cell, weight_format) for column, cell in zip(columns, cells)]
+                    self.assertEqual(values, shown)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows Tk rendering")
+    def test_preview_dialog_filters_locks_export_on_errors_and_copies_plain_values(self):
+        with self.live_app() as app:
+            root = app.root
+            self.assertEqual(str(app.preview_button.cget("state")), "disabled")
+            app.session = self.session(weight=None)
+            app.carrier.set(app.session.carrier)
+            app.selected_path = Path(app.session.metadata["source_path"])
+            app.refresh()
+            self.assertGreater(app.session.statistics()["errors"], 0)
+            self.assertEqual(str(app.export_button.cget("state")), "disabled")
+            self.assertEqual(str(app.preview_button.cget("state")), "normal")
+            app.preview_button.invoke()
+            root.update()
+            tree = app.preview_tree
+            rows = tree.get_children()
+            self.assertEqual(len(rows), len(app.session.active_records()))
+            self.assertEqual(str(app.preview_export_button.cget("state")), "disabled")
+            self.assertIn("Chưa xuất được", app.preview_note.cget("text"))
+            self.assertTrue(any("error" in tree.item(row, "tags") for row in rows))
+            container = str(app.session.active_records()[0]["Container_No"])
+            app.preview_query.set(container.lower())
+            root.update()
+            self.assertEqual(len(tree.get_children()), 1)
+            self.assertIn("Đang hiện 1", app.preview_counts.get())
+            app.preview_query.set("không có dòng nào khớp")
+            self.assertEqual(tree.get_children(), ())
+            app.preview_query.set("")
+            tree.selection_set(tree.get_children()[0])
+            app._copy_table_row(tree)
+            copied = root.clipboard_get()
+            self.assertNotIn(gui.WEIGHT_PAD, copied)
+            self.assertTrue(copied.startswith("1\t"))
+            app.preview_dialog.event_generate("<Escape>")
+            root.update()
+            self.assertFalse(app.preview_dialog.winfo_exists())
+            # Without blocking errors the preview hands over to the normal export flow.
+            app.session = self._sample_session("VOSCO")
+            app.carrier.set("VOSCO")
+            app.selected_path = Path(app.session.metadata["source_path"])
+            app.refresh()
+            app.preview_button.invoke()
+            root.update()
+            self.assertEqual(str(app.preview_export_button.cget("state")), "normal")
+            with patch.object(app, "export") as export:
+                app.preview_export_button.invoke()
+            export.assert_called_once_with()
+            self.assertFalse(app.preview_dialog.winfo_exists())
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows Tk geometry")
+    def test_seven_cards_fit_soc_coc_and_long_split_figures_at_minimum_size(self):
+        for scale in (1, 1.25, 1.5):
+            with self.subTest(scale=scale), self.live_app(scale) as app:
+                root = app.root
+                app.session = self._sample_session("VOSCO")
+                app.carrier.set("VOSCO")
+                app.selected_path = Path(app.session.metadata["source_path"])
+                width, height = root.minsize()
+                root.geometry(f"{width}x{height}")
+                root.update()
+                app.refresh()
+                root.update()
+                counts = gui._ownership_counts(app.session.active_records(), "VOSCO", app.session.settings)
+                self.assertEqual(app.count_labels["ownership"].get(), f"{counts['soc']} / {counts['coc']}")
+                self.assertEqual(counts["soc"] + counts["coc"] + counts["other"], app.session.statistics()["active_records"])
+                # Realistic worst cases: three-figure F counts with 45' boxes, and four-figure totals.
+                for key, text in (("full", "450 / 500 / 20"), ("empty", "120 / 380 / 12"),
+                                  ("ownership", "218 / 1272"), ("containers", "1490")):
+                    app.count_labels[key].set(text)
+                    app._fit_card_number(key)
+                root.update()
+                for key in gui.SPLIT_CARDS:
+                    number, card = app.count_numbers[key], app.count_cards[key]
+                    self.assertLessEqual(number.winfo_reqwidth(), card.winfo_width(), (key, scale))
+                    self.assertTrue(number.winfo_viewable())
 
 
 if __name__ == "__main__":

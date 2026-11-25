@@ -5,6 +5,8 @@ build/
 dist/
 *.egg-info/
 settings.json
+recent_files.json
+recent_files.json.tmp
 *_DOI_CHIEU.json
 *_CLEAN.xlsx
 *.log

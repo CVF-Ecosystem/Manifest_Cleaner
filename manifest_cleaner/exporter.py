@@ -142,6 +142,14 @@ def build_port_rows(session: ManifestSession) -> tuple[list[str], list[list]]:
     return columns, rows
 
 
+def preview_port_rows(session: ManifestSession) -> tuple[list[str], list[list], dict[str | None, list[int]]]:
+    """Read-only rows for the on-screen preview, from the same conversion and highlights as the Excel export.
+
+    Blocking errors do not stop the preview; export_port_excel still refuses to write while they remain.
+    """
+    return _port_rows(session, allow_errors=True)
+
+
 def preview_record_for_export(session: ManifestSession, record: dict) -> dict:
     """Read-only preview using the very same sixteen-column conversion rules."""
     columns, rows, _ = _port_rows(session, allow_errors=True, extra_record=record)

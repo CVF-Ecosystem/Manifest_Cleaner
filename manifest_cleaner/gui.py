@@ -11,6 +11,7 @@ import sys
 import threading
 import tkinter as tk
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, font as tkfont, messagebox, simpledialog, ttk
 
@@ -19,7 +20,8 @@ from xlsxwriter.utility import xl_col_to_name
 from . import __version__
 from .common import parse_weight, seal_text, text_value
 from .engine import CARRIERS, EDITABLE_FIELDS, FIELD_LABELS, ReviewSourceError, load_review, load_settings, process_manifest, validate_carrier_settings
-from .exporter import export_port_bundle, preview_record_for_export
+from .carriers import CARRIER_PROFILES
+from .exporter import export_port_bundle, preview_port_rows, preview_record_for_export
 from .issue_display import issue_field, issue_location, issue_raw_value, issue_title
 
 # Light operational palette, Segoe UI hierarchy and shared spacing in pixels at 96 DPI.
@@ -49,12 +51,17 @@ SELECT = "#CFE3F4"
 SCROLL = "#C9D3DC"
 SCROLL_ACTIVE = "#A3B2C1"
 STRIPES = {"Count": ACCENT, "Success": SUCCESS, "Empty": "#6F8FAF", "Error": DANGER,
-           "Warning": "#E0A100", "Muted": LINE_STRONG}
+           "Warning": "#E0A100", "Muted": LINE_STRONG, "Owner": "#7B6BA8"}
+# Fills that mirror the exported workbook: warning rows, highlighted identifier cells and empty containers.
+EXCEL_EMPTY_BG = "#DAEEF3"
+PREVIEW_WEIGHT_COLUMNS = {"TL hàng", "Trọng lượng (Tấn)"}
 FONT = ("Segoe UI", 10)
 FONT_SMALL = ("Segoe UI", 9)
 FONT_BOLD = ("Segoe UI", 10, "bold")
 FONT_TITLE = ("Segoe UI", 15, "bold")
 FONT_NUMBER = ("Segoe UI", 17, "bold")
+FONT_NUMBER_SMALL = ("Segoe UI", 13, "bold")
+SPLIT_CARDS = {"containers", "full", "empty", "ownership"}
 FONT_MONO = ("Consolas", 9)
 IDENTIFIER_COLUMNS = ("Container_No", "Seal_No", "BL_No", "VTOS_Size", "Operator")
 # Figure spaces keep right-aligned weights apart from the left-aligned consignee text.
@@ -62,10 +69,13 @@ WEIGHT_PAD = "\u2007\u2007"
 GAP = 8
 PAD = 16
 WINDOW_PREFERRED = (1440, 820)
-WINDOW_MINIMUM = (975, 620)
+WINDOW_MINIMUM = (995, 620)
+# Recent manifests live beside settings.json, never inside it: load_settings rejects any key that is not a hãng.
+RECENT_FILE = "recent_files.json"
+RECENT_LIMIT = 5
 STAT_ITEMS = (
     ("containers", "Container", "Count"), ("full", "F · Có hàng", "Success"),
-    ("empty", "E · Rỗng", "Count"), ("errors", "Lỗi chặn", "Error"),
+    ("empty", "E · Rỗng", "Count"), ("ownership", "SOC / COC", "Count"), ("errors", "Lỗi chặn", "Error"),
     ("warnings", "Cảnh báo", "Warning"), ("excluded", "Đã loại", "Muted"),
 )
 NUMBER_LABELS = {"legacy": "Theo quy tắc hãng", "decimal_comma": "Dấu phẩy thập phân", "decimal_dot": "Dấu chấm thập phân"}
@@ -217,6 +227,120 @@ def _size_display(key, total, counts):
     if key == "containers":
         return str(total), f"{legend}: {split}{unknown}"
     return " / ".join(str(counts.get(length, 0)) for length in lengths), legend + unknown
+
+
+def _ownership_counts(records, carrier, settings=None):
+    """SOC/COC per row, read from the operator code the carrier rules wrote. Other codes are counted apart."""
+    profile = CARRIER_PROFILES[carrier]
+    settings = settings or {}
+    soc = text_value(settings.get("operator_soc") or profile.operator(True)).upper()
+    coc = text_value(settings.get("operator_coc") or profile.operator()).upper()
+    counts = Counter()
+    for record in records:
+        code = text_value(record.get("Operator")).upper()
+        # Identical SOC and COC codes cannot tell the two apart, so such rows are not assigned to either.
+        counts["soc" if code == soc != coc else "coc" if code == coc != soc else "other"] += 1
+    return counts
+
+
+def _ownership_display(counts):
+    return f"{counts.get('soc', 0)} / {counts.get('coc', 0)}", f"khác {counts['other']}" if counts.get("other") else ""
+
+
+def _preview_cell(column, value, weight_format="General"):
+    """Text as the exported cell shows it: blanks empty, General numbers without a trailing .0."""
+    if value is None:
+        return ""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        number = float(value)
+        if column in PREVIEW_WEIGHT_COLUMNS and weight_format == "0.00":
+            return f"{number:.2f}"
+        return str(int(number)) if number.is_integer() else format(number, ".15g")
+    return str(value)
+
+
+def _preview_table(columns, rows, highlights, weight_format="General", errors=()):
+    """Rows for the preview with the export's colours: a warning fill beats the empty-row fill,
+    and rows whose identifier cells Excel highlights carry a separate text marker.
+    Rows that still have blocking errors, which Excel never receives, are filled red first."""
+    warning = set(highlights.get(None, ()))
+    errors = set(errors)
+    marked = {number for key, numbers in highlights.items() if key is not None for number in numbers}
+    status = columns.index("F/E") if "F/E" in columns else None
+    table = []
+    for number, row in enumerate(rows, 1):
+        tags = (["error"] if number in errors else ["warning"] if number in warning
+                else ["empty"] if status is not None and row[status] == "E" else [])
+        if number in marked:
+            tags.append("identifier")
+        table.append(([_preview_cell(column, value, weight_format) for column, value in zip(columns, row)], tuple(tags)))
+    return table
+
+
+def _recent_file_path(config_path):
+    return Path(config_path).with_name(RECENT_FILE)
+
+
+def _load_recent(path):
+    """Recent manifests from disk. A missing, unreadable or malformed file is an empty list, never an error."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return []
+    entries = data.get("items") if isinstance(data, dict) else None
+    items = []
+    for entry in entries if isinstance(entries, list) else ():
+        if not isinstance(entry, dict):
+            continue
+        file, carrier = entry.get("path"), entry.get("carrier")
+        if not isinstance(file, str) or not file.strip() or carrier not in CARRIERS:
+            continue
+        containers, opened = entry.get("containers"), entry.get("opened")
+        items.append({"path": file, "carrier": carrier,
+                      "containers": containers if isinstance(containers, int) and not isinstance(containers, bool)
+                      and containers >= 0 else None,
+                      "opened": opened if isinstance(opened, str) else ""})
+    return items[:RECENT_LIMIT]
+
+
+def _remember_recent(items, path, carrier, containers, opened):
+    """Put one manifest first. The same file is listed once, with the latest hãng and container count."""
+    file = os.path.abspath(path)
+    key = os.path.normcase(file)
+    rest = [item for item in items if os.path.normcase(os.path.abspath(item["path"])) != key]
+    return ([{"path": file, "carrier": carrier, "containers": containers, "opened": opened}] + rest)[:RECENT_LIMIT]
+
+
+def _save_recent(path, items):
+    """Write atomically. A read-only folder only means nothing is remembered, so it is not an error."""
+    target = Path(path)
+    temp = target.with_name(target.name + ".tmp")
+    try:
+        temp.write_text(json.dumps({"version": 1, "items": items}, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(temp, target)
+        return True
+    except OSError:
+        try:
+            temp.unlink()
+        except OSError:
+            pass
+        return False
+
+
+def _recent_caption(item):
+    parts = [item["carrier"]]
+    if item["containers"] is not None:
+        parts.append(f"{item['containers']} cont")
+    try:
+        parts.append(datetime.fromisoformat(item["opened"]).strftime("%d-%m-%Y"))
+    except ValueError:
+        pass
+    return " · ".join(parts)
+
+
+def _recent_name(item):
+    name = Path(item["path"]).name
+    return name if len(name) <= 46 else name[:30] + "…" + name[-14:]
 
 
 def _sheet_description(session):
@@ -429,6 +553,8 @@ class ManifestApp:
         self.export_hint = tk.StringVar(value="Mở manifest để xuất.")
         self.configuration = tk.StringVar(value="")
         self.config_path = (Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]) / "settings.json"
+        self.recent_path = _recent_file_path(self.config_path)
+        self.recent = _load_recent(self.recent_path)
         try:
             self.settings = load_settings(self.config_path if self.config_path.is_file() else None)
         except Exception as exc:
@@ -469,7 +595,7 @@ class ManifestApp:
                   lightcolor=[("focus", FOCUS), ("disabled", PAGE), ("active", ACCENT_SOFT)],
                   darkcolor=[("focus", FOCUS), ("disabled", PAGE), ("active", ACCENT_SOFT)])
         # Text-only secondary actions; the border appears on hover and keyboard focus.
-        for name, ground in (("Ghost.TButton", PAGE), ("Toolbar.Ghost.TButton", SURFACE)):
+        for name, ground in (("Ghost.TButton", PAGE), ("Toolbar.Ghost.TButton", SURFACE), ("Recent.Ghost.TButton", SURFACE)):
             style.configure(name, background=ground, foreground=ACCENT, bordercolor=ground,
                             lightcolor=ground, darkcolor=ground)
             style.map(name, background=[("disabled", ground), ("pressed", SELECT), ("active", ACCENT_SOFT)],
@@ -491,6 +617,7 @@ class ManifestApp:
         for variant, color in (("Count", ACCENT), ("Success", SUCCESS), ("Error", DANGER),
                                ("Warning", WARNING), ("Muted", MUTED)):
             style.configure(f"{variant}.Number.TLabel", background=SURFACE, foreground=color, font=FONT_NUMBER)
+            style.configure(f"{variant}.NumberSmall.TLabel", background=SURFACE, foreground=color, font=FONT_NUMBER_SMALL)
             # Card captions that open the filtered issue list: quiet text, outlined on hover and focus.
             style.configure(f"{variant}.Count.TButton", font=FONT_SMALL, foreground=MUTED, background=SURFACE,
                             width=0, anchor="w",
@@ -603,6 +730,8 @@ class ManifestApp:
         # The JSON option sits beside the export it controls.
         self.json_check = ttk.Checkbutton(outputs, text="Kèm đối chiếu JSON", variable=self.include_review)
         self.json_check.pack(side="left", padx=(0, pad))
+        self.preview_button = ttk.Button(outputs, text="Xem trước…", command=self.preview_export, state="disabled")
+        self.preview_button.pack(side="left", padx=(0, gap))
         self.review_button = ttk.Button(outputs, text="Lưu đối chiếu…", command=self.save_review, state="disabled")
         self.review_button.pack(side="left", padx=(0, gap))
         self.export_button = ttk.Button(outputs, text="Xuất file Manifest…", style="Primary.TButton", command=self.export, state="disabled")
@@ -636,7 +765,8 @@ class ManifestApp:
         head.bind("<Configure>", fit_head, add="+")
         counts = ttk.Frame(info)
         counts.pack(fill="x", pady=(gap, gap // 2))
-        self.count_numbers, self.count_stripes, self.count_captions = {}, {}, {}
+        self.count_numbers, self.count_stripes, self.count_captions, self.count_cards = {}, {}, {}, {}
+        self.number_font = tkfont.Font(root=self.root, font=FONT_NUMBER)
         for index, (key, label, variant) in enumerate(STAT_ITEMS):
             counts.columnconfigure(index, weight=1, uniform="stats")
             value = tk.StringVar(value="—")
@@ -644,7 +774,8 @@ class ManifestApp:
             # White card with a hairline border and a stripe in the colour of its meaning.
             frame = tk.Frame(counts, bg=SURFACE, highlightthickness=1, highlightbackground=LINE, highlightcolor=LINE)
             frame.grid(row=0, column=index, sticky="nsew", padx=(0, gap if index < len(STAT_ITEMS) - 1 else 0))
-            stripe = tk.Frame(frame, bg=STRIPES["Empty" if key == "empty" else variant], width=_pixels(self.root, 4))
+            stripe = tk.Frame(frame, bg=STRIPES[{"empty": "Empty", "ownership": "Owner"}.get(key, variant)],
+                              width=_pixels(self.root, 4))
             stripe.pack(side="left", fill="y")
             self.count_stripes[key] = stripe
             card = ttk.Frame(frame, style="Toolbar.TFrame", padding=(gap + gap // 2, gap // 2, gap, gap // 2))
@@ -662,9 +793,15 @@ class ManifestApp:
             else:
                 ttk.Label(card, text=label, style="Card.TLabel").grid(row=0, column=0, sticky="w")
             number.grid(row=1, column=0, sticky="w")
-            if key in {"containers", "full", "empty"}:
+            if key in SPLIT_CARDS:
+                self.count_cards[key] = card
                 self.count_captions[key] = tk.StringVar(value="")
-                ttk.Label(card, textvariable=self.count_captions[key], style="Card.TLabel").grid(row=2, column=0, sticky="w")
+                caption = ttk.Label(card, textvariable=self.count_captions[key], style="Card.TLabel")
+                caption.grid(row=2, column=0, sticky="w")
+                # Seven cards can be narrow at high scaling; the caption wraps rather than losing figures.
+                card.bind("<Configure>", lambda event, label=caption: label.configure(
+                    wraplength=max(40, event.width - _pixels(self.root, 2 * GAP + GAP // 2))), add="+")
+                card.bind("<Configure>", lambda _, name=key: self._fit_card_number(name), add="+")
         self.summary_label = _wrapped_label(info, textvariable=self.summary, style="Muted.TLabel")
         self.summary_label.pack(anchor="w")
         # Shown only while it has text, so an empty line never leaves a gap.
@@ -719,11 +856,107 @@ class ManifestApp:
         self.tree.bind("<Control-c>", lambda _: self._copy_table_row(self.tree))
         self.empty_labels = [tk.Label(tab, bg=SURFACE, fg=MUTED, font=FONT, takefocus=False)
                              for tab in (data_tab, self.issue_list)]
+        self._build_recent(data_tab)
         # Tk traverses siblings in stacking order. Match the visible layout.
         self.actionbar.lift()
         footer.lift()
         self._paint_alert_cards({})
         self._update_table_states()
+
+    def _build_recent(self, tab):
+        """Recent manifests shown in the empty table area before a file is open; hidden once a session exists."""
+        gap = _pixels(self.root, GAP)
+        panel = self.recent_panel = tk.Frame(tab, bg=SURFACE)
+        self.recent_message = tk.Label(panel, bg=SURFACE, fg=MUTED, font=FONT, takefocus=False, anchor="w")
+        self.recent_message.pack(fill="x", pady=(0, gap))
+        self.recent_head = tk.Frame(panel, bg=SURFACE)
+        self.recent_head.pack(fill="x")
+        tk.Label(self.recent_head, text="Gần đây", bg=SURFACE, fg=TEXT, font=FONT_BOLD).pack(side="left")
+        self.recent_clear_button = ttk.Button(self.recent_head, text="Xóa danh sách", style="Recent.Ghost.TButton",
+                                              command=self.clear_recent)
+        self.recent_clear_button.pack(side="right")
+        self.recent_font = tkfont.Font(root=self.root, font=FONT)
+        self.recent_rows = []
+        for _ in range(RECENT_LIMIT):
+            row = tk.Frame(panel, bg=SURFACE)
+            button = ttk.Button(row, style="Recent.Ghost.TButton")
+            detail = tk.Label(row, bg=SURFACE, fg=MUTED, font=FONT_SMALL, cursor="hand2")
+            button.pack(side="left")
+            detail.pack(side="left", padx=(gap, 0))
+            detail.bind("<Button-1>", lambda _, choice=button: choice.invoke())
+            self.recent_rows.append((row, button, detail))
+        tab.bind("<Configure>", lambda _: self._fit_recent(), add="+")
+
+    def _show_recent(self, message):
+        self.recent_message.configure(text=message)
+        for index, (row, button, detail) in enumerate(self.recent_rows):
+            if index < len(self.recent):
+                item = self.recent[index]
+                button.configure(text=_recent_name(item), command=lambda entry=item: self.open_recent(entry))
+                detail.configure(text=_recent_caption(item))
+        pad = _pixels(self.root, PAD)
+        # Start below the column headings, which stay visible above the list.
+        self.recent_panel.place(x=pad, y=_pixels(self.root, 44), relwidth=1, width=-4 * pad)
+        self._fit_recent()
+
+    def _fit_recent(self):
+        """Show as many of the saved rows as the table area holds, at least one."""
+        panel = getattr(self, "recent_panel", None)
+        if panel is None or not panel.winfo_manager():
+            return
+        line = self.recent_font.metrics("linespace")
+        gap = _pixels(self.root, GAP)
+        row_height = line + _pixels(self.root, 14)
+        fixed = 2 * line + _pixels(self.root, 14) + gap
+        room = panel.master.winfo_height() - _pixels(self.root, 44 + 24) - fixed
+        fit = max(1, min(len(self.recent), room // row_height))
+        for row, _, _ in self.recent_rows:
+            row.pack_forget()
+        for row, _, _ in self.recent_rows[:fit]:
+            row.pack(fill="x")
+
+    def open_recent(self, item):
+        if self.busy or not self._confirm_discard():
+            return
+        path = Path(item["path"])
+        if not path.is_file():
+            self.recent = [entry for entry in self.recent if entry["path"] != item["path"]]
+            _save_recent(self.recent_path, self.recent)
+            self._update_table_states()
+            messagebox.showwarning("Không tìm thấy file",
+                                   f"{path}\n\nFile đã bị xóa hoặc di chuyển nên được bỏ khỏi danh sách gần đây. "
+                                   "Bấm Mở manifest để chọn lại.", parent=self.root)
+            return
+        # Each entry keeps the hãng it was read with, so its own rules apply.
+        self.carrier.set(item["carrier"])
+        self._start(path)
+
+    def clear_recent(self):
+        self.recent = []
+        _save_recent(self.recent_path, self.recent)
+        self._update_table_states()
+
+    def _remember(self, session):
+        try:
+            containers = session.statistics()["containers"]
+        except Exception:
+            containers = None
+        self.recent = _remember_recent(self.recent, self.selected_path, session.carrier, containers,
+                                       datetime.now().isoformat(timespec="minutes"))
+        _save_recent(self.recent_path, self.recent)
+
+    def _fit_card_number(self, key):
+        """Split figures such as 450 / 500 / 20 drop to a smaller size when the card is too narrow for them."""
+        number, card = getattr(self, "count_numbers", {}).get(key), getattr(self, "count_cards", {}).get(key)
+        if number is None or card is None:
+            return
+        variant = str(number.cget("style")).split(".")[0]
+        width = card.winfo_width()
+        if not isinstance(width, int) or width <= 1:
+            return  # Not laid out yet; the card's <Configure> event fits it once measured.
+        room = width - _pixels(self.root, 2 * GAP + GAP // 2)
+        fits = self.number_font.measure(self.count_labels[key].get()) <= room
+        number.configure(style=f"{variant}.{'Number' if fits else 'NumberSmall'}.TLabel")
 
     def _paint_alert_cards(self, stats):
         """Errors and warnings read as alerts only when present; a zero stays neutral grey."""
@@ -1081,6 +1314,7 @@ class ManifestApp:
         self.refresh()
         candidates = session.metadata.get("table_candidates") or []
         if not candidates:
+            self._remember(session)
             return
         sheet = self._choose_sheet(candidates)
         if sheet:
@@ -1170,8 +1404,15 @@ class ManifestApp:
                            else "Không có kết quả. Bấm Xóa bộ lọc để xem lại.")
             messages = [data_empty, issue_empty]
         tables = (self.tree, self.issue_tree)
-        for table, label, message in zip(tables, self.empty_labels, messages):
-            if not table.get_children():
+        panel = getattr(self, "recent_panel", None)
+        show_recent = panel is not None and not self.busy and not self.session and bool(self.recent) \
+            and not self.tree.get_children()
+        if show_recent:
+            self._show_recent(messages[0])
+        elif panel is not None:
+            panel.place_forget()
+        for index, (table, label, message) in enumerate(zip(tables, self.empty_labels, messages)):
+            if not table.get_children() and not (index == 0 and show_recent):
                 label.configure(text=message)
                 label.place(relx=.5, rely=.44, anchor="center", relwidth=.85)
             else:
@@ -1200,6 +1441,8 @@ class ManifestApp:
             hint = ""
         self.export_hint.set(hint)
         self.export_button.configure(state="disabled" if hint else "normal")
+        # The preview stays available with blocking errors; it shows why export is still locked.
+        self.preview_button.configure(state="normal" if self.session is not None and not self.busy else "disabled")
         self.open_button.configure(style="Primary.TButton" if hint else "TButton")
 
     @staticmethod
@@ -1230,13 +1473,21 @@ class ManifestApp:
         sizes = _size_breakdown(session.active_records())
         captions = getattr(self, "count_captions", {})
         for key, value in self.count_labels.items():
-            if key in sizes:
+            if key == "ownership":
+                number, caption = _ownership_display(
+                    _ownership_counts(session.active_records(), session.carrier, session.settings))
+                value.set(number)
+                if key in captions:
+                    captions[key].set(caption)
+            elif key in sizes:
                 number, caption = _size_display(key, stats[key], sizes[key])
                 value.set(number)
                 if key in captions:
                     captions[key].set(caption)
             else:
                 value.set(str(stats[key]))
+        for key in SPLIT_CARDS & set(self.count_labels):
+            self._fit_card_number(key)
         self._paint_alert_cards(stats)
         self.table_counts = (len(session.records), len(issues))
         self.summary.set(f"{session.carrier} · {stats['bills']} B/L · {stats['active_records']} dòng"
@@ -1801,6 +2052,95 @@ class ManifestApp:
             messagebox.showerror("Không mở được thư mục",
                                  f"Mở thủ công thư mục {self.export_directory}.\n\n{exc}", parent=self.root)
 
+    def preview_export(self):
+        """Show the sixteen Port columns exactly as Export would write them, before saving."""
+        if self.busy or self.session is None:
+            return
+        session = self.session
+        try:
+            columns, rows, highlights = preview_port_rows(session)
+        except Exception as exc:
+            messagebox.showerror("Không xem trước được", str(exc), parent=self.root)
+            return
+        weight_format = CARRIER_PROFILES[session.carrier].export.weight_format
+        # Rows follow active_records() order, as in the export, so STT n is active record n.
+        blocking = {str(item["record_id"]) for item in session.validate()
+                    if item.get("severity") == "error" and item.get("record_id")}
+        errors = [number for number, record in enumerate(session.active_records(), 1)
+                  if str(record["record_id"]) in blocking]
+        table_rows = _preview_table(columns, rows, highlights, weight_format, errors)
+        stats = session.statistics()
+        gap, pad = _pixels(self.root, GAP), _pixels(self.root, PAD)
+        dialog = self.preview_dialog = tk.Toplevel(self.root)
+        dialog.title(f"Xem trước file Manifest · {session.carrier} · {len(columns)} cột")
+        dialog.transient(self.root)
+        dialog.configure(bg=PAGE)
+        _fit_dialog(dialog, self.root, (1280, 720), (640, 360))
+        dialog.grab_set()
+        top = ttk.Frame(dialog, padding=(pad, pad, pad, gap))
+        top.pack(fill="x")
+        ttk.Label(top, text="Lọc:").pack(side="left", padx=(0, gap))
+        query = self.preview_query = tk.StringVar(dialog)
+        entry = ttk.Entry(top, textvariable=query, width=24)
+        entry.pack(side="left")
+        counts = self.preview_counts = tk.StringVar(dialog)
+        ttk.Label(top, textvariable=counts, style="Muted.TLabel").pack(side="left", padx=(pad, 0))
+        ttk.Button(top, text="Đóng", command=dialog.destroy).pack(side="right")
+
+        def export_now():
+            dialog.destroy()
+            self.export()
+
+        export = self.preview_export_button = ttk.Button(top, text="Xuất file Manifest…", style="Primary.TButton",
+                                                         command=export_now)
+        export.pack(side="right", padx=(0, gap))
+        blocked = self.export_hint.get()
+        if blocked:
+            export.configure(state="disabled")
+            note = f"Chưa xuất được: {blocked} Nền đỏ: dòng còn lỗi chặn. Bản xem trước dùng giá trị hiện tại của phiên."
+        else:
+            note = ("Đúng các cột và giá trị sẽ ghi vào file. Nền vàng: dòng có cảnh báo. Nền xanh: container rỗng. "
+                    "Chữ nâu: dòng có ô container, seal hoặc ghi chú được tô vàng trong Excel.")
+        self.preview_note = _wrapped_label(dialog, text=note, style="Issue.TLabel" if blocked else "Muted.TLabel")
+        self.preview_note.pack(anchor="w", padx=pad, pady=(0, gap))
+        body = ttk.Frame(dialog, padding=(pad, 0, pad, pad))
+        body.pack(fill="both", expand=True)
+        keys = tuple(f"c{index}" for index in range(len(columns)))
+        tree = self.preview_tree = ttk.Treeview(body, columns=keys, show="headings", selectmode="browse")
+        font = tkfont.Font(root=self.root, font=FONT)
+        heading_font = tkfont.Font(root=self.root, font=FONT_BOLD)
+        numeric = {"STT", "Số lượng", "Độ chính xác (%)", *PREVIEW_WEIGHT_COLUMNS}
+        for index, (key, name) in enumerate(zip(keys, columns)):
+            sample = max((font.measure(values[index]) for values, _ in table_rows[:300]), default=0)
+            width = min(_pixels(self.root, 320), max(heading_font.measure(name), sample + font.measure(WEIGHT_PAD))
+                        + _pixels(self.root, 24))
+            tree.heading(key, text=name, anchor="w")
+            tree.column(key, width=width, minwidth=_pixels(self.root, 40), stretch=False,
+                        anchor="e" if name in numeric else "w")
+        tree.tag_configure("error", background=DANGER_BG, foreground=DANGER)
+        tree.tag_configure("warning", background=WARNING_BG)
+        tree.tag_configure("empty", background=EXCEL_EMPTY_BG)
+        tree.tag_configure("identifier", foreground=WARNING)
+        self._scrollbars(body, tree)
+        tree.bind("<Control-c>", lambda _: self._copy_table_row(tree))
+
+        def fill(*_):
+            text = query.get().casefold().strip()
+            tree.delete(*tree.get_children())
+            shown = 0
+            for number, (values, tags) in enumerate(table_rows):
+                if text and text not in " ".join(values).casefold():
+                    continue
+                padded = [value + WEIGHT_PAD if name in numeric and value else value for name, value in zip(columns, values)]
+                tree.insert("", "end", iid=str(number), values=padded, tags=tags)
+                shown += 1
+            counts.set(f"Tổng {len(table_rows)} dòng · Đang hiện {shown} · F {stats['full']} · E {stats['empty']}")
+
+        query.trace_add("write", fill)
+        fill()
+        dialog.bind("<Escape>", lambda _: dialog.destroy())
+        entry.focus_set()
+
     def save_review(self):
         if not self.session:
             return
@@ -1897,7 +2237,8 @@ class ManifestApp:
             "4. Nhập lý do rồi bấm Lưu chỉnh sửa / xác nhận để áp dụng vào phiên. Lưu đối chiếu ghi các sửa đổi và lịch sử vào JSON. "
             "Xuất Excel mặc định lưu kèm JSON. Mở lại JSON cần đúng manifest gốc chưa thay đổi.\n\n"
             "Cửa sổ sửa — Ctrl+S hoặc Ctrl+Enter để lưu, Esc để hủy. Nhấn Enter khi đang nhập lý do cũng lưu.\n"
-            "Cửa sổ chính — Ctrl+O mở manifest, Ctrl+S xuất Excel, F1 xem hướng dẫn.", parent=self.root)
+            "Cửa sổ chính — Ctrl+O mở manifest, Ctrl+S xuất Excel, F1 xem hướng dẫn.\n"
+            "Mục Gần đây (5 manifest đã đọc, mọi hãng) hiện khi chưa mở file. Bấm một mục để mở lại bằng đúng hãng đã dùng.", parent=self.root)
 
     def close(self):
         if self.busy and not messagebox.askyesno("Đang xử lý", "Đóng ứng dụng và dừng phiên đang xử lý?", parent=self.root):

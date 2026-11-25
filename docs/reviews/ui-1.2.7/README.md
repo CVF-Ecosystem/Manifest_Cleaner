@@ -289,3 +289,25 @@ Phản hồi operator sau khi dùng thử. `45' 1` là một cont 45 feet. Khi �
 ### Commit, push và build · 25-11-2026
 
 Commit `3a065f3` đã push lên `main` của `CVF-Ecosystem/Manifest_Cleaner`. Build EXE vào `dist/1.2.7-3a065f3/ManifestCleaner/`, SHA-256 `5a626edf2b5fdb2c18e43afde5dd018a168ad1b9c4e3b619d1fc286ca8bed1ba`. Mở thử 12 giây và không thoát. Thay thế dòng "Giới hạn: chưa build EXE" ở trên. Số phiên bản vẫn là 1.2.7. Chưa có reviewer độc lập và chưa thử trên máy Cảng.
+
+### Danh sách Gần đây · 25-11-2026
+
+Operator hỏi có nên thêm danh sách file gần đây như các app cũ, rồi chọn 5 mục, mọi hãng. IMPLEMENTATION_WORKER làm trong MC54, mức R1, chỉ đổi giao diện. Không đổi engine, exporter, adapter, JSON hay 16 cột. Thiết kế và lý do ở [quyết định giao diện](../../UI_DESIGN_DECISIONS.md).
+
+- Đổi `manifest_cleaner/gui.py`, `tests/test_gui_v110.py`, `.gitignore`, hướng dẫn GUI và quyết định giao diện. Thêm sáu test: đọc file hỏng, giới hạn 5 và không trùng, lỗi ghi, vị trí file và `.gitignore`, ghi nhớ sau khi đọc (không ghi khi còn chờ chọn sheet), bấm mục dùng đúng hãng và bỏ file đã mất, và hai test Tk thật ở 100%, 125%, 150% tại kích thước nhỏ nhất.
+- Lỗi tìm thấy khi kiểm: hàm đọc danh sách bị crash với file có dạng `{"items": 5}`. Đã sửa để mọi file hỏng đều cho danh sách trống. Hai lỗi còn lại nằm ở test (dùng chung file giữa các lần chạy, và bấm mục thì đọc thật một file rác) và đã sửa.
+- Ở 150% với cửa sổ nhỏ nhất, vùng bảng chỉ đủ 3 dòng nên danh sách tự rút còn 3. Cửa sổ cao hơn hiện đủ 5.
+- Ảnh mẫu dùng file tổng hợp trong `samples`. Không đọc manifest thật trong lượt này.
+
+Giới hạn: chưa commit, chưa build EXE, chưa có reviewer độc lập.
+
+### Thẻ SOC/COC và xem trước file · 25-11-2026
+
+Operator so với app VIMC cũ và yêu cầu thêm thống kê SOC/COC (thẻ thứ 7, đếm theo dòng) và xem trước dữ liệu trước khi lưu. IMPLEMENTATION_WORKER làm trong MC54, mức R1. Không đổi quy tắc đọc, cách ghi Excel, JSON hay 16 cột. `exporter.py` chỉ thêm hàm đọc `preview_port_rows` gọi lại đúng hàm dựng dòng của lệnh xuất.
+
+- Với VFON, đọc cục bộ: SOC/COC `81 / 236`, tổng 317 khớp số dòng.
+- Thêm bảy test: đếm SOC/COC theo mã của ba hãng, mã trong cấu hình và mã trùng; màu dòng xem trước theo thứ tự lỗi, cảnh báo, rỗng; hiển thị ô; bản xem trước khớp từng ô với file Excel xuất của ba mẫu tổng hợp; cửa sổ xem trước lọc, khóa xuất khi còn lỗi, sao chép không kèm khoảng đệm, chuyển sang lệnh xuất khi hợp lệ; 7 thẻ ở 100%, 125%, 150% tại kích thước nhỏ nhất với số dài.
+- Phát hiện khi kiểm và đã sửa: nút Xuất thừa 22 px ở 125% tại kích thước nhỏ nhất khi thêm nút Xem trước, nên chiều rộng tối thiểu tăng 20 px logic. Chú thích thẻ Container bị cắt ở 150% với 7 thẻ, nên chú thích tự xuống dòng. Dòng còn lỗi chặn ban đầu không có màu trong bản xem trước. Cột số căn phải nằm sát cột chữ. Số dài như `450 / 500 / 20` không vừa thẻ hẹp, nên tự thu nhỏ cỡ chữ.
+- SHA-256 ba manifest gốc trước và sau phép kiểm không đổi.
+
+Giới hạn: chưa commit, chưa build EXE, chưa có reviewer độc lập.

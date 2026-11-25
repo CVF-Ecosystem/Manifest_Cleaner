@@ -89,3 +89,26 @@ File nguồn đã thay đổi nội dung không được dùng để mở lại 
 `tests/test_gui_v110.py` có 16 kiểm thử gọi callback thật của GUI với widget giả, sử dụng engine, adapter, exporter và file thực. Các ca kiểm thử tập trung vào hai lỗi đã audit, xác nhận từng trường, chọn cách đọc VIMC, khôi phục phiên, chuyển vị trí nguồn, xuất kèm đối chiếu và cấu hình không thay đổi. Xem trước phải phản ánh cả các ô chưa lưu mà không làm thay đổi session; bảng tra nguồn phải phân biệt trạng thái lúc đọc với lỗi hiện tại.
 
 Các kiểm thử này xác minh logic, không thay thế kiểm tra trực quan Tkinter hoặc chạy EXE trên Windows. Trước bàn giao vận hành, kiểm tra trên máy sử dụng: màn hình/DPI, đường dẫn tiếng Việt, file Excel đang mở, thư mục hạn chế quyền ghi và quá trình mở lại phiên đã lưu.
+
+## Danh sách Gần đây
+
+Khi chưa mở file, vùng bảng hiện mục **Gần đây** gồm tối đa 5 manifest đã đọc, của mọi hãng, mới nhất ở trên. Mỗi dòng ghi tên file, hãng, số container lúc đọc và ngày đọc. Số container là số lúc đọc, không cập nhật theo file.
+
+- Bấm một mục để mở lại bằng đúng hãng đã dùng cho file đó. Ô **Hãng tàu** tự chuyển theo. Quy tắc của hãng khác không bao giờ được áp lên file này.
+- Danh sách chỉ ghi file đọc thành công. File có nhiều bảng chỉ được ghi sau khi chọn sheet. Mở lại phiên đối chiếu JSON không thêm vào danh sách, vì bấm mục sẽ đọc lại manifest từ đầu, không khôi phục chỉnh sửa.
+- File đã bị xóa hoặc di chuyển: app báo, bỏ mục đó khỏi danh sách và không mở gì. Đường dẫn chỉ được kiểm tra lúc bấm.
+- **Xóa danh sách** xóa toàn bộ. Danh sách nằm trong `recent_files.json` cạnh `settings.json`, chỉ ở máy này và không đưa lên Git. Thư mục không ghi được hoặc file hỏng thì danh sách trống, app vẫn chạy bình thường.
+- Cửa sổ thấp hiện ít dòng hơn cho vừa vùng bảng, tối thiểu một dòng.
+
+## Thẻ SOC / COC
+
+Thẻ thứ 7 ghi `số dòng SOC / số dòng COC`, đếm theo dòng như thẻ F và E. App đọc mã hãng khai thác mà quy tắc của hãng đã ghi: VOSCO là SVC/VOC, VIMC là SVM/VMC, VINAFCO là SVF/VFC. Nếu `settings.json` của hãng đặt `operator_soc` hoặc `operator_coc`, app dùng mã trong cấu hình. Dòng có mã khác cả hai được ghi riêng thành `khác n` và không gộp vào bên nào.
+
+## Xem trước file Manifest
+
+Nút **Xem trước…** cạnh **Lưu đối chiếu…** mở bảng đúng 16 cột và giá trị sẽ ghi vào file Excel của hãng: seal dạng văn bản, trọng lượng đã quy đổi và làm tròn, mã VTOS, ghi chú. Bản xem trước dùng chung hàm dựng dòng với lệnh xuất, nên hai bên khớp từng ô.
+
+- Ô **Lọc** tìm trong mọi cột. Dòng đếm ghi tổng, số đang hiện, F và E.
+- Màu theo file Excel: nền vàng là dòng có cảnh báo, nền xanh là container rỗng, chữ nâu là dòng có ô container, seal hoặc ghi chú được tô vàng.
+- Khi còn lỗi chặn, vẫn xem trước được. Dòng còn lỗi có nền đỏ, nút xuất trong cửa sổ bị khóa và ghi rõ lý do.
+- **Xuất file Manifest…** trong cửa sổ đóng bản xem trước rồi chạy lệnh xuất như bình thường. Esc để đóng. Ctrl+C sao chép dòng đang chọn.

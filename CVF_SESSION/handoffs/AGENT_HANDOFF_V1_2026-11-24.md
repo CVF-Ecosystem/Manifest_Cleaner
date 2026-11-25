@@ -234,3 +234,13 @@ Ghi nhận cập nhật, không thay các mục trước. Các câu "chưa commi
 - EXE dựng từ `3a065f3` vào `dist/1.2.7-3a065f3/ManifestCleaner/ManifestCleaner.exe`, SHA-256 `5a626edf2b5fdb2c18e43afde5dd018a168ad1b9c4e3b619d1fc286ca8bed1ba`, PyInstaller 6.22.3, Python 3.11.9. Giữ nguyên `dist/1.2.7` và `dist/ManifestCleaner` (bản 1.2.0 cũ). Số phiên bản trong app vẫn là 1.2.7. Mở thử 12 giây, tiêu đề đúng, không thoát bất thường.
 - Chưa có reviewer độc lập cho lượt này. Chưa thử trên máy Cảng. Nghiệm thu nhập Cảng của M32 vẫn mở.
 - Trạng thái tiếp theo không đổi: REVIEW, ORCHESTRATOR. Quyết định cần operator: giữ số 1.2.7 hay đổi sang số mới trước khi phát hành.
+
+### Danh sách Gần đây
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER theo MC54 trong WO_MC_LEGACY_COMPAT.md, project REVIEW, Core b6d5a51a1e90c1c03426baa3d355834089ac652a, CORE_ONLY, CURRENT_ASSESSED. Trần R2, lượt chỉnh hiển thị Tk R1, live evidence YES cho tuyên bố quản trị, không có checkpoint. Working tree sạch tại dce9320 trước lượt này. Operator hỏi và chọn thêm danh sách Gần đây: 5 mục, mọi hãng, đặt trong vùng bảng trống.
+
+Mỗi mục lưu cả hãng nên bấm vào dùng đúng quy tắc hãng đó. Dữ liệu ở `recent_files.json` riêng vì `load_settings` từ chối khóa không phải tên hãng, và file này nằm trong .gitignore. Lượt kiểm tập trung đầu có hai lỗi test và một lỗi thật: hàm đọc crash với `{"items": 5}`. Đã sửa. Hai lỗi test là dùng chung file giữa các lần chạy và bấm mục thì đọc thật file rác. Chi tiết ở docs/reviews/ui-1.2.7/README.md. Chưa commit, chưa build EXE, chưa có reviewer độc lập.
+
+### Thẻ SOC/COC và xem trước file
+
+Cùng khai báo MC54, R1, project REVIEW, CURRENT_ASSESSED. Operator chọn thẻ thứ 7 SOC/COC đếm theo dòng và cửa sổ xem trước 16 cột. SOC/COC đọc từ mã hãng khai thác của từng hãng. Bản xem trước gọi `preview_port_rows`, chung hàm dựng dòng với lệnh xuất. Test chứng minh khớp từng ô với Excel của ba mẫu tổng hợp. Chiều rộng tối thiểu 975 thành 995 px logic. Chi tiết và các lỗi đã sửa trong lúc kiểm ở docs/reviews/ui-1.2.7/README.md. Danh sách Gần đây, SOC/COC và xem trước cùng nằm trong working tree sau dce9320, chưa commit, chưa build EXE, chưa có reviewer độc lập.
