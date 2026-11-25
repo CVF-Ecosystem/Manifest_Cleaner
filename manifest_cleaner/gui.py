@@ -2298,8 +2298,25 @@ class ManifestApp:
             self.root.destroy()
 
 
+def _close_splash():
+    """Close the start-up image of the one-file build once the window is up.
+
+    pyi_splash exists only inside a PyInstaller build made with a Splash. From source or in the
+    folder build the import fails, which is the normal case, so nothing is shown or needed.
+    """
+    try:
+        import pyi_splash
+    except ImportError:
+        return
+    try:
+        pyi_splash.close()
+    except Exception:
+        pass  # Already closed, or the splash process is gone; the app must start regardless.
+
+
 def main():
     _enable_dpi_awareness()
     root = tk.Tk()
     ManifestApp(root)
+    _close_splash()
     root.mainloop()

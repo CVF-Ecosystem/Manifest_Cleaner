@@ -55,7 +55,8 @@ Ngày, máy/Windows, Python: ____________________
       bảo toàn trước khi `--noconfirm` thay đầu ra build.
 - [ ] Có `dist\ManifestCleaner\ManifestCleaner.exe` và đầy đủ thư mục hỗ trợ.
 - [ ] Có `START_HERE.html`, `settings.example.json`, checklist này và BUILD_INFO
-      cạnh EXE. Không chỉ sao chép riêng file EXE.
+      cạnh EXE. Không chỉ sao chép riêng file EXE của bản thư mục. Bản một file
+      dành cho người dùng cuối được kiểm riêng ở mục F.
 - [ ] Có `README.md`, toàn bộ `docs/` và `samples/` đúng vị trí tương đối;
       nhấp các liên kết tài liệu và demo từ START_HERE không bị thiếu file.
 - [ ] Ghi phiên bản PyInstaller thực từ BUILD_INFO. Nếu chốt phát hành, khóa
@@ -84,3 +85,26 @@ Ngày, máy/Windows, Python: ____________________
 Kết quả/giới hạn còn lại: _________________________________________________
 
 Người xác nhận nghiệp vụ: _______________________________________________
+
+## F. Bản một file cho người dùng cuối
+
+Bản một file tự giải nén vào `%TEMP%` mỗi lần mở. Trên máy phát triển, việc mở mất
+khoảng 6,7 giây so với 0,56 giây của bản thư mục. Chưa có mục nào dưới đây được kiểm
+trên máy Cảng.
+
+- [ ] Build bằng `BUILD_ONEFILE.cmd`. Chỉ gửi `dist\onefile\ManifestCleaner.exe`;
+      `BUILD_INFO.txt` do người build giữ lại.
+- [ ] Mở từ thư mục có khoảng trắng và chữ Việt trên máy chưa cài Python; ghi thời
+      gian từ lúc bấm đến khi thấy cửa sổ.
+- [ ] Trên máy có phần mềm diệt virus hoặc chính sách ứng dụng của Cảng: file không
+      bị chặn hay cách ly, và chạy được từ `%TEMP%`.
+- [ ] Đóng app bình thường: không còn thư mục `_MEI...` trong `%TEMP%`. Tắt cưỡng bức
+      hoặc mất điện để lại thư mục này, khoảng 74 MB mỗi lần.
+- [ ] Màn hình chờ hiện ngay sau khi bấm (đo trên máy phát triển khoảng 0,7 giây) và
+      tự đóng khi cửa sổ chính lên, không để lại cửa sổ thừa. Bấm đúp hai lần liên
+      tiếp: ghi nhận có mở hai cửa sổ hay không.
+- [ ] Mở demo từng hãng, xuất Excel và kiểm 16 cột như bản thư mục.
+- [ ] Lưu cấu hình đọc và mở một manifest: `settings.json` và `recent_files.json`
+      nằm cạnh file exe, không nằm trong `%TEMP%`, và còn nguyên sau khi mở lại.
+- [ ] Gửi qua kênh thực tế (zip hoặc thư mục dùng chung): file không bị chặn khi tải
+      về hay đính kèm.

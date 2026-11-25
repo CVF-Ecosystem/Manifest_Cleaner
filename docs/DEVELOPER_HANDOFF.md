@@ -166,7 +166,20 @@ pin một phiên bản PyInstaller cụ thể đã được nghiệm thu Windows
 `BUILD_INFO.txt` ghi phiên bản thực dùng để agent local có thể khóa lại sau khi
 nghiệm thu; không gọi recipe hiện tại là build tái lập bit-for-bit.
 
-Đích là `dist\ManifestCleaner\ManifestCleaner.exe`. Chuyển **toàn bộ thư mục**
+**Bản một file cho người dùng cuối.** `BUILD_ONEFILE.cmd` build bằng
+`ManifestCleaner-onefile.spec` ra `dist\onefile\ManifestCleaner.exe`, chỉ gửi file
+này. Hai spec dùng chung khối `Analysis` (có test so sánh). File tự giải nén vào
+`%TEMP%` mỗi lần mở nên chậm (đo trên máy phát triển: khoảng 6,7 giây so với 0,56
+giây của bản thư mục). `sys.executable` là đường dẫn exe thật, nên `settings.json`
+và `recent_files.json` vẫn nằm cạnh file exe; không đọc `sys._MEIPASS` cho dữ liệu
+người dùng vì thư mục đó bị xóa khi thoát. Trong lúc giải nén, bootloader hiện ngay
+màn hình chờ `assets\splash.png` (khoảng 0,7 giây sau khi bấm; ảnh có sẵn chữ, tạo
+bằng `scripts\make_splash.py`), và `gui._close_splash()` đóng nó khi cửa sổ chính đã
+lên (khoảng 6,3 giây). Bản thư mục không có màn hình chờ. Bản này chưa thử trên máy Cảng: chính sách
+chặn chạy từ `%TEMP%` hoặc phần mềm diệt virus có thể ảnh hưởng. Một file exe không
+phải biện pháp bảo vệ bản quyền, vì mã Python đóng gói vẫn trích ra được.
+
+Đích của bản thư mục là `dist\ManifestCleaner\ManifestCleaner.exe`. Chuyển **toàn bộ thư mục**
 `dist\ManifestCleaner`. Script đặt `START_HERE.html`, `settings.example.json`,
 checklist và BUILD_INFO cạnh EXE để người dùng tìm được; README cùng toàn bộ
 `docs/` và `samples/` được sao theo đúng đường dẫn tương đối để liên kết trong

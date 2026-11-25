@@ -258,3 +258,23 @@ Ghi nhận cập nhật, không thay các mục trước. Các câu "chưa commi
 ### Nút phóng to cho cửa sổ phụ
 
 Cùng khai báo MC54, R1, project REVIEW, CURRENT_ASSESSED. Working tree sạch tại ec770bb trước lượt này. Operator đồng ý thêm nút phóng to/khôi phục cho sáu cửa sổ phụ, không thêm thu nhỏ vì cửa sổ phụ khóa cửa sổ chính. Chi tiết ở docs/reviews/ui-1.2.7/README.md. Chưa commit, chưa build EXE, chưa có reviewer độc lập.
+
+### Bản một file cho người dùng cuối
+
+Cùng khai báo MC54, R1, project REVIEW, CURRENT_ASSESSED. Working tree sạch tại 7c22793 trước lượt này. Operator xóa chủ ý các thư mục dist cũ và các bản 1.2.7-<mã commit>; handoff và hồ sơ review còn ghi các đường dẫn đó cùng SHA-256, nhưng file không còn, và build lại không bảo đảm ra đúng mã băm. Operator chọn: bản zip của thư mục chỉ dùng cho máy operator và vài người được chọn; người dùng cuối nhận đúng một file exe.
+
+Thêm `ManifestCleaner-onefile.spec` (cùng khối Analysis với `ManifestCleaner.spec`, EXE gói cả binaries và datas), `BUILD_ONEFILE.cmd` (cùng các bước với BUILD_EXE.cmd, ra `dist\onefile\ManifestCleaner.exe`, không đụng `dist\ManifestCleaner`) và `tests/test_packaging_onefile.py` với bốn test: hai spec không lệch nhau, spec một file không dùng COLLECT, script build ghi riêng và giữ CRLF, và không đọc `sys._MEIPASS` cho dữ liệu người dùng. Không đổi mã ứng dụng: `sys.executable` là đường dẫn exe thật, đã kiểm bằng một exe mẫu chạy từ đường dẫn có dấu và khoảng trắng, nên `settings.json` và `recent_files.json` vẫn nằm cạnh exe.
+
+Đã chạy chính `BUILD_ONEFILE.cmd` (test, PyInstaller 6.22.3, BUILD_INFO) trong 102 giây. File 35,98 MB so với khoảng 86 MB của bản thư mục. SHA-256 A643481321C36460BB8B6BB06F2D2F1EF927D781D6BDBB0C90BF8A6A1879BE41, dựng từ working tree tại 7c22793 cộng các file mới, chưa commit. Danh sách module trong file khớp bản thư mục, gồm ba adapter, gui, exporter, xlrd, xlsxwriter, openpyxl. Mở thử từ đường dẫn có dấu tiếng Việt ba lần: cửa sổ hiện sau 6,65 đến 7,17 giây, bản thư mục là 0,56 giây. Đóng bình thường không để lại thư mục `_MEI` trong `%TEMP%`. Tắt cưỡng bức thì để lại, khoảng 74 MB mỗi lần; các thư mục do phép đo của tôi tạo ra đã được xóa.
+
+Chưa kiểm: mở manifest thật và xuất Excel bằng bản một file, chạy trên máy chưa cài Python, phần mềm diệt virus hay chính sách chặn chạy từ `%TEMP%` của Cảng. Các mục đó nằm ở mục F của docs/WINDOWS_RELEASE_CHECKLIST.md. Một file exe không phải biện pháp bảo vệ bản quyền, vì mã Python đóng gói vẫn trích ra được. Quyết định còn mở cho operator: thông báo bản quyền trong thuộc tính file exe, và màn hình chờ khi mở. Chưa commit, chưa có reviewer độc lập.
+
+### Màn hình chờ cho bản một file
+
+Operator đồng ý thêm màn hình chờ và yêu cầu commit rồi push. Chỉ bản một file có màn hình chờ, vì bản thư mục mở trong khoảng nửa giây. Ảnh `assets/splash.png` (560 x 180, có sẵn chữ vì chữ phải hiện trước khi Python chạy) do `scripts/make_splash.py` vẽ bằng Tkinter và chụp bằng GDI, không thêm thư viện. `ManifestCleaner-onefile.spec` thêm `Splash`, và `gui._close_splash()` đóng nó sau khi dựng cửa sổ chính, trước vòng lặp sự kiện. Từ mã nguồn hoặc bản thư mục thì `pyi_splash` không có nên hàm không làm gì. Thêm ba test: ảnh hợp lệ và chỉ spec một file có Splash; `_close_splash` im lặng khi không có PyInstaller, đóng đúng một lần, và không làm app dừng khi đóng lỗi; `main` đóng màn hình chờ sau khi dựng cửa sổ và trước vòng lặp.
+
+Build lại bằng `BUILD_ONEFILE.cmd` trong 68 giây, file 35,99 MB, SHA-256 0FE5A40D65D9812255529922C9D9CE6DC481951AC735B302BCE5B42F590AC846, dựng từ working tree sau 7c22793 cộng các file mới. Chạy từ đường dẫn có dấu tiếng Việt: màn hình chờ hiện sau 0,66 giây, cửa sổ chính lên sau 6,25 giây, rồi chỉ còn cửa sổ chính. Đóng bình thường không để lại `_MEI` trong `%TEMP%`. Ảnh chụp toàn màn hình dùng để kiểm đã bị xóa vì chứa cả cửa sổ làm việc của operator.
+
+Trong lúc build lại, `dist/onefile/recent_files.json` đã có sẵn, tạo lúc 18:20, trước lần build này. Operator có vẻ đã chạy bản một file trước đó và mở hai manifest VOSCO, nên danh sách Gần đây đã ghi đúng cạnh file exe trong bản một file. Đây chỉ cho biết hai file đọc được và danh sách ghi đúng chỗ, chưa phải kiểm xuất Excel. File này là dữ liệu của operator và được để nguyên.
+
+Chưa kiểm trên máy Cảng, chưa có reviewer độc lập. Quyết định còn mở: thông báo bản quyền trong thuộc tính file exe, cần nguyên văn từ operator.

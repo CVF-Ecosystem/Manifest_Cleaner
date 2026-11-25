@@ -31,7 +31,9 @@ Dùng các lệnh sau trong thư mục dự án sau khi chạy `SETUP.cmd` hoặ
 
 ## Đóng gói và chia sẻ
 
-Chạy `BUILD_EXE.cmd` để kiểm thử và đóng gói vào `dist/ManifestCleaner/`. Có thể lưu gói bàn giao theo phiên bản tại `dist/<phiên bản>/ManifestCleaner/`. Khi gửi gói, chỉ nén thư mục `ManifestCleaner` cùng các tệp bên trong.
+Chạy `BUILD_EXE.cmd` để kiểm thử và đóng gói vào `dist/ManifestCleaner/`. Có thể lưu gói bàn giao theo phiên bản tại `dist/<phiên bản>/ManifestCleaner/`. Khi gửi gói, chỉ nén thư mục `ManifestCleaner` cùng các tệp bên trong. Gói thư mục này dành cho máy phát triển và những người được chọn.
+
+Cho người dùng cuối, chạy `BUILD_ONEFILE.cmd` để tạo `dist/onefile/ManifestCleaner.exe` và chỉ gửi đúng file này. File tự giải nén nên mỗi lần mở mất vài giây. `settings.json` và `recent_files.json` nằm cạnh file exe.
 
 Dùng `Manifest/` cho tệp nghiệp vụ cục bộ. Giữ manifest thật, Excel xuất và JSON đối chiếu ngoài Git.
 
