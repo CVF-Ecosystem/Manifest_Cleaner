@@ -267,3 +267,21 @@ Phát hiện mới, có từ trước 1.2.7: hộp thoại Xuất file và Lưu 
 
 Theo yêu cầu operator, hộp thoại Xuất file và Lưu đối chiếu mở sẵn thư mục chứa manifest đang xử lý. Nếu thư mục đó không còn, Windows dùng thư mục mặc định của hệ thống. Nút và tiêu đề hộp thoại xuất đổi thành "Xuất file Manifest". Kiểm trên Windows thật: khi Windows còn nhớ thư mục tham chiếu từ lần trước, cả hai hộp thoại vẫn mở đúng thư mục của manifest; phép kiểm chỉ đọc thanh địa chỉ rồi bấm Cancel, không ghi file. Thêm một test và mở rộng test xuất. Đã commit theo yêu cầu operator, chưa build EXE; operator tự kiểm trước khi build.
 
+
+### Tinh chỉnh hướng A và số cont 20'/40' · 25-11-2026
+
+Operator chọn hướng A sau khi xem hai ảnh mô phỏng dữ liệu tổng hợp, và yêu cầu thẻ F hiện số cont 20'/40'. IMPLEMENTATION_WORKER làm trong MC54, mức R1, chỉ sửa phần hiển thị. Không đổi engine, exporter, adapter, JSON hay 16 cột. Activation CURRENT_ASSESSED. Pre-dispatch chạy từ Core đã pin PASS 7/7. Quyết định chi tiết nằm trong [quyết định giao diện](../../UI_DESIGN_DECISIONS.md).
+
+- Đổi `manifest_cleaner/gui.py`: bảng màu bổ sung, nút, checkbox vẽ theo DPI, thẻ có sọc màu, số cont 20'/40', màu thẻ cảnh báo theo giá trị, dòng xen kẽ, ký hiệu trạng thái, thanh cuộn mảnh, thanh tiến độ ẩn màu khi rảnh, ô JSON cạnh nút Xuất.
+- Đổi `tests/test_gui_v110.py`: cập nhật kỳ vọng Ctrl+C có ký hiệu trạng thái và vị trí ô JSON. Thêm ba test: phân loại cỡ theo mã VTOS, cách ghi thẻ có 45' và chưa rõ cỡ, và test Tk thật cho thẻ, màu cảnh báo, dòng xen kẽ, thanh tiến độ và checkbox.
+- Lượt đầu, test kích thước nhỏ nhất báo thanh công cụ thừa 7 px ở 125%. Ở 150%, khung chi tiết của tab Cần kiểm tra bị ép mất. Nguyên nhân là đệm nút, đệm checkbox, ô nhập và tiêu đề bảng tăng thêm. Trả các đệm này về giá trị cũ thì cả ba tỷ lệ đều đạt. Ở 150%, ảnh chụp tại kích thước nhỏ nhất cho thấy dòng phụ của thẻ Container bị cắt. Rút gọn thành dạng `20' 132 · 40' 184 · 45' 1` thì hiện đủ.
+- Đối chiếu trên manifest VFON 317 dòng, đọc cục bộ, ảnh không đưa vào repo: F `129 / 153` (tổng 282), E `3 / 31` cộng 1 cont 45', Container 317 = 132 + 184 + 1. SHA-256 ba manifest gốc trước và sau phép kiểm không đổi.
+- Ảnh mẫu tổng hợp của ba hãng ở 100%, 125% và 150% lưu tại `.cvf/runtime/ui-polish`.
+
+Giới hạn: chưa build EXE, chưa đổi số phiên bản, chưa có reviewer độc lập cho lượt này.
+
+Phản hồi operator sau khi dùng thử. `45' 1` là một cont 45 feet. Khi đã tách 45', cần ghi theo thứ tự 20'/40'/45'. Bỏ dòng nhắc "Mở manifest để xuất" ở chân cửa sổ. Trạng thái có thể nằm ngang dòng tên file. Đã sửa như sau.
+
+- Thẻ F/E ghi `a / b`, hoặc `a / b / c` khi có 45'. Với VFON: F `129 / 153`, E `3 / 31 / 1`. Tổng E là 35, cont 45' không nằm trong 31. Thẻ Container ghi `20'/40'/45': 132/184/1`.
+- Bỏ dòng lý do khóa Xuất. Nút Xuất vẫn bị khóa theo cùng điều kiện. Trạng thái và thanh tiến độ nằm cùng dòng với tên file. Chân cửa sổ chỉ còn dòng tác giả, căn giữa, nên bảng được thêm khoảng hai dòng.
+- Cập nhật test kích thước nhỏ nhất, test vị trí tác giả và trạng thái, và test cách ghi số. Ảnh ở 150% với kích thước nhỏ nhất cho thấy đủ ba số và dòng phụ. Câu trạng thái dài nhất cùng thanh tiến độ đang chạy nằm vừa một dòng ở 125%.

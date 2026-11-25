@@ -66,7 +66,7 @@ Lưu lại đúng cấu hình hiện tại không vô hiệu hóa phiên. Khi c�
 
 **Lưu đối chiếu** ghi file JSON có dữ liệu nguồn, kết quả, lỗi, lịch sử sửa/xác nhận/loại và cấu hình của phiên.
 
-Khi xuất Excel, tùy chọn **Xuất kèm đối chiếu JSON để mở lại phiên** mặc định được bật. Ví dụ:
+Khi xuất Excel, tùy chọn **Kèm đối chiếu JSON** cạnh nút **Xuất file Manifest** mặc định được bật. File JSON dùng để mở lại phiên. Ví dụ:
 
 ```text
 manifest_VIMC_CLEAN.xlsx

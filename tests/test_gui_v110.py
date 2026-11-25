@@ -470,7 +470,7 @@ class GUIRegressionTests(unittest.TestCase):
                 extras = toolbar.grid_slaves(row=0, column=2)[0]
                 widgets = (app.open_button, app.resume_button, app.search_entry, app.tabs,
                            app.edit_button, app.ack_button, app.exclude_button, app.review_button,
-                           app.export_button, app.export_hint_label, app.json_check, app.author_label,
+                           app.export_button, app.json_check, app.author_label, app.file_name_label,
                            app.status_label, app.progress, *extras.winfo_children())
                 for widget in widgets:
                     x = widget.winfo_rootx() - root.winfo_rootx()
@@ -503,7 +503,9 @@ class GUIRegressionTests(unittest.TestCase):
                 minimum_width, minimum_height = root.minsize()
                 wide_width = min(root.winfo_screenwidth() - 20, gui._pixels(root, 1240))
                 label = app.author_label
-                self.assertIs(label.master, app.json_check.master)
+                # The JSON option sits beside the export it controls; the author keeps the footer centre.
+                self.assertIs(app.json_check.master, app.export_button.master)
+                self.assertIsNot(label.master, app.json_check.master)
                 for width in (minimum_width, wide_width):
                     with self.subTest(width=width):
                         root.geometry(f"{width}x{minimum_height}")
@@ -511,9 +513,15 @@ class GUIRegressionTests(unittest.TestCase):
                         self.assertTrue(label.winfo_viewable())
                         label_center = label.winfo_rootx() + label.winfo_width() / 2
                         self.assertAlmostEqual(label_center, root.winfo_rootx() + root.winfo_width() / 2, delta=2)
-                        self.assertGreaterEqual(label.winfo_rootx(), app.json_check.winfo_rootx() + app.json_check.winfo_width())
+                        self.assertLessEqual(app.json_check.winfo_rootx() + app.json_check.winfo_width(),
+                                             app.review_button.winfo_rootx())
+                        self.assertGreaterEqual(label.winfo_rooty(), app.json_check.winfo_rooty() + app.json_check.winfo_height())
                         self.assertGreaterEqual(label.winfo_rooty(), app.actionbar.winfo_rooty() + app.actionbar.winfo_height())
-                        self.assertLessEqual(label.winfo_rooty() + label.winfo_height(), app.status_label.winfo_rooty())
+                        # Status and progress share the file-name row above the summary cards.
+                        for widget in (app.status_label, app.progress):
+                            self.assertEqual(widget.master, app.file_name_label.master)
+                            self.assertLess(widget.winfo_rooty(), app.tabs.winfo_rooty())
+                        self.assertFalse(hasattr(app, "export_hint_label"))
 
     @unittest.skipUnless(sys.platform == "win32", "Windows Tk action bindings")
     def test_summary_buttons_filter_issue_tab_and_clear_restores_rows(self):
@@ -655,7 +663,7 @@ class GUIRegressionTests(unittest.TestCase):
             root.update()
             self.assertEqual(app._copy_table_row(app.tree), "break")
             copied = next(csv.reader(io.StringIO(root.clipboard_get()), dialect="excel-tab"))
-            self.assertEqual(copied[:3], ["1 lỗi", "DEMU0000002", "001235"])
+            self.assertEqual(copied[:3], ["✕ 1 lỗi", "DEMU0000002", "001235"])
             self.assertEqual(copied[7], "16.055")
             self.assertEqual(app.tree.set(app.tree.selection()[0], "Weight_Value"), "16.055" + gui.WEIGHT_PAD)
             self.assertEqual(next(item for item in app.session.validate() if item["code"] == "VIMC_LAYOUT_AMBIGUOUS")["message"],
@@ -944,6 +952,73 @@ class GUIRegressionTests(unittest.TestCase):
             self.assertTrue(any(row[1] == "Cần đối chiếu lúc đọc" for row in table.rows.values()))
             self.assertTrue(any("tình trạng tại lần đọc nguồn" in w.options.get("text", "") for w in dialog.widgets))
         self.assertNotIn("VIMC_LAYOUT_AMBIGUOUS", {i["code"] for i in session.validate()})
+
+    def test_container_length_follows_vtos_code(self):
+        for code, expected in (("20DC", "20"), ("22G1", "20"), ("25G1", "20"), ("20TK", "20"), ("40HC", "40"),
+                               (" 42g1 ", "40"), ("40RH", "40"), ("45HC", "45"), ("45RH", "45"), ("L5G1", "45"),
+                               ("", ""), (None, ""), ("RF", "")):
+            with self.subTest(code=code):
+                self.assertEqual(gui._size_class(code), expected)
+
+    def test_size_cards_split_20_and_40_and_keep_45_and_unknown_apart(self):
+        records = [{"Container_No": "AAAU0000001", "VTOS_Size": "20DC", "FE_Status": "F"},
+                   {"Container_No": "AAAU0000001", "VTOS_Size": "20DC", "FE_Status": "F"},
+                   {"Container_No": "AAAU0000002", "VTOS_Size": "40HC", "FE_Status": "F"},
+                   {"Container_No": "AAAU0000003", "VTOS_Size": "42G1", "FE_Status": "E"},
+                   {"Container_No": "AAAU0000004", "VTOS_Size": "45HC", "FE_Status": "F"},
+                   {"Container_No": "AAAU0000005", "VTOS_Size": "", "FE_Status": "E"},
+                   {"Container_No": "", "VTOS_Size": "20DC", "FE_Status": "?"}]
+        sizes = gui._size_breakdown(records)
+        # Port order 20'/40', with a third 45' figure only when 45' boxes exist.
+        self.assertEqual(gui._size_display("full", 4, sizes["full"]), ("2 / 1 / 1", "20'/40'/45'"))
+        self.assertEqual(gui._size_display("empty", 2, sizes["empty"]), ("0 / 1", "20'/40' · chưa rõ cỡ 1"))
+        self.assertEqual(gui._size_display("containers", 5, sizes["containers"]),
+                         ("5", "20'/40'/45': 1/2/1 · chưa rõ cỡ 1"))
+        self.assertEqual(gui._size_display("full", 0, gui._size_breakdown([])["full"]), ("0 / 0", "20'/40'"))
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows Tk rendering")
+    def test_cards_rows_and_progress_show_sizes_alert_colours_and_stripes(self):
+        with self.live_app() as app:
+            session = self.session()
+            template = session.records[0]
+            for index, (number, size, status) in enumerate((("DEMU0000101", "40HC", "F"), ("DEMU0000102", "40HC", "E"),
+                                                            ("DEMU0000103", "45HC", "F"))):
+                record = copy.deepcopy(template)
+                record.update(record_id=f"extra-{index}", Container_No=number, VTOS_Size=size, FE_Status=status)
+                session.records.append(record)
+            session.base_issues.append({"code": "TEST_WARNING", "message": "Cảnh báo mẫu",
+                                        "severity": "warning", "record_id": "extra-1"})
+            app.session = session
+            app.carrier.set(session.carrier)
+            app.selected_path = Path(session.metadata["source_path"])
+            self.assertEqual(app.progress.cget("style"), "Idle.Horizontal.TProgressbar")
+            app.refresh()
+            app.root.update()
+            stats = session.statistics()
+            sizes = gui._size_breakdown(session.active_records())
+            self.assertEqual(app.count_labels["full"].get(),
+                             " / ".join(str(sizes["full"].get(length, 0)) for length in ("20", "40", "45")))
+            self.assertEqual(app.count_captions["full"].get(), "20'/40'/45'")
+            self.assertEqual(app.count_labels["empty"].get(),
+                             f"{sizes['empty'].get('20', 0)} / {sizes['empty'].get('40', 0)}")
+            self.assertEqual(app.count_labels["containers"].get(), str(stats["containers"]))
+            self.assertEqual(sum(sizes["full"].values()), stats["full"])
+            self.assertEqual(sum(sizes["empty"].values()), stats["empty"])
+            self.assertEqual((stats["errors"], stats["warnings"]), (0, 1))
+            self.assertEqual(app.tree.item("extra-1", "values")[0], "▲ 1 cảnh báo")
+            for key, variant in (("errors", "Error"), ("warnings", "Warning")):
+                expected = variant if stats[key] else "Muted"
+                self.assertEqual(app.count_numbers[key].cget("style"), f"{expected}.Number.TLabel")
+                self.assertEqual(app.count_stripes[key].cget("bg"), gui.STRIPES[expected])
+            rows = app.tree.get_children()
+            plain = [row for row in rows if app.tree.item(row, "values")[0] == "✓"]
+            for position, row in enumerate(rows):
+                tags = app.tree.item(row, "tags")
+                if row in plain:
+                    self.assertEqual("odd" in tags, position % 2 == 1, row)
+                else:
+                    self.assertTrue({"error", "warning", "excluded"} & set(tags), row)
+            self.assertIn("Box.indicator", ttk.Style(app.root).layout("TCheckbutton")[0][1]["children"][0])
 
 
 if __name__ == "__main__":

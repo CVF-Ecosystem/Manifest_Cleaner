@@ -26,7 +26,8 @@
     "MC53 uses the legacy VINAFCO program replay on three manifests as the reference. Previously saved outputs for those voyages were unavailable.",
     "1.2.6 warns when a full container's gross weight is below the carrier reference tare and when a kg value uses dot thousands grouping under the legacy number rule. The parsed value is unchanged until operations confirm the dot-in-kg interpretation.",
     "VIMC reference tare reuses the VOSCO tare table; moving it to a shared carrier module remains open.",
-    "1.2.7 interface was checked on the development Windows machine at 100%, 125% and 150% display scaling with synthetic samples and local real manifests. The operator waived a separate interface check on a Port machine on 2026-11-25; Port import acceptance remains open under M32."
+    "1.2.7 interface was checked on the development Windows machine at 100%, 125% and 150% display scaling with synthetic samples and local real manifests. The operator waived a separate interface check on a Port machine on 2026-11-25; Port import acceptance remains open under M32.",
+    "The 25-11-2026 interface refinement (option A) and the 20'/40' card counts were checked with the release suite and Tk at 100%, 125% and 150%. They are display-only. The work is not yet committed, built into an EXE or independently reviewed."
   ],
   "evidence": [
     "docs/reviews/ROADMAP_1_2_REVIEW.md",

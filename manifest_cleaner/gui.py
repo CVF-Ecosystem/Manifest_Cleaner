@@ -10,6 +10,7 @@ import queue
 import sys
 import threading
 import tkinter as tk
+from collections import Counter
 from pathlib import Path
 from tkinter import filedialog, font as tkfont, messagebox, simpledialog, ttk
 
@@ -39,7 +40,18 @@ DANGER_BG = "#FCECEB"
 EXCLUDED_BG = "#E8EDF2"
 DISABLED_BG = "#E4EAF0"
 FOCUS = "#14669A"
+# Quiet dividers for containers and buttons; BORDER keeps 3:1 contrast on input fields.
+LINE = "#D6DEE6"
+LINE_STRONG = "#B4C1CE"
+HEAD_BG = "#EAF0F5"
+ZEBRA = "#F7F9FB"
+SELECT = "#CFE3F4"
+SCROLL = "#C9D3DC"
+SCROLL_ACTIVE = "#A3B2C1"
+STRIPES = {"Count": ACCENT, "Success": SUCCESS, "Empty": "#6F8FAF", "Error": DANGER,
+           "Warning": "#E0A100", "Muted": LINE_STRONG}
 FONT = ("Segoe UI", 10)
+FONT_SMALL = ("Segoe UI", 9)
 FONT_BOLD = ("Segoe UI", 10, "bold")
 FONT_TITLE = ("Segoe UI", 15, "bold")
 FONT_NUMBER = ("Segoe UI", 17, "bold")
@@ -141,6 +153,70 @@ def _source_field(record, field):
 
 def _present_text(value):
     return bool(text_value(value))
+
+
+def _check_images(root, size):
+    """Checkbox boxes drawn at the display density: off, on, disabled off and disabled on."""
+    def draw(fill, edge, mark):
+        image = tk.PhotoImage(master=root, width=size, height=size)
+        image.put(fill, to=(0, 0, size, size))
+        for box in ((0, 0, size, 1), (0, size - 1, size, size), (0, 0, 1, size), (size - 1, 0, size, size)):
+            image.put(edge, to=box)
+        if mark:
+            stroke = max(2, size // 8)
+            points = ((0.22, 0.52), (0.42, 0.72), (0.80, 0.30))
+            for (x0, y0), (x1, y1) in zip(points, points[1:]):
+                for step in range(41):
+                    x = int((x0 + (x1 - x0) * step / 40) * size)
+                    y = int((y0 + (y1 - y0) * step / 40) * size)
+                    image.put(mark, to=(x, y, min(size, x + stroke), min(size, y + stroke)))
+        return image
+
+    return (draw(SURFACE, BORDER, None), draw(ACCENT, ACCENT, SURFACE),
+            draw(DISABLED_BG, LINE_STRONG, None), draw(DISABLED_BG, LINE_STRONG, MUTED))
+
+
+def _size_class(value):
+    """Container length from the VTOS code: 2x is 20', 40/42 is 40', 45 or ISO L5 is 45'."""
+    code = text_value(value).strip().upper()
+    if code.startswith(("45", "L")):
+        return "45"
+    if code.startswith("2"):
+        return "20"
+    if code.startswith("4"):
+        return "40"
+    return ""
+
+
+def _size_breakdown(records):
+    """Length counts behind the Container, F and E cards, counted like Session.statistics()."""
+    sizes = {"containers": Counter(), "full": Counter(), "empty": Counter()}
+    seen = set()
+    for record in records:
+        size = _size_class(record.get("VTOS_Size"))
+        number = text_value(record.get("Container_No"))
+        if number and number not in seen:
+            seen.add(number)
+            sizes["containers"][size] += 1
+        status = text_value(record.get("FE_Status"))
+        if status in {"F", "E"}:
+            sizes["full" if status == "F" else "empty"][size] += 1
+    return sizes
+
+
+def _size_display(key, total, counts):
+    """Card number and caption in the Port order 20'/40', or 20'/40'/45' when 45' boxes are present.
+
+    F and E show the split as the number, Container keeps its total and carries the split in the caption.
+    Lengths that the VTOS code does not identify are named separately and never folded into 40'.
+    """
+    lengths = ("20", "40", "45") if counts.get("45") else ("20", "40")
+    legend = "/".join(f"{length}'" for length in lengths)
+    split = "/".join(str(counts.get(length, 0)) for length in lengths)
+    unknown = f" · chưa rõ cỡ {counts['']}" if counts.get("") else ""
+    if key == "containers":
+        return str(total), f"{legend}: {split}{unknown}"
+    return " / ".join(str(counts.get(length, 0)) for length in lengths), legend + unknown
 
 
 def _sheet_description(session):
@@ -385,12 +461,23 @@ class ManifestApp:
 
         style.configure("TButton", background=SURFACE, foreground=TEXT, font=FONT,
                         padding=(pixels(10), pixels(5)), borderwidth=1, relief="solid",
-                        lightcolor=BORDER, darkcolor=BORDER)
+                        lightcolor=SURFACE, darkcolor=SURFACE)
         style.map("TButton",
-                  background=[("disabled", PAGE), ("pressed", ACCENT_SOFT), ("active", ACCENT_SOFT)],
-                  foreground=[("disabled", MUTED)], bordercolor=[("focus", FOCUS), ("!focus", BORDER)],
-                  lightcolor=[("focus", FOCUS)], darkcolor=[("focus", FOCUS)])
-        style.configure("Primary.TButton", background=ACCENT, foreground=SURFACE,
+                  background=[("disabled", PAGE), ("pressed", SELECT), ("active", ACCENT_SOFT)],
+                  foreground=[("disabled", MUTED)],
+                  bordercolor=[("focus", FOCUS), ("active", ACCENT), ("!focus", LINE_STRONG)],
+                  lightcolor=[("focus", FOCUS), ("disabled", PAGE), ("active", ACCENT_SOFT)],
+                  darkcolor=[("focus", FOCUS), ("disabled", PAGE), ("active", ACCENT_SOFT)])
+        # Text-only secondary actions; the border appears on hover and keyboard focus.
+        for name, ground in (("Ghost.TButton", PAGE), ("Toolbar.Ghost.TButton", SURFACE)):
+            style.configure(name, background=ground, foreground=ACCENT, bordercolor=ground,
+                            lightcolor=ground, darkcolor=ground)
+            style.map(name, background=[("disabled", ground), ("pressed", SELECT), ("active", ACCENT_SOFT)],
+                      foreground=[("disabled", MUTED)],
+                      bordercolor=[("focus", FOCUS), ("active", ACCENT_SOFT), ("!focus", ground)],
+                      lightcolor=[("focus", FOCUS), ("active", ACCENT_SOFT), ("!focus", ground)],
+                      darkcolor=[("focus", FOCUS), ("active", ACCENT_SOFT), ("!focus", ground)])
+        style.configure("Primary.TButton", background=ACCENT, foreground=SURFACE, font=FONT_BOLD,
                         bordercolor=ACCENT, lightcolor=ACCENT, darkcolor=ACCENT, focuscolor=SURFACE)
         style.map("Primary.TButton",
                   background=[("disabled", DISABLED_BG), ("pressed", ACCENT_HOVER), ("active", ACCENT_HOVER)],
@@ -404,41 +491,74 @@ class ManifestApp:
         for variant, color in (("Count", ACCENT), ("Success", SUCCESS), ("Error", DANGER),
                                ("Warning", WARNING), ("Muted", MUTED)):
             style.configure(f"{variant}.Number.TLabel", background=SURFACE, foreground=color, font=FONT_NUMBER)
-            style.configure(f"{variant}.Count.TButton", font=FONT_BOLD, foreground=color,
-                            padding=(pixels(6), pixels(1)))
-            style.map(f"{variant}.Count.TButton", foreground=[("disabled", MUTED), ("!disabled", color)],
-                      background=[("disabled", PAGE), ("active", ACCENT_SOFT)])
+            # Card captions that open the filtered issue list: quiet text, outlined on hover and focus.
+            style.configure(f"{variant}.Count.TButton", font=FONT_SMALL, foreground=MUTED, background=SURFACE,
+                            width=0, anchor="w",
+                            padding=(0, pixels(1)), bordercolor=SURFACE, lightcolor=SURFACE,
+                            darkcolor=SURFACE)
+            style.map(f"{variant}.Count.TButton", foreground=[("disabled", MUTED), ("active", color), ("!disabled", MUTED)],
+                      background=[("disabled", SURFACE), ("active", ACCENT_SOFT)],
+                      bordercolor=[("focus", FOCUS), ("active", ACCENT_SOFT), ("!focus", SURFACE)],
+                      lightcolor=[("focus", FOCUS), ("!focus", SURFACE)], darkcolor=[("focus", FOCUS), ("!focus", SURFACE)])
+        style.configure("Card.TLabel", background=SURFACE, foreground=MUTED, font=FONT_SMALL)
 
-        style.configure("Treeview", font=FONT, rowheight=pixels(29),
-                        background=SURFACE, fieldbackground=SURFACE, foreground=TEXT)
+        style.configure("Treeview", font=FONT, rowheight=pixels(29), borderwidth=0,
+                        background=SURFACE, fieldbackground=SURFACE, foreground=TEXT,
+                        bordercolor=LINE, lightcolor=SURFACE, darkcolor=SURFACE)
         style.configure("Treeview.Heading", font=FONT_BOLD, padding=(pixels(8), pixels(6)),
-                        background=PAGE, foreground=TEXT, relief="flat")
+                        background=HEAD_BG, foreground=ACCENT, relief="flat",
+                        bordercolor=HEAD_BG, lightcolor=HEAD_BG, darkcolor=HEAD_BG)
+        # The selected row stays readable on a light fill; tags never override it on Tk 8.6.10+.
         style.map("Treeview",
-                  background=[("selected", ACCENT)], foreground=[("selected", SURFACE)],
+                  background=[("selected", SELECT)], foreground=[("selected", TEXT)],
                   bordercolor=[("focus", FOCUS)])
         style.map("Treeview.Heading", background=[("active", ACCENT_SOFT)])
-        style.configure("TNotebook", background=PAGE, tabmargins=0, padding=0)
-        style.configure("TNotebook.Tab", font=FONT, padding=(pixels(13), pixels(6)),
-                        background=PAGE, foreground=MUTED)
+        style.configure("TNotebook", background=PAGE, tabmargins=0, padding=0, bordercolor=LINE,
+                        lightcolor=SURFACE, darkcolor=SURFACE)
+        style.configure("TNotebook.Tab", font=FONT, padding=(pixels(14), pixels(6)),
+                        background=PAGE, foreground=MUTED, bordercolor=LINE, lightcolor=PAGE)
         style.map("TNotebook.Tab",
-                  background=[("selected", ACCENT_SOFT), ("active", SURFACE)],
+                  background=[("selected", SURFACE), ("active", ACCENT_SOFT)],
                   foreground=[("selected", ACCENT)], font=[("selected", FONT_BOLD)],
-                  padding=[("selected", (pixels(13), pixels(9))), ("!selected", (pixels(13), pixels(6)))],
-                  expand=[("selected", (0, pixels(2), 0, 0))], bordercolor=[("focus", FOCUS)])
-        style.configure("TCheckbutton", background=PAGE, foreground=TEXT, font=FONT)
-        style.map("TCheckbutton", bordercolor=[("focus", FOCUS)])
+                  lightcolor=[("selected", ACCENT)],
+                  padding=[("selected", (pixels(14), pixels(9))), ("!selected", (pixels(14), pixels(6)))],
+                  expand=[("selected", (0, pixels(2), 0, 0))], bordercolor=[("focus", FOCUS), ("!focus", LINE)])
+        self._check_images = _check_images(self.root, pixels(16))
+        off, on, off_disabled, on_disabled = self._check_images
+        if "Box.indicator" not in style.element_names():
+            style.element_create("Box.indicator", "image", off,
+                                 ("disabled", "selected", on_disabled), ("disabled", off_disabled), ("selected", on),
+                                 width=pixels(16) + pixels(7), sticky="w")
+        style.layout("TCheckbutton", [("Checkbutton.padding", {"sticky": "nswe", "children": [
+            ("Box.indicator", {"side": "left", "sticky": ""}),
+            ("Checkbutton.focus", {"side": "left", "sticky": "w", "children": [
+                ("Checkbutton.label", {"sticky": "nswe"})]})]})])
+        style.configure("TCheckbutton", background=PAGE, foreground=TEXT, font=FONT, padding=0)
+        style.map("TCheckbutton", bordercolor=[("focus", FOCUS)], foreground=[("disabled", MUTED)])
         for control in ("TEntry", "TCombobox"):
-            style.configure(control, padding=(pixels(5), pixels(3)), fieldbackground=SURFACE)
+            style.configure(control, padding=(pixels(5), pixels(3)), fieldbackground=SURFACE,
+                            lightcolor=SURFACE, darkcolor=SURFACE, arrowcolor=ACCENT)
             style.map(control, fieldbackground=[("disabled", DISABLED_BG), ("readonly", SURFACE)],
                       foreground=[("disabled", MUTED)], bordercolor=[("focus", FOCUS)],
                       lightcolor=[("focus", FOCUS)], darkcolor=[("focus", FOCUS)])
+        for orient in ("Vertical", "Horizontal"):
+            style.configure(f"{orient}.TScrollbar", background=SCROLL, troughcolor=SURFACE, bordercolor=SURFACE,
+                            lightcolor=SCROLL, darkcolor=SCROLL, arrowcolor=MUTED, gripcount=0,
+                            arrowsize=pixels(12))
+            style.map(f"{orient}.TScrollbar", background=[("pressed", SCROLL_ACTIVE), ("active", SCROLL_ACTIVE)],
+                      lightcolor=[("pressed", SCROLL_ACTIVE), ("active", SCROLL_ACTIVE)],
+                      darkcolor=[("pressed", SCROLL_ACTIVE), ("active", SCROLL_ACTIVE)])
         style.configure("Horizontal.TProgressbar", background=ACCENT, troughcolor=DISABLED_BG)
+        # Idle progress keeps its reserved place in the footer but blends into the page.
+        style.configure("Idle.Horizontal.TProgressbar", background=PAGE, troughcolor=PAGE, bordercolor=PAGE,
+                        lightcolor=PAGE, darkcolor=PAGE)
 
     def _build(self):
         gap = _pixels(self.root, GAP)
         pad = _pixels(self.root, PAD)
         toolbar = ttk.Frame(self.root, style="Toolbar.TFrame", padding=(pad, gap))
         toolbar.pack(fill="x")
+        tk.Frame(self.root, bg=LINE, height=1).pack(fill="x")
         toolbar.columnconfigure(1, weight=1)
         controls = ttk.Frame(toolbar, style="Toolbar.TFrame")
         controls.grid(row=0, column=0, sticky="w")
@@ -456,25 +576,18 @@ class ManifestApp:
         self.reload_button.pack(side="left")
         extras = ttk.Frame(toolbar, style="Toolbar.TFrame")
         extras.grid(row=0, column=2, sticky="e")
-        ttk.Button(extras, text="Hướng dẫn", command=self.help).pack(side="left")
+        ttk.Button(extras, text="Hướng dẫn", style="Toolbar.Ghost.TButton", command=self.help).pack(side="left")
         ttk.Button(extras, text="Cấu hình đọc…", command=self.number_settings).pack(side="left", padx=(gap, 0))
 
         # Reserve the lower controls before giving the remaining space to the table.
         footer = ttk.Frame(self.root, padding=(pad, gap // 2, pad, gap))
         footer.pack(side="bottom", fill="x")
         footer.columnconfigure(0, weight=1)
-        self.json_check = ttk.Checkbutton(footer, text="Xuất kèm đối chiếu JSON để mở lại phiên",
-                                          variable=self.include_review)
-        self.json_check.grid(row=0, column=0, sticky="w", pady=(0, gap // 2))
-        self.author_label = ttk.Label(footer, text="Tien - Tan Thuan Port @2026", style="Muted.TLabel")
-        self.author_label.place(relx=.5, y=gap // 2, anchor="n", bordermode="outside")
-        self.progress = ttk.Progressbar(footer, mode="determinate", length=_pixels(self.root, 110))
-        self.progress.grid(row=1, column=1, sticky="e", padx=(gap, 0))
-        self.status_label = _wrapped_label(footer, textvariable=self.status, style="Muted.TLabel")
-        self.status_label.grid(row=1, column=0, sticky="w")
-        footer.bind("<Configure>", lambda event: self.status_label.configure(
-            wraplength=max(100, event.width - self.progress.winfo_reqwidth() - 3 * pad)), add="+")
-        self.actionbar = ttk.Frame(self.root, padding=(pad, gap, pad, 0))
+        # The footer carries only the author, centred; status and progress sit beside the file name.
+        self.author_label = ttk.Label(footer, text="Tien - Tan Thuan Port @2026", style="Muted.TLabel", font=FONT_SMALL)
+        self.author_label.grid(row=0, column=0)
+        tk.Frame(self.root, bg=LINE, height=1).pack(side="bottom", fill="x", padx=pad)
+        self.actionbar = ttk.Frame(self.root, padding=(pad, gap, pad, gap // 2))
         self.actionbar.pack(side="bottom", fill="x")
         edits = ttk.Frame(self.actionbar)
         edits.grid(row=0, column=0, sticky="w")
@@ -487,38 +600,71 @@ class ManifestApp:
         self.exclude_button.pack(side="left")
         outputs = ttk.Frame(self.actionbar)
         outputs.grid(row=0, column=2, sticky="e")
+        # The JSON option sits beside the export it controls.
+        self.json_check = ttk.Checkbutton(outputs, text="Kèm đối chiếu JSON", variable=self.include_review)
+        self.json_check.pack(side="left", padx=(0, pad))
         self.review_button = ttk.Button(outputs, text="Lưu đối chiếu…", command=self.save_review, state="disabled")
         self.review_button.pack(side="left", padx=(0, gap))
         self.export_button = ttk.Button(outputs, text="Xuất file Manifest…", style="Primary.TButton", command=self.export, state="disabled")
         self.export_button.pack(side="left")
-        self.export_hint_label = _wrapped_label(self.actionbar, textvariable=self.export_hint, style="Muted.TLabel")
-        self.export_hint_label.grid(row=1, column=0, columnspan=3, sticky="e", pady=(gap // 2, 0))
+        # export_hint still decides whether Export is enabled; the reason is not repeated as a line.
+        # Blocking errors show on the red card, carrier and setting changes in the status beside the file name.
         self.export_folder_button = ttk.Button(self.actionbar, text="Mở thư mục kết quả", command=self.open_export_folder)
-        self.export_folder_button.grid(row=2, column=2, sticky="e", pady=(gap // 2, 0))
+        self.export_folder_button.grid(row=1, column=2, sticky="e", pady=(gap // 2, 0))
         self.export_folder_button.grid_remove()
 
         info = ttk.Frame(self.root, padding=(pad, gap, pad, 0))
         info.pack(fill="x")
-        _wrapped_label(info, textvariable=self.file_label, font=FONT_BOLD).pack(anchor="w")
+        head = ttk.Frame(info)
+        head.pack(fill="x")
+        head.columnconfigure(1, weight=1)
+        file_name = self.file_name_label = ttk.Label(head, textvariable=self.file_label, font=FONT_BOLD)
+        file_name.grid(row=0, column=0, sticky="w")
+        self.status_label = ttk.Label(head, textvariable=self.status, style="Muted.TLabel", justify="right")
+        self.status_label.grid(row=0, column=1, sticky="e", padx=(pad, 0))
+        self.progress = ttk.Progressbar(head, mode="determinate", length=_pixels(self.root, 110),
+                                        style="Idle.Horizontal.TProgressbar")
+        self.progress.grid(row=0, column=2, sticky="e", padx=(gap, 0))
+
+        def fit_head(event):
+            # Long file names keep at most 60% of the row; the status wraps in what remains.
+            name_width = max(100, int(event.width * .6))
+            file_name.configure(wraplength=name_width)
+            used = min(file_name.winfo_reqwidth(), name_width) + self.progress.winfo_reqwidth() + pad + gap
+            self.status_label.configure(wraplength=max(100, event.width - used))
+
+        head.bind("<Configure>", fit_head, add="+")
         counts = ttk.Frame(info)
         counts.pack(fill="x", pady=(gap, gap // 2))
+        self.count_numbers, self.count_stripes, self.count_captions = {}, {}, {}
         for index, (key, label, variant) in enumerate(STAT_ITEMS):
             counts.columnconfigure(index, weight=1, uniform="stats")
             value = tk.StringVar(value="—")
             self.count_labels[key] = value
-            card = ttk.Frame(counts, style="Toolbar.TFrame", padding=(gap, gap // 2))
-            card.grid(row=0, column=index, sticky="nsew", padx=(0, gap if index < len(STAT_ITEMS) - 1 else 0))
-            card.rowconfigure(0, minsize=_pixels(self.root, 26))
+            # White card with a hairline border and a stripe in the colour of its meaning.
+            frame = tk.Frame(counts, bg=SURFACE, highlightthickness=1, highlightbackground=LINE, highlightcolor=LINE)
+            frame.grid(row=0, column=index, sticky="nsew", padx=(0, gap if index < len(STAT_ITEMS) - 1 else 0))
+            stripe = tk.Frame(frame, bg=STRIPES["Empty" if key == "empty" else variant], width=_pixels(self.root, 4))
+            stripe.pack(side="left", fill="y")
+            self.count_stripes[key] = stripe
+            card = ttk.Frame(frame, style="Toolbar.TFrame", padding=(gap + gap // 2, gap // 2, gap, gap // 2))
+            card.pack(side="left", fill="both", expand=True)
+            card.rowconfigure(0, minsize=_pixels(self.root, 24))
             number = ttk.Label(card, textvariable=value, style=f"{variant}.Number.TLabel")
+            self.count_numbers[key] = number
             if key in {"errors", "warnings"}:
                 severity = "error" if key == "errors" else "warning"
-                button = ttk.Button(card, style=f"{variant}.Count.TButton", text=label,
+                button = ttk.Button(card, style=f"{variant}.Count.TButton", text=label, cursor="hand2",
                                     command=lambda kind=severity: self._filter_severity(kind))
                 button.grid(row=0, column=0, sticky="w")
+                number.configure(cursor="hand2")
                 number.bind("<Button-1>", lambda _, choice=button: choice.invoke())
             else:
-                ttk.Label(card, text=label, style="Toolbar.TLabel").grid(row=0, column=0, sticky="w")
+                ttk.Label(card, text=label, style="Card.TLabel").grid(row=0, column=0, sticky="w")
             number.grid(row=1, column=0, sticky="w")
+            if key in {"containers", "full", "empty"}:
+                self.count_captions[key] = tk.StringVar(value="")
+                ttk.Label(card, textvariable=self.count_captions[key], style="Card.TLabel").grid(row=2, column=0, sticky="w")
         self.summary_label = _wrapped_label(info, textvariable=self.summary, style="Muted.TLabel")
         self.summary_label.pack(anchor="w")
         # Shown only while it has text, so an empty line never leaves a gap.
@@ -527,13 +673,13 @@ class ManifestApp:
         filters = ttk.Frame(self.root, padding=(pad, gap, pad, gap))
         filters.pack(fill="x")
         ttk.Label(filters, text="Tìm container / B/L / hàng hóa:").pack(side="left", padx=(0, gap))
-        self.search_entry = ttk.Entry(filters, textvariable=self.search, width=17)
+        self.search_entry = ttk.Entry(filters, textvariable=self.search, width=24)
         self.search_entry.pack(side="left", padx=(0, gap))
         ttk.Checkbutton(filters, text="Chỉ mục cần kiểm tra", variable=self.only_issues, command=self.refresh).pack(side="left", padx=(0, gap))
         ttk.Checkbutton(filters, text="Hiện dòng đã loại", variable=self.show_excluded, command=self.refresh).pack(side="left")
         filter_actions = ttk.Frame(filters)
         filter_actions.pack(side="right")
-        ttk.Button(filter_actions, text="Xóa bộ lọc", command=self._clear_filters).pack(side="left", padx=(gap, gap))
+        ttk.Button(filter_actions, text="Xóa bộ lọc", style="Ghost.TButton", command=self._clear_filters).pack(side="left", padx=(gap, gap))
         ttk.Button(filter_actions, text="Tra nguồn…", command=self.show_source_coverage).pack(side="left")
         filter_feedback = ttk.Frame(self.root)
         filter_feedback.pack(fill="x", padx=pad, pady=(0, gap // 2))
@@ -561,8 +707,9 @@ class ManifestApp:
         self._columns(self.tree, fields, stretchy={"Cleaned_Consignee_Name_For_Output", "Description"},
                       numeric={"Weight_Value"}, sortable=True)
         self._scrollbars(data_tab, self.tree)
-        self.tree.tag_configure("error", background=DANGER_BG)
-        self.tree.tag_configure("warning", background=WARNING_BG)
+        self.tree.tag_configure("odd", background=ZEBRA)
+        self.tree.tag_configure("error", background=DANGER_BG, foreground=DANGER)
+        self.tree.tag_configure("warning", background=WARNING_BG, foreground=WARNING)
         self.tree.tag_configure("excluded", foreground=MUTED, background=EXCLUDED_BG)
         self.tree.bind("<Double-1>", lambda _: self.edit_selected())
         self.tree.bind("<Return>", lambda _: self.edit_selected())
@@ -575,7 +722,18 @@ class ManifestApp:
         # Tk traverses siblings in stacking order. Match the visible layout.
         self.actionbar.lift()
         footer.lift()
+        self._paint_alert_cards({})
         self._update_table_states()
+
+    def _paint_alert_cards(self, stats):
+        """Errors and warnings read as alerts only when present; a zero stays neutral grey."""
+        numbers, stripes = getattr(self, "count_numbers", {}), getattr(self, "count_stripes", {})
+        for key, variant in (("errors", "Error"), ("warnings", "Warning")):
+            active = bool(stats.get(key)) if stats else False
+            if key in numbers:
+                numbers[key].configure(style=f"{variant if active else 'Muted'}.Number.TLabel")
+            if key in stripes:
+                stripes[key].configure(bg=STRIPES[variant if active else "Muted"])
 
     def _build_issues(self, tab, gap):
         toolbar = ttk.Frame(tab, padding=(0, gap // 2))
@@ -856,6 +1014,9 @@ class ManifestApp:
         self.status.set("Đang xử lý. Cửa sổ vẫn có thể di chuyển và xem trạng thái.")
         for value in self.count_labels.values():
             value.set("—")
+        for caption in getattr(self, "count_captions", {}).values():
+            caption.set("")
+        self._paint_alert_cards({})
         self.table_counts = (0, 0)
         self.issue_count = 0
         self.tabs.tab(1, text="Cần kiểm tra")
@@ -871,7 +1032,7 @@ class ManifestApp:
         self._update_table_states()
         self._issue_selected()
         self._update_export_state()
-        self.progress.configure(mode="indeterminate")
+        self.progress.configure(mode="indeterminate", style="Horizontal.TProgressbar")
         self.progress.start(15)
         settings = self._read_settings()
         def work():
@@ -894,7 +1055,7 @@ class ManifestApp:
                 else:
                     self.busy = False
                     self.progress.stop()
-                    self.progress.configure(mode="determinate", value=0)
+                    self.progress.configure(mode="determinate", value=0, style="Idle.Horizontal.TProgressbar")
                     self.open_button.configure(state="normal")
                     self.resume_button.configure(state="normal")
                     self.reload_button.configure(state="normal")
@@ -1066,8 +1227,17 @@ class ManifestApp:
         session = self.session
         issues = [item for item in session.validate() if item.get("severity") in {"error", "warning"}]
         stats = session.statistics()
+        sizes = _size_breakdown(session.active_records())
+        captions = getattr(self, "count_captions", {})
         for key, value in self.count_labels.items():
-            value.set(str(stats[key]))
+            if key in sizes:
+                number, caption = _size_display(key, stats[key], sizes[key])
+                value.set(number)
+                if key in captions:
+                    captions[key].set(caption)
+            else:
+                value.set(str(stats[key]))
+        self._paint_alert_cards(stats)
         self.table_counts = (len(session.records), len(issues))
         self.summary.set(f"{session.carrier} · {stats['bills']} B/L · {stats['active_records']} dòng"
                          + (f" · {stats['unknown']} chưa rõ F/E" if stats["unknown"] else "")
@@ -1092,11 +1262,11 @@ class ManifestApp:
                 status_by_record[rid] = ("Đã loại", "excluded")
             elif findings:
                 errors = sum(item["severity"] == "error" for item in findings)
-                status_by_record[rid] = (f"{errors} lỗi", "error") if errors else (f"{len(findings)} cảnh báo", "warning")
+                status_by_record[rid] = (f"✕ {errors} lỗi", "error") if errors else (f"▲ {len(findings)} cảnh báo", "warning")
             elif row.get("_manual_review_reason"):
                 status_by_record[rid] = ("Đã đối chiếu", "")
             else:
-                status_by_record[rid] = ("Đủ dữ liệu", "")
+                status_by_record[rid] = ("✓", "")
         rows = list(session.records)
         if self.sort_field:
             key = self.sort_field
@@ -1114,6 +1284,7 @@ class ManifestApp:
             rows.sort(key=sort_value, reverse=self.sort_reverse)
         query = self.search.get().casefold().strip()
         matches = set()
+        shown = 0
         for record in rows:
             rid = record["record_id"]
             row_issues = per_record.get(rid, ())
@@ -1129,6 +1300,10 @@ class ManifestApp:
             if (self.only_issues.get() or self.severity_filter) and rid not in filtered_records:
                 continue
             label, tag = status_by_record[rid]
+            if not tag:
+                # Alternate plain rows by visible position; status colours take precedence.
+                tag = "odd" if shown % 2 else ""
+            shown += 1
             values = (label, record.get("Container_No", ""), seal_text(record.get("Seal_No")),
                       record.get("BL_No", ""), record.get("VTOS_Size", ""),
                       record.get("Operator", ""), record.get("FE_Status", ""),
