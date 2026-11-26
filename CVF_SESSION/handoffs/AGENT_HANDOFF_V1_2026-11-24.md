@@ -278,3 +278,13 @@ Build lại bằng `BUILD_ONEFILE.cmd` trong 68 giây, file 35,99 MB, SHA-256 0F
 Trong lúc build lại, `dist/onefile/recent_files.json` đã có sẵn, tạo lúc 18:20, trước lần build này. Operator có vẻ đã chạy bản một file trước đó và mở hai manifest VOSCO, nên danh sách Gần đây đã ghi đúng cạnh file exe trong bản một file. Đây chỉ cho biết hai file đọc được và danh sách ghi đúng chỗ, chưa phải kiểm xuất Excel. File này là dữ liệu của operator và được để nguyên.
 
 Chưa kiểm trên máy Cảng, chưa có reviewer độc lập. Quyết định còn mở: thông báo bản quyền trong thuộc tính file exe, cần nguyên văn từ operator.
+
+### VOSCO FF2643S: lỗi import do nhãn DOOR-CY và CY-DOOR
+
+CVF Agent Declaration. Manifest_Cleaner, IMPLEMENTATION_WORKER theo MC52 trong WO_MC_LEGACY_COMPAT.md, project REVIEW, Core ../.Controlled-Vibe-Framework-CVF tại b6d5a51a1e90c1c03426baa3d355834089ac652a, CORE_ONLY. Activation CURRENT_ASSESSED và pre-dispatch PASS 7/7 ngày 26-11-2026. Trần R2 do đọc manifest thật cục bộ, live evidence YES cho tuyên bố quản trị, không có checkpoint. Working tree sạch tại 510526b trước lượt này. Operator báo `Manifest/MNF TAU FF2643S.xls` (VOSCO) lỗi khi import.
+
+Tái hiện: 300 dòng, 21 lỗi chặn, 36 cảnh báo. Nguyên nhân: dòng tiêu đề vận đơn có cột K ghi nhãn giao nhận `DOOR-CY` (K17, K43) và `CY-DOOR` (K879), trong khi danh sách nhãn của VOSCO chỉ có sáu nhãn khác, nên ba nhãn bị đọc thành số container. Ba dòng giả đó kéo theo 30 cảnh báo "chưa rõ phạm vi đếm". Sửa: thêm hai nhãn vào `_DELIVERY_MODE_LABELS` trong `manifest_cleaner/carriers/vosco/adapter.py`, không thêm biến thể chưa quan sát. Chữ lạ cạnh số vận đơn vẫn bị giữ làm ứng viên container để xem lại.
+
+Kết quả: 297 dòng, 88 vận đơn, 0 lỗi chặn, 4 cảnh báo. Khớp 297 container và 88 vận đơn của `Processed_MNF TAU FF2643S.xlsx` do app cũ xuất. Còn bốn container FAJU (EMPTY TANK nặng khoảng 11 tấn) mà app cũ ghi F; app này giữ E theo nguồn, chờ xác nhận. Mười trọng lượng app cũ để trống nay có số, đúng bằng tổng 565,85 của vận đơn VOSHPH268283. Chạy 8 file trong Manifest/ và dist/ với ba hãng (24 tổ hợp): 23 tổ hợp giống hệt trước và sau, chỉ FF2643S với VOSCO đổi. Xuất thử vào thư mục tạm đạt 297 dòng, 16 cột, mở lại JSON đạt. SHA-256 file nguồn không đổi. Thêm hai ca hồi quy và mở rộng một ca; hai ca đầu thất bại với danh sách nhãn cũ. Chi tiết ở docs/reviews/LEGACY_COMPAT_REVIEW.md.
+
+Chưa commit, chưa build lại EXE: các bản EXE hiện có vẫn mang mã cũ nên vẫn gặp lỗi này cho tới khi build lại. Chưa có reviewer độc lập. Bốn cảnh báo EMPTY_WEIGHT_CONFLICT vẫn chờ xác nhận nguồn.

@@ -67,7 +67,8 @@ def _is_container_header(line):
 # Explicit delivery-mode annotations observed in the source container column.
 # Treat only complete labels as metadata; malformed/unknown text remains an
 # unresolved container candidate, preserving the existing review safeguard.
-_DELIVERY_MODE_LABELS = {"DOOR-DOOR", "DOOR/OTI", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY"}
+_DELIVERY_MODE_LABELS = {"DOOR-DOOR", "DOOR/OTI", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY",
+                         "DOOR-CY", "CY-DOOR"}  # DOOR-CY/CY-DOOR: MNF TAU FF2643S, on the B/L row
 
 
 def _is_delivery_mode(line):

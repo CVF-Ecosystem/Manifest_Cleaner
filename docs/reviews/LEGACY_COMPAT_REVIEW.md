@@ -88,3 +88,17 @@ Trên Windows Tk, đã thử bố cục 595 × 430 với hệ số Tk 2.0, cuộ
 VFON dùng định dạng **General** cho cột **TL hàng**, giống bản Excel cũ. Ô I2 lưu số 9 và số lẻ vẫn được ghi dạng số. Quy tắc tô vàng dùng đúng mẫu tham chiếu bên cột seal của tool cũ, gồm sáu chữ số cho VOSCO và sáu hoặc bảy chữ số cho VIMC/VINAFCO. Seal trống bỏ qua bước tham chiếu. Khi cần đánh dấu, bản xuất giữ câu **⚠️ Seal không hợp lệ** và tô vàng ô **Số niêm chì** cùng **Ghi chú**. Số container có cảnh báo còn hiệu lực cũng được đánh dấu trên ô tương ứng và ô ghi chú. Giá trị seal và quy tắc cho phép xuất lấy từ phiên, còn dấu tham chiếu định dạng seal chỉ áp dụng ở bản xem trước và Excel.
 
 Đối chiếu theo cặp B/L–container trên 317 dòng VFON. Excel xuất thử khớp đủ 96 dòng seal được đánh dấu với bản xử lý cũ. Hai cột seal khớp giá trị cũ. Kết quả phiên là 0 lỗi chặn và 3 cảnh báo nghiệp vụ. Các workbook đối chiếu được đọc cục bộ và giữ nguyên SHA-256.
+
+### VOSCO FF2643S: nhãn giao nhận DOOR-CY và CY-DOOR · 26-11-2026
+
+Operator báo `MNF TAU FF2643S` (VOSCO) không import được. Tại dòng tiêu đề của vận đơn, cột K ghi loại dịch vụ giao nhận `DOOR-CY` (Sheet1!K17 và K43) và `CY-DOOR` (K879). Bộ đọc chỉ coi các nhãn đã liệt kê (`DOOR-DOOR`, `DOOR/OTI`, `OTI/OTI`, `OTI/DOOR`, `DB-CY`, `OTI-CY`) là siêu dữ liệu, nên hai nhãn này bị đọc thành số container. Hậu quả: ba dòng container giả, 21 lỗi chặn xuất và 30 cảnh báo "chưa rõ phạm vi đếm" phát sinh từ ba dòng đó.
+
+| Manifest | Số dòng Excel cũ | Số dòng app trước → sau | Lỗi chặn trước → sau | Cảnh báo trước → sau |
+| --- | ---: | ---: | ---: | ---: |
+| VOSCO FF2643S | 297 | 300 → 297 | 21 → 0 | 36 → 4 |
+
+- **Sửa:** thêm `DOOR-CY` và `CY-DOOR` vào danh sách nhãn giao nhận của VOSCO. Chỉ thêm hai nhãn đã quan sát trong nguồn. Chữ lạ cạnh số vận đơn, kể cả biến thể chưa thấy như `DOOR-XY`, vẫn được giữ làm ứng viên container để xem lại.
+- **Đối chiếu app cũ** (`Processed_MNF TAU FF2643S.xlsx`): đủ 297 container, 88 vận đơn, không có dòng nào là nhãn. Mỗi container khớp về vận đơn, hãng khai thác, kích cỡ VTOS, seal, hàng hóa. Còn hai nhóm khác biệt, đều có từ trước và không do sửa này:
+  - Bốn container `FAJU2019024`, `FAJU2019071`, `FAJU2019132`, `FAJU2019153` khai EMPTY TANK nặng khoảng 11 tấn. App cũ ghi F/TANK. App này giữ E theo khai báo nguồn và báo `EMPTY_WEIGHT_CONFLICT`. Đây là bốn cảnh báo còn lại, chờ xác nhận nguồn như các ca FAJU trước.
+  - Mười container ở vận đơn `VOSHPH268283` (nhóm `SELU4743129`…`VIMU6244714`) app cũ để trống trọng lượng. App này đọc đủ 10 số từ ô nối tiếp Sheet1!S1552 (cột 19). Tổng 29 container của vận đơn là 565,85 tấn, đúng bằng dòng `Total:565.85` trong nguồn.
+- **Kiểm chứng:** xuất thử vào thư mục tạm cho 297 dòng, 16 cột, 88 vận đơn, mọi số container đủ 11 ký tự, mở lại JSON đối chiếu không lỗi. Chạy 8 file khác nhau trong `Manifest/` và `dist/` với cả ba hãng (24 tổ hợp), kết quả xuất giống hệt trước và sau ở 23 tổ hợp, chỉ FF2643S với VOSCO đổi. SHA-256 file nguồn không đổi. Thêm hai ca hồi quy theo đúng bố cục thật bằng dữ liệu giả và mở rộng ca nhãn cũ. Hai ca đầu thất bại với danh sách nhãn cũ.

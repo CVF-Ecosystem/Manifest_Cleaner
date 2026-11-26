@@ -86,7 +86,8 @@ class Vosco110Tests(unittest.TestCase):
         row[0], row[1], row[5], row[10], row[14], row[18] = (
             "(C)", "TEST", "VOSCO123456", "ABCU1234567/001234 40HC-C", "CARGO", "25 TONS")
         sheet.append(row)
-        for label in ("DOOR-DOOR", "DOOR/OTI", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY"):
+        labels = ("DOOR-DOOR", "DOOR/OTI", "OTI/OTI", "OTI/DOOR", "DB-CY", "OTI-CY", "DOOR-CY", "CY-DOOR")
+        for label in labels:
             note = [""] * 19
             note[10] = label
             sheet.append(note)
@@ -97,9 +98,55 @@ class Vosco110Tests(unittest.TestCase):
         self.assertEqual(len(session.records), 1)
         self.assertFalse(any(i["code"] == "CONTAINER_UNPARSED" for i in session.validate()))
         self.assertEqual(len([f for f in session.metadata["source_fragments"]
-                              if f["reason"] == "delivery_mode_annotation"]), 6)
+                              if f["reason"] == "delivery_mode_annotation"]), len(labels))
         columns, rows = build_port_rows(session)
         self.assertEqual(rows[0][columns.index("Số lượng")], 1)
+
+    def bill_blocks(self, *blocks):
+        """MNF TAU FF2643S layout: the shipping term sits beside the B/L number, above the FCL/FCL block."""
+        book = Workbook()
+        sheet = book.active
+        for bill, term, containers, weight in blocks:
+            head = [""] * 19
+            head[5], head[10], head[14] = bill, term, "TAN THUAN PORT, HO CHI MINH"
+            sheet.append(head)
+            body = [""] * 19
+            body[0], body[1] = "(C)", "TEST CONSIGNEE"
+            body[10] = "\n".join(["FCL/FCL", *containers])
+            body[14] = "\n".join(["", *["CARGO"] * len(containers), f"CARGO ({len(containers):02d}) x40'HC COC"])
+            body[18] = "\n".join(["", *[weight] * len(containers), f"Total:{len(containers) * 9}\nTONS"])
+            sheet.append(body)
+        path = self.root / "bill_blocks.xlsx"
+        book.save(path)
+        book.close()
+        return path
+
+    def test_door_cy_and_cy_door_on_the_bill_row_are_not_containers(self):
+        path = self.bill_blocks(
+            ("VOSCO100001", "DOOR-CY", ("ABCU1234567/001234/40HC-C", "ABCU1234568/001235/40HC-C"), "9 TONS"),
+            ("VOSCO100002", "CY-DOOR", ("ABCU1234569/001236/40HC-C",), "9 TONS"))
+        session = process_manifest(path, "VOSCO")
+        self.assertEqual([(r["BL_No"], r["Container_No"]) for r in session.records],
+                         [("VOSCO100001", "ABCU1234567"), ("VOSCO100001", "ABCU1234568"),
+                          ("VOSCO100002", "ABCU1234569")])
+        codes = {i["code"] for i in session.validate()}
+        self.assertFalse(codes & {"CONTAINER_UNPARSED", "INVALID_CONTAINER", "WEIGHT_ASSOCIATION_AMBIGUOUS",
+                                  "DESCRIPTION_QUANTITY_SCOPE_UNCLEAR"}, codes)
+        self.assertEqual(session.statistics()["errors"], 0)
+        self.assertEqual([r["Weight_Value"] for r in session.records], [9, 9, 9])
+        # The terms are kept as corroborating source text, not silently dropped.
+        self.assertEqual(sorted(f["text"] for f in session.metadata["source_fragments"]
+                                if f["reason"] == "delivery_mode_annotation"), ["CY-DOOR", "DOOR-CY"])
+        columns, rows = build_port_rows(session)
+        self.assertEqual([row[columns.index("Số lượng")] for row in rows], [2, 2, 1])
+
+    def test_unknown_text_beside_the_bill_number_still_needs_review(self):
+        path = self.bill_blocks(("VOSCO100003", "DOOR-XY", ("ABCU1234567/001234/40HC-C",), "9 TONS"))
+        session = process_manifest(path, "VOSCO")
+        codes = {i["code"] for i in session.validate()}
+        self.assertIn("CONTAINER_UNPARSED", codes)
+        self.assertEqual(session.statistics()["errors"] > 0, True)
+        self.assertIn("DOOR-XY", [r["Container_No"] for r in session.records])
 
     def test_partial_weights_require_matching_physical_lines(self):
         containers = "FCL/FCL\nABCU1234567/001234 40HC-C\nABCU1234568/001235 40HC-C\nABCU1234569/001236 40HC-C"
