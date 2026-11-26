@@ -388,3 +388,18 @@ Operator nhận xét: quy trình Đổi B/L khó hiểu nhất với người d�
 Một lệnh sửa trung gian đã chèn dấu xuống dòng thật vào chuỗi Python. Lỗi được phát hiện khi import thất bại và được sửa trước khi chạy test.
 
 Kết quả: 331 test đạt, gồm ca mới cho việc chọn manifest gốc và nút Hướng dẫn. Ca kích thước tối thiểu vẫn đạt sau khi thêm dòng tóm tắt. Chưa commit.
+
+### MC3: commit hướng dẫn, push và build EXE
+
+Operator yêu cầu commit, push GitHub và build EXE ngày 26-11-2026.
+
+- Commit `3ded484` (hướng dẫn B1, B2, B3 và lời nhắc chọn nhầm manifest gốc). Gate pre-commit PASS 7/7.
+- Push fast-forward `510526b..3ded484` lên `https://github.com/CVF-Ecosystem/Manifest_Cleaner.git`. Remote `main` và local cùng là `3ded484`. Gồm cả `b8f1c50`, `8c1f5bf` và `1225afe`.
+- Build bằng `BUILD_EXE.cmd` và `BUILD_ONEFILE.cmd`. Mỗi lần chạy 331 test đạt rồi mới đóng gói.
+  - `dist/ManifestCleaner/ManifestCleaner.exe`, SHA-256 `6faa930a4033d20288f20883802ada357a64bc5b272e45f5bf97672cc94c4649`.
+  - `dist/onefile/ManifestCleaner.exe`, SHA-256 `f8ef6decb26f8f23eb51500775f777be4b89f9db2c0b5cd1661ed9ed5bad20da`.
+  - Cả hai chứa `manifest_cleaner.bl_change`. Cả hai mở cửa sổ "Manifest Cleaner 1.2.7" (bản thư mục sau 8,6 giây, bản một file sau 5,1 giây) và đóng bình thường, không còn tiến trình hay thư mục `_MEI`.
+- Lần chạy build đầu thất bại ngay vì `cmd` không tìm thấy script theo tên trần. Không có gì bị đổi. Đã chạy lại bằng đường dẫn đầy đủ.
+- Build bản thư mục xóa `dist/ManifestCleaner/recent_files.json` của operator. File được sao lưu trước và trả lại, giống hệt. `dist/onefile/recent_files.json` không đổi.
+
+Chưa làm: chạy EXE với manifest thật, xuất Excel hoặc dùng tab Đổi B/L; chạy trên máy Cảng. Số phiên bản vẫn là 1.2.7. Mã băm EXE không tái lập được giữa các lần build. MC64 (operator import thử trên TOS) và review độc lập cho MC3 vẫn mở.
