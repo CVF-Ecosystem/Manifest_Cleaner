@@ -349,4 +349,10 @@ Ngày 26-11-2026, operator yêu cầu commit sau khi đọc kết quả tự rev
 COMMIT_STEWARD chia làm hai commit cục bộ trên `main`, không push:
 
 1. MC52 (DOOR-CY/CY-DOOR) là `b8f1c50`. Chạy riêng trong worktree tạm: 322 test đạt, kiểm tra phát hành PASS.
-2. MC3 là commit kế tiếp. Mã của commit này được ghi ở lượt continuity sau đó.
+2. MC3 là `8c1f5bf`. Trước khi commit: 330 test đạt, kiểm tra phát hành PASS với 151 mục, catalog PASS, gate pre-commit PASS 7/7, activation CURRENT_ASSESSED.
+
+Commit continuity này ghi lại hai mã commit trên. Chưa push lên remote, chưa build EXE. Bước tiếp theo:
+
+- Operator import thử file mẫu TOS trên TOS (MC64).
+- Quyết định có push và build lại EXE hay không.
+- Reviewer độc lập cho MC3 nếu operator muốn.
