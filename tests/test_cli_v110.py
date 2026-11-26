@@ -12,6 +12,7 @@ import unittest
 
 from openpyxl import load_workbook
 
+from manifest_cleaner import exporter
 from manifest_cleaner.cli import main
 from manifest_cleaner.engine import load_review, process_manifest
 from scripts.create_samples import create_vimc
@@ -85,7 +86,7 @@ class Cli110Tests(unittest.TestCase):
     def output_row(self, path):
         book = load_workbook(path, data_only=False)
         try:
-            sheet = book["Processed_Manifest"]
+            sheet = book[exporter.SHEET_NAME]
             headers = [cell.value for cell in sheet[1]]
             row = dict(zip(headers, [cell.value for cell in sheet[2]]))
             properties = {prop.name: prop.value for prop in book.custom_doc_props}
@@ -104,7 +105,7 @@ class Cli110Tests(unittest.TestCase):
         row, properties = self.output_row(output)
         data = json.loads(review.read_text(encoding="utf-8"))
         expected_source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
-        self.assertEqual(len(row), 16)
+        self.assertEqual(len(row), 46)
         self.assertEqual(data["metadata"]["source_sha256"], expected_source_hash)
         self.assertEqual(properties["source_sha256"], expected_source_hash)
         self.assertEqual(properties["session_id"], data["metadata"]["session_id"])
@@ -143,7 +144,7 @@ class Cli110Tests(unittest.TestCase):
         self.assertEqual(code, 0, error)
         row, _ = self.output_row(output)
         self.assertEqual(row["Số niêm chì"], "009999")
-        self.assertEqual(row["Trọng lượng (Tấn)"], 18.5)
+        self.assertEqual(row["TL hàng"], 18.5)
         resumed = load_review(review)
         self.assertEqual(resumed.corrections, json.loads(original_json)["corrections"])
         self.assertEqual(saved.read_bytes(), original_json)

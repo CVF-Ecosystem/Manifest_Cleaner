@@ -19,6 +19,7 @@ Machine-readable source: `docs/catalog/ARTIFACT_REGISTRY.json`
 - Observed compatibility for paired legacy manifests and the VINAFCO replay.: `docs/reviews/LEGACY_COMPAT_REVIEW.md`
 - Observed results and remaining work for Manifest Cleaner 1.2.0.: `docs/reviews/ROADMAP_1_2_REVIEW.md`
 - Tkinter desktop guidance gap candidate and local evidence.: `docs/reviews/learnings/TKINTER_DESKTOP_UI_GUIDANCE.md`
+- TOS export form and Đổi B/L tab (MC3) worker evidence.: `docs/reviews/MC3_TOS_EXPORT_REVIEW.md`
 - Manifest Cleaner 1.2.7 desktop implementation worker evidence.: `docs/reviews/ui-1.2.7/README.md`
 - Generated documentation index.: `docs/INDEX.md`
 - Generated human module catalog.: `docs/catalog/MODULE_CATALOG.md`

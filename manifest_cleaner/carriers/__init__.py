@@ -3,16 +3,30 @@
 from dataclasses import dataclass
 
 
-COMMON_PORT_COLUMNS = (
-    "STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ",
-    "Kích cỡ VTOS", "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng",
-    "Hàng hóa", "Loại hàng", "Độ chính xác (%)", "Ghi chú",
+# The Port TOS import form (Manifest/Vtos.xlsx, 2026-11-26): 46 headers in TOS order.
+# Four names repeat with a trailing space; TOS uses them for the name beside a code.
+TOS_COLUMNS = (
+    "Xác nhận", "ĐTTT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ",
+    "Kích cỡ ISO", "F/E", "TL hàng", "VGM", "Nhóm TL", "Số niêm chì", "Số niêm chì 1",
+    "Cảng xếp", "Cảng dỡ", "Cảng đích", "Phương Án", "Phương Án ", "Phương Thức Giao Nhận",
+    "Phương Thức Giao Nhận ", "Chủ hàng", "Loại hàng", "Loại hàng ", "Hàng hóa", "CLASS",
+    "UNNO", "Nhiệt độ", "Vent", "Vent_Unit", "Cntr Class", "CntrClass", "Hàng nội/ngoại",
+    "Hàng nội/ngoại ", "Ghi chú", "OOG_TOP", "OOG_LEFT", "OOG_RIGHT", "OOG_BACK",
+    "OOG_FRONT", "Term", "Số thứ tự", "Transist", "Cảng chuyển", "Cảng giao nhận",
+    "Chỉ dẫn xếp dỡ",
 )
-VIMC_PORT_COLUMNS = (
-    "STT", "Số Vận Đơn", "Số Container", "Số niêm chì", "Số niêm chì 1", "Chủ hàng",
-    "Kích cỡ", "Loại Container", "Hãng khai thác", "Loại hàng", "F/E", "Trọng lượng (Tấn)",
-    "Hàng hóa", "Số lượng", "Độ chính xác (%)", "Ghi chú",
+# The columns the app fills, in TOS order, for every carrier. STT and Ghi chú are
+# shown in the app only; the Excel file leaves Ghi chú blank and has no STT.
+PORT_COLUMNS = (
+    "STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ", "Kích cỡ ISO",
+    "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng", "Loại hàng", "Loại hàng ",
+    "Hàng hóa", "Ghi chú",
 )
+APP_ONLY_COLUMNS = frozenset({"STT", "Ghi chú"})
+# Only pairs seen in the TOS form. Other codes stay blank until a TOS import confirms them.
+VTOS_TO_TOS_ISO = {"20DC": "22G0", "40HC": "45G0", "45HC": "L5G0", "40RH": "45R0", "20TK": "22T0"}
+CARGO_TO_TOS = {"GENERAL": ("GP", "General"), "EMPTY REEFER": ("ER", "Empty Reefer"),
+                "EMPTY TANK": ("ET", "EMPTY TANK")}
 MAPPING_SETTINGS = frozenset({"size_to_iso", "size_to_vtos", "cargo_type_mapping"})
 TARE_SETTINGS = frozenset({
     "tare_20ft", "tare_40ft", "tare_45ft", "tare_20rf", "tare_40rf", "tare_45rf",
@@ -24,9 +38,7 @@ TARE_SETTINGS = frozenset({
 
 @dataclass(frozen=True)
 class PortExportProfile:
-    columns: tuple[str, ...] = COMMON_PORT_COLUMNS
     group_quantity_by_master_bl: bool = False
-    primary_size_field: str = "Size_Type"
     weight_digits: int | None = None
     weight_format: str = "General"
     empty_description: str | None = None
@@ -67,8 +79,7 @@ CARRIER_PROFILES = {
         operators=("VMC", "SVM"),
         extra_settings=MAPPING_SETTINGS,
         export=PortExportProfile(
-            columns=VIMC_PORT_COLUMNS, group_quantity_by_master_bl=True,
-            primary_size_field="VTOS_Size", weight_digits=2, weight_format="0.00",
+            group_quantity_by_master_bl=True, weight_digits=2, weight_format="0.00",
             empty_description="EMPTY", seal_reference_lengths=(6, 7),
         ),
     ),

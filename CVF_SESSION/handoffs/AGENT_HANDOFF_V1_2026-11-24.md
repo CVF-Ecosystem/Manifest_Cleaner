@@ -8,7 +8,7 @@ Status: ACTIVE
 - Current mode: REVIEW
 - Active phase: REVIEW
 - Active role: ORCHESTRATOR
-- Next allowed move: Reconcile the documented VOSCO F/E conflicts when evidence is supplied and continue Port acceptance checks.
+- Next allowed move: Independent implementation review of MC61-MC63, then operator TOS import test (MC64); commit MC52 then MC3 separately when the operator asks.
 - Parked operator checkpoint: none
 
 ## Seven-Step Control Chain
@@ -288,3 +288,65 @@ Tái hiện: 300 dòng, 21 lỗi chặn, 36 cảnh báo. Nguyên nhân: dòng ti
 Kết quả: 297 dòng, 88 vận đơn, 0 lỗi chặn, 4 cảnh báo. Khớp 297 container và 88 vận đơn của `Processed_MNF TAU FF2643S.xlsx` do app cũ xuất. Còn bốn container FAJU (EMPTY TANK nặng khoảng 11 tấn) mà app cũ ghi F; app này giữ E theo nguồn, chờ xác nhận. Mười trọng lượng app cũ để trống nay có số, đúng bằng tổng 565,85 của vận đơn VOSHPH268283. Chạy 8 file trong Manifest/ và dist/ với ba hãng (24 tổ hợp): 23 tổ hợp giống hệt trước và sau, chỉ FF2643S với VOSCO đổi. Xuất thử vào thư mục tạm đạt 297 dòng, 16 cột, mở lại JSON đạt. SHA-256 file nguồn không đổi. Thêm hai ca hồi quy và mở rộng một ca; hai ca đầu thất bại với danh sách nhãn cũ. Chi tiết ở docs/reviews/LEGACY_COMPAT_REVIEW.md.
 
 Chưa commit, chưa build lại EXE: các bản EXE hiện có vẫn mang mã cũ nên vẫn gặp lỗi này cho tới khi build lại. Chưa có reviewer độc lập. Bốn cảnh báo EMPTY_WEIGHT_CONFLICT vẫn chờ xác nhận nguồn.
+
+### MC3: mẫu xuất TOS và cửa sổ Đổi B/L (dispatch)
+
+CVF Agent Declaration:
+
+- Project Manifest_Cleaner, Core ../.Controlled-Vibe-Framework-CVF tại b6d5a51a1e90c1c03426baa3d355834089ac652a, CORE_ONLY và PINNED_CORE.
+- Phase BUILD. Trần R2, vì file xuất đi thẳng vào TOS của Cảng. Live evidence YES cho mọi tuyên bố quản trị.
+- Vai: ORCHESTRATOR chuyển sang IMPLEMENTATION_WORKER.
+- Handoff này đang hoạt động. Bước tiếp theo được phép: build MC61–MC63. Không có checkpoint đang treo.
+
+Ngày 26-11-2026, operator đưa mẫu TOS `Manifest/Vtos.xlsx` (46 cột), cùng hai file bill VIMC và bill VOSCO, và chốt bốn điểm:
+
+- Dùng một mẫu xuất chung theo TOS.
+- Giữ quy tắc một phiên xử lý một workbook của một hãng. Đổi B/L làm ở một chỗ tách riêng do người dùng tự thực hiện.
+- Ghi chú để trống trong Excel và vẫn hiện trên app.
+- Trọng lượng theo manifest.
+
+Ghi lại các bước:
+
+- SPEC_AUTHOR viết `docs/roadmaps/MC_TOS_EXPORT.md` (MC61–MC64). WORK_ORDER_AUTHOR viết `docs/work_orders/WO_MC_TOS_EXPORT.md`. Đã đăng ký MC3 trong `docs/milestone-coverage-authority.json`.
+- Reviewer độc lập (Claude subagent, Opus 5.5) trả ADMIT_WITH_NOTES, có 8 ghi chú, không ghi chú nào chặn. Orchestrator đã đưa cả 8 ghi chú vào roadmap và work order trước khi gắn vào hồ sơ kích hoạt. Phần sửa này chưa được review lại.
+- Pre-dispatch trusted: bản chẩn đoán FAIL ACT-01 vì chưa gắn work order. Sau khi gắn vào `.cvf/workspace-activation.json`, gate đạt PASS 7/7. Bằng chứng ở `docs/reviews/activation-tos/`. Activation CURRENT_ASSESSED.
+- Base là `510526b`. Thay đổi MC52 (DOOR-CY/CY-DOOR) chưa commit vẫn để riêng như work order ghi.
+- Material-SHA marker: pending.
+
+### MC3: kết quả BUILD
+
+Vai chuyển từ IMPLEMENTATION_WORKER về ORCHESTRATOR. Project chuyển sang phase REVIEW. Chi tiết và bằng chứng ở `docs/reviews/MC3_TOS_EXPORT_REVIEW.md`.
+
+- **MC61.** Một mẫu xuất cho cả ba hãng: 46 tiêu đề TOS, sheet `Sheet1`. Ghi chú và STT chỉ hiện trên app. Kích cỡ là mã VTOS. ISO và mã loại hàng chỉ điền theo cặp đã thấy trong mẫu TOS. Màu ô cố định thay cho định dạng có điều kiện.
+- **MC62.** `manifest_cleaner/bl_change.py` và tab thứ ba **Đổi B/L**.
+  - Tab đặt cạnh Container và Cần kiểm tra. Không dùng nút trên thanh công cụ, vì nút đó làm thanh vượt chiều rộng tối thiểu ở 150%. Lần thử nâng chiều rộng tối thiểu lên 1080 px đã được trả lại 995 px.
+- **MC63.**
+  - 329 test đạt, gồm 7 ca mới. Phiên review v2 của bản 1.1.0 mở lại được.
+  - Đối chiếu cục bộ FF2643S cộng bill VIMC: khớp Vtos.xlsx trên 297/297 container, trừ 8 cont 40RH rỗng theo manifest.
+  - Gate worker-return PASS 7/7. Kiểm tra phát hành PASS, 151 mục SHA-256. Catalog PASS.
+- **Tài liệu.** Đã sửa dòng quy tắc 16 cột trong `AGENTS.md`, cùng AUDIT_FIXES, UI_DESIGN_DECISIONS, README, ADAPTER_CONTRACT, DEVELOPER_HANDOFF và GUI_V110. Bộ `samples/` được tạo lại. Golden fixture được chép sang mẫu TOS theo quy tắc ghi trong fixture.
+
+Chưa có review độc lập cho phần triển khai. Chưa commit, chưa build EXE. MC52 vẫn chưa commit. Còn mở: MC64 (operator import thử trên TOS, kiểm 13 cột để trống) và mã ISO/loại hàng chưa có bằng chứng.
+
+### MC3: tự review
+
+Operator yêu cầu đổi vai. ORCHESTRATOR chuyển sang REVIEWER, chính là agent đã triển khai, nên đây là tự review, không phải review độc lập. Chi tiết ở `docs/reviews/MC3_TOS_EXPORT_REVIEW.md`, mục "Tự review của agent triển khai".
+
+Reviewer sửa ngay ba lỗi:
+
+- Tab Đổi B/L che mất nút Xuất ở kích thước tối thiểu. Đã đổi bố cục và thêm test.
+- Thông báo sau khi xuất, `START_HERE.html` và checklist phát hành còn ghi 16 cột.
+- Hai cột Loại hàng hiện cùng tên trên app.
+
+Bốn điểm chỉ ghi nhận, không sửa. Sau sửa: 330 test đạt, đối chiếu cục bộ không đổi, gate worker-return và reviewer-fast PASS. Reviewer-fast đạt vì hồ sơ không khai báo vai reviewer, nên chưa chứng minh tính độc lập.
+
+Vai chuyển về ORCHESTRATOR. Work order vẫn yêu cầu review độc lập cho phần triển khai trước khi commit.
+
+### MC3: quyết định commit
+
+Ngày 26-11-2026, operator yêu cầu commit sau khi đọc kết quả tự review. Operator không chọn mở reviewer độc lập cho phần triển khai. Vì vậy MC3 được commit trên cơ sở tự review đã công bố. Đây là quyết định của operator, không phải review độc lập. Yêu cầu reviewer độc lập ở mức R2 vẫn chưa được đáp ứng và được ghi là còn mở.
+
+COMMIT_STEWARD chia làm hai commit cục bộ trên `main`, không push:
+
+1. MC52 (DOOR-CY/CY-DOOR) là `b8f1c50`. Chạy riêng trong worktree tạm: 322 test đạt, kiểm tra phát hành PASS.
+2. MC3 là commit kế tiếp. Mã của commit này được ghi ở lượt continuity sau đó.

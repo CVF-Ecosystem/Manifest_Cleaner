@@ -10,18 +10,25 @@ import tempfile
 import unittest
 
 from openpyxl import load_workbook
+from manifest_cleaner import exporter
 from manifest_cleaner.engine import process_manifest
 from manifest_cleaner.exporter import build_port_rows, export_port_excel
 from scripts.create_samples import CREATORS, create_vimc
 
 
-# Fixed expected schemas transcribed from the actual legacy export definitions.
-EXPECTED_COMMON = ["STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ",
-                   "Kích cỡ VTOS", "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng",
-                   "Hàng hóa", "Loại hàng", "Độ chính xác (%)", "Ghi chú"]
-EXPECTED_VIMC = ["STT", "Số Vận Đơn", "Số Container", "Số niêm chì", "Số niêm chì 1", "Chủ hàng",
-                 "Kích cỡ", "Loại Container", "Hãng khai thác", "Loại hàng", "F/E", "Trọng lượng (Tấn)",
-                 "Hàng hóa", "Số lượng", "Độ chính xác (%)", "Ghi chú"]
+# The 46 headers of the Port TOS form (Manifest/Vtos.xlsx, roadmap MC3), shared by every carrier.
+EXPECTED_TOS = ["Xác nhận", "ĐTTT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ",
+                "Kích cỡ ISO", "F/E", "TL hàng", "VGM", "Nhóm TL", "Số niêm chì", "Số niêm chì 1",
+                "Cảng xếp", "Cảng dỡ", "Cảng đích", "Phương Án", "Phương Án ", "Phương Thức Giao Nhận",
+                "Phương Thức Giao Nhận ", "Chủ hàng", "Loại hàng", "Loại hàng ", "Hàng hóa", "CLASS",
+                "UNNO", "Nhiệt độ", "Vent", "Vent_Unit", "Cntr Class", "CntrClass", "Hàng nội/ngoại",
+                "Hàng nội/ngoại ", "Ghi chú", "OOG_TOP", "OOG_LEFT", "OOG_RIGHT", "OOG_BACK",
+                "OOG_FRONT", "Term", "Số thứ tự", "Transist", "Cảng chuyển", "Cảng giao nhận",
+                "Chỉ dẫn xếp dỡ"]
+FILLED = {"Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ", "Kích cỡ ISO", "F/E", "TL hàng",
+          "Số niêm chì", "Số niêm chì 1", "Chủ hàng", "Loại hàng", "Loại hàng ", "Hàng hóa"}
+# Pairs observed in the TOS form.
+TOS_ISO = {"20DC": "22G0", "40HC": "45G0"}
 
 
 class IntegrationTests(unittest.TestCase):
@@ -42,23 +49,26 @@ class IntegrationTests(unittest.TestCase):
         path = export_port_excel(session, self.folder / filename)
         book = load_workbook(path, data_only=False)
         self.addCleanup(book.close)
-        sheet = book["Processed_Manifest"]
+        sheet = book[exporter.SHEET_NAME]
         headers = [cell.value for cell in sheet[1]]
         return sheet, headers, {label: sheet.cell(2, index + 1) for index, label in enumerate(headers)}
 
-    def test_each_carrier_preserves_exact_sixteen_column_export_and_types(self):
+    def test_each_carrier_exports_the_same_tos_form_and_types(self):
         for carrier in CREATORS:
             with self.subTest(carrier=carrier):
                 session = self.session(carrier)
                 self.assertEqual(self.errors(session), [])
                 sheet, headers, values = self.read_output(session, f"{carrier}_out.xlsx")
-                self.assertEqual(headers, EXPECTED_VIMC if carrier == "VIMC" else EXPECTED_COMMON)
-                self.assertEqual(sheet.max_column, 16)
+                self.assertEqual(sheet.title, "Sheet1")
+                self.assertEqual(headers, EXPECTED_TOS)
+                self.assertEqual(sheet.max_column, 46)
                 self.assertEqual(sheet.max_row, 2)
-                for label in ("STT", "Số lượng", "Độ chính xác (%)"):
+                for label in ("Số lượng", "TL hàng"):
                     self.assertEqual(values[label].data_type, "n")
-                weight_label = "Trọng lượng (Tấn)" if carrier == "VIMC" else "TL hàng"
-                self.assertEqual(values[weight_label].data_type, "n")
+                for label in EXPECTED_TOS:
+                    self.assertEqual(values[label].value is not None, label in FILLED, label)
+                self.assertEqual((values["Loại hàng"].value, values["Loại hàng "].value), ("GP", "General"))
+                self.assertEqual(values["Kích cỡ ISO"].value, TOS_ISO[values["Kích cỡ"].value])
                 self.assertEqual(values["Số Container"].data_type, "s")
                 self.assertEqual(values["Số niêm chì"].data_type, "s")
                 self.assertTrue(values["Số niêm chì"].value.startswith("00"))
@@ -72,13 +82,13 @@ class IntegrationTests(unittest.TestCase):
                 original = session.records[0]["Weight_Value"]
                 self.assertEqual(original, 16.055)
                 _, _, values = self.read_output(session, f"{carrier}_rounding.xlsx")
-                label = "Trọng lượng (Tấn)" if carrier == "VIMC" else "TL hàng"
+                label = "TL hàng"
                 # Legacy pandas float64 .round(2) gives 16.06, unlike Python's
                 # scalar round(16.055, 2), which gives 16.05.
                 self.assertEqual(values[label].value, 16.055 if carrier == "VOSCO" else 16.06)
                 self.assertEqual(session.records[0]["Weight_Value"], original)
 
-    def test_vimc_uses_vtos_for_both_legacy_size_columns(self):
+    def test_vimc_size_column_is_the_vtos_code(self):
         session = self.session()
         row = session.records[0]
         session.update_record(row["record_id"], {"Size_Type": "40GP"}, "Đối chiếu kích cỡ ở nguồn demo")
@@ -86,7 +96,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(row["Physical_ISO_Size"], "42G1")
         _, _, values = self.read_output(session)
         self.assertEqual(values["Kích cỡ"].value, "40HC")
-        self.assertEqual(values["Loại Container"].value, "40HC")
+        self.assertEqual(values["Kích cỡ ISO"].value, "45G0")
 
     def test_missing_required_data_blocks_export_then_edit_clears_resolved_issue(self):
         for carrier in CREATORS:
@@ -156,7 +166,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(self.errors(session), [])
         columns, rows = build_port_rows(session)
         self.assertEqual([row[columns.index("Số lượng")] for row in rows], [1, 1])
-        self.assertEqual([row[columns.index("Số Vận Đơn")] for row in rows], ["DEMO-VIMC-001", "DEMO-VIMC-002"])
+        self.assertEqual([row[columns.index("Số BL")] for row in rows], ["DEMO-VIMC-001", "DEMO-VIMC-002"])
 
     def test_ambiguous_weight_requires_description_resolution_together(self):
         session = self.session(weight=20, description="STEEL DEMO 12000")

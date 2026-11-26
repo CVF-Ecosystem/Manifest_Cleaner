@@ -1,6 +1,6 @@
 # Manifest Cleaner
 
-Ứng dụng Windows xử lý manifest của **VOSCO**, **VIMC** và **VINAFCO**. Mỗi phiên đọc một workbook, hỗ trợ đối chiếu theo container và xuất Excel **16 cột** theo mẫu của hãng để chuẩn bị nhập hệ thống Cảng. Dữ liệu được xử lý cục bộ.
+Ứng dụng Windows xử lý manifest của **VOSCO**, **VIMC** và **VINAFCO**. Mỗi phiên đọc một workbook, hỗ trợ đối chiếu theo container và xuất Excel theo **mẫu TOS 46 cột** dùng chung cho cả ba hãng để import vào TOS của Cảng. Khi một hãng gửi hàng qua tàu của hãng khác, tab **Đổi B/L** lấy B/L của hãng gửi vào file tàu. Dữ liệu được xử lý cục bộ.
 
 ## Bắt đầu
 

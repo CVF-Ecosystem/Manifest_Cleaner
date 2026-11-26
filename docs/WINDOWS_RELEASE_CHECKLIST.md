@@ -28,7 +28,7 @@ Ngày, máy/Windows, Python: ____________________
 - [ ] File có lỗi vẫn giữ record; lỗi liên kết đúng dòng; nút xuất bị chặn.
 - [ ] Sửa riêng seal không xóa lỗi F/E hoặc trọng lượng; các checkbox xác minh
       chỉ tác động trường thực sự đã đối chiếu.
-- [ ] Preview trong cửa sổ sửa khớp 16 cột file Excel thực, gồm mapping và làm tròn.
+- [ ] Preview trong cửa sổ sửa khớp các cột app điền trong file Excel mẫu TOS, gồm mapping và làm tròn.
 - [ ] Dòng loại/khôi phục có xác nhận đúng container/B/L và lý do; có trong JSON.
 - [ ] Khôi phục `.review.json` giữ chỉnh sửa/loại/xác minh; nguồn cùng bytes ở
       vị trí mới được chọn lại; nguồn đã thay đổi bị từ chối.
@@ -46,7 +46,7 @@ Ngày, máy/Windows, Python: ____________________
       quả và đường dẫn phục hồi nếu không thể khôi phục đầy đủ.
 - [ ] Seal số 0 đầu vẫn là text. Dữ liệu bắt đầu bằng `=`/`+`/`-`/`@` không tự
       chạy công thức; URL không tự chuyển thành hyperlink.
-- [ ] Mở file import bằng Excel và kiểm tên/thứ tự đúng 16 cột, không có cột kỹ
+- [ ] Mở file import bằng Excel và kiểm tên/thứ tự đúng 46 cột mẫu TOS, Ghi chú để trống, không có cột kỹ
       thuật thêm vào. JSON đối chiếu không dùng để import vào Cảng.
 
 ## D. Đóng gói và tài nguyên đi cùng
@@ -103,7 +103,7 @@ trên máy Cảng.
 - [ ] Màn hình chờ hiện ngay sau khi bấm (đo trên máy phát triển khoảng 0,7 giây) và
       tự đóng khi cửa sổ chính lên, không để lại cửa sổ thừa. Bấm đúp hai lần liên
       tiếp: ghi nhận có mở hai cửa sổ hay không.
-- [ ] Mở demo từng hãng, xuất Excel và kiểm 16 cột như bản thư mục.
+- [ ] Mở demo từng hãng, xuất Excel và kiểm 46 cột mẫu TOS như bản thư mục. Thử tab Đổi B/L với hai file đã xuất.
 - [ ] Lưu cấu hình đọc và mở một manifest: `settings.json` và `recent_files.json`
       nằm cạnh file exe, không nằm trong `%TEMP%`, và còn nguyên sau khi mở lại.
 - [ ] Gửi qua kênh thực tế (zip hoặc thư mục dùng chung): file không bị chặn khi tải

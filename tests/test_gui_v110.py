@@ -923,7 +923,7 @@ class GUIRegressionTests(unittest.TestCase):
             comparison = next(w for w in dialog.widgets if w.options.get("columns") == ("field", "source", "output"))
             values = {row[0]: row[2] for row in comparison.rows.values()}
             self.assertEqual(values["Số niêm chì"], "009999")
-            self.assertEqual(values["Trọng lượng (Tấn)"], "27.12")
+            self.assertEqual(values["TL hàng"], "27.12")
             self.assertEqual(values["Hàng hóa"], "NEW GOODS")
             self.assertEqual(values["Kích cỡ"], "40HC")
         self.assertEqual(session.records, before)
@@ -1214,13 +1214,13 @@ class GUIRegressionTests(unittest.TestCase):
         self.assertEqual(gui._ownership_display(gui.Counter(soc=81, coc=236)), ("81 / 236", ""))
 
     def test_preview_marks_rows_like_the_workbook_and_blocking_rows_first(self):
-        columns = ["STT", "F/E", "Số Container", "Trọng lượng (Tấn)"]
+        columns = ["STT", "F/E", "Số Container", "TL hàng"]
         rows = [[1, "F", "A", 9.0], [2, "E", "B", 2.5], [3, "E", "C", None], [4, "F", "D", 16.06]]
         table = gui._preview_table(columns, rows, {None: [3, 4], "Số Container": [2]}, "0.00", errors=[4])
         self.assertEqual([tags for _, tags in table], [(), ("empty", "identifier"), ("warning",), ("error",)])
         self.assertEqual(table[0][0], ["1", "F", "A", "9.00"])
         self.assertEqual(table[2][0][3], "")
-        self.assertEqual(gui._preview_cell("Trọng lượng (Tấn)", 16.055, "General"), "16.055")
+        self.assertEqual(gui._preview_cell("TL hàng", 16.055, "General"), "16.055")
         self.assertEqual(gui._preview_cell("TL hàng", 9.0, "General"), "9")
         self.assertEqual(gui._preview_cell("Số niêm chì", "001234"), "001234")
 
@@ -1237,11 +1237,18 @@ class GUIRegressionTests(unittest.TestCase):
                     exported = [list(row) for row in book.worksheets[0].iter_rows(values_only=True)]
                 finally:
                     book.close()
-                self.assertEqual([str(value) for value in exported[0]], columns)
+                headers = [str(value) for value in exported[0]]
+                self.assertEqual(len(headers), 46)
                 self.assertEqual(len(exported) - 1, len(table))
+                # Every column the app fills sits under the TOS header of the same name.
+                # STT and Ghi chú are app-only: no STT header, and Ghi chú stays blank in Excel.
+                self.assertNotIn("STT", headers)
                 for (values, _), cells in zip(table, exported[1:]):
-                    shown = [gui._preview_cell(column, cell, weight_format) for column, cell in zip(columns, cells)]
-                    self.assertEqual(values, shown)
+                    by_name = dict(zip(headers, cells))
+                    self.assertIsNone(by_name["Ghi chú"])
+                    shown = [gui._preview_cell(column, by_name[column], weight_format)
+                             for column in columns if column not in {"STT", "Ghi chú"}]
+                    self.assertEqual([value for column, value in zip(columns, values) if column not in {"STT", "Ghi chú"}], shown)
 
     @unittest.skipUnless(sys.platform == "win32", "Windows Tk rendering")
     def test_preview_dialog_filters_locks_export_on_errors_and_copies_plain_values(self):

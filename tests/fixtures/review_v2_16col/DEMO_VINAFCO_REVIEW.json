@@ -1,0 +1,200 @@
+{
+  "format": "manifest-cleaner-review-v2",
+  "schema_version": 2,
+  "app_version": "1.1.0",
+  "carrier": "VINAFCO",
+  "saved_at": "2026-11-22T08:49:22.026140+00:00",
+  "records": [
+    {
+      "record_id": "VINAFCO:Manifest:5",
+      "BL_No": "DEMO-VINAFCO-001",
+      "Master_BL_Group_ID": "VINAFCO_BL_1",
+      "Container_No": "DEMU0000003",
+      "Seal_No": "001236",
+      "Size_Type": "20DC",
+      "VTOS_Size": "20DC",
+      "Operator": "VFC",
+      "FE_Status": "F",
+      "Weight_Value": 16.055,
+      "Weight_Unit": "TONS",
+      "Weight_Kind": "gross",
+      "Description": "GACH DEMO",
+      "Cargo_Type": "GENERAL",
+      "Confidence": 85,
+      "Warning": "F/E được suy luận từ trọng lượng theo quy tắc VINAFCO; trọng lượng vỏ là ngưỡng cấu hình, không phải cân vỏ thực tế.",
+      "source_file": "/workspace/scratch/be7fbbc6b352/build/Manifest_Cleaner_Unified/samples/DEMO_VINAFCO_INPUT.xlsx",
+      "source_sheet": "Manifest",
+      "source_row": 5,
+      "raw": {
+        "party_raw": "",
+        "bill_no": "",
+        "container_no": "DEMU0000003",
+        "seal": "001236",
+        "type": "20DC",
+        "comm": "GẠCH DEMO",
+        "gw": "16.055",
+        "remarks": "",
+        "weight_header": "GW",
+        "weight_source_unit": "TONS",
+        "party_block": {
+          "S": [
+            "DEMO SHIPPER"
+          ],
+          "C": [
+            "DEMO CONSIGNEE"
+          ],
+          "N": []
+        },
+        "party_source_rows": [
+          {
+            "source_row": 3,
+            "party_raw": "(S) DEMO SHIPPER",
+            "bill_no": "DEMO-VINAFCO-001"
+          },
+          {
+            "source_row": 4,
+            "party_raw": "(C) DEMO CONSIGNEE",
+            "bill_no": ""
+          }
+        ]
+      },
+      "rules": [
+        "VINAFCO_PARTY_BLOCK",
+        "VINAFCO_OPERATOR_COC",
+        "VINAFCO_LEGACY_GROSS_TARE"
+      ],
+      "Shipper": "DEMO SHIPPER",
+      "Consignee": "DEMO CONSIGNEE",
+      "Notify": "",
+      "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE"
+    }
+  ],
+  "base_issues": [
+    {
+      "code": "VINAFCO_FE_INFERRED",
+      "severity": "warning",
+      "message": "F/E được suy luận từ trọng lượng theo quy tắc VINAFCO; trọng lượng vỏ là ngưỡng cấu hình, không phải cân vỏ thực tế.",
+      "record_id": "VINAFCO:Manifest:5",
+      "field": "FE_Status",
+      "source_row": 5,
+      "source_sheet": "Manifest"
+    }
+  ],
+  "current_issues": [
+    {
+      "code": "VINAFCO_FE_INFERRED",
+      "severity": "warning",
+      "message": "F/E được suy luận từ trọng lượng theo quy tắc VINAFCO; trọng lượng vỏ là ngưỡng cấu hình, không phải cân vỏ thực tế.",
+      "record_id": "VINAFCO:Manifest:5",
+      "field": "FE_Status",
+      "source_row": 5,
+      "source_sheet": "Manifest"
+    }
+  ],
+  "metadata": {
+    "carrier": "VINAFCO",
+    "profile_version": "VINAFCO-1.1.0",
+    "source_file": "/workspace/scratch/be7fbbc6b352/build/Manifest_Cleaner_Unified/samples/DEMO_VINAFCO_INPUT.xlsx",
+    "confidence_kind": "legacy_completeness_score",
+    "source_sheet": "Manifest",
+    "header_row": 2,
+    "weight_kind": "gross",
+    "number_format": "legacy",
+    "column_mapping": {
+      "party_raw": 0,
+      "bill_no": 1,
+      "container_no": 2,
+      "seal": 3,
+      "type": 4,
+      "comm": 5,
+      "gw": 6,
+      "remarks": 7
+    },
+    "default_weight_unit": "TONS",
+    "weight_header": "GW",
+    "source_fragments": [
+      {
+        "source_sheet": "Manifest",
+        "source_row": 2,
+        "text": "(S) SHIPPER,(C) CONSIGNEE,(N)NOTIFY PARTY\tBill No\tCONTAINER No.\tSEAL\tTYPE\tCOM.M\tGW\tREMARKS",
+        "status": "ignored",
+        "reason": "table_header"
+      },
+      {
+        "source_sheet": "Manifest",
+        "source_row": 3,
+        "text": "(S) DEMO SHIPPER\tDEMO-VINAFCO-001\t\t\t\t\t\t",
+        "status": "corroborating",
+        "reason": "party_or_bill_context"
+      },
+      {
+        "source_sheet": "Manifest",
+        "source_row": 4,
+        "text": "(C) DEMO CONSIGNEE\t\t\t\t\t\t\t",
+        "status": "corroborating",
+        "reason": "party_or_bill_context"
+      },
+      {
+        "source_sheet": "Manifest",
+        "source_row": 5,
+        "text": "\t\tDEMU0000003\t001236\t20DC\tGẠCH DEMO\t16.055\t",
+        "status": "parsed",
+        "reason": "container_record"
+      }
+    ],
+    "records_detected": 1,
+    "coverage": {
+      "source_fragments": 4,
+      "parsed_fragments": 1,
+      "unresolved_fragments": 0,
+      "ignored_fragments": 1,
+      "corroborating_fragments": 2
+    },
+    "source_path": "DEMO_VINAFCO_INPUT.xlsx",
+    "source_name": "DEMO_VINAFCO_INPUT.xlsx",
+    "source_sha256": "01d3d20cf47ab81696672d775d14f02d6099409cc9860cdc2da7ec61d20ec434",
+    "session_id": "d5f1492d6fe649439ff10d6f115d2755",
+    "available_sheets": [
+      "Manifest"
+    ],
+    "used_sheets": [
+      "Manifest"
+    ],
+    "formula_cache_scan": "xlsx_xml",
+    "formula_source_cells": [],
+    "effective_settings": {
+      "number_format": "legacy",
+      "weight_kind": "gross",
+      "default_weight_unit": "TONS"
+    },
+    "source_weight_units": [
+      "TONS"
+    ],
+    "app_version": "1.1.0",
+    "processed_at": "2026-11-22T08:49:22.022507+00:00"
+  },
+  "settings": {
+    "number_format": "legacy",
+    "weight_kind": "gross",
+    "default_weight_unit": "TONS"
+  },
+  "corrections": [],
+  "statistics": {
+    "detected_records": 1,
+    "active_records": 1,
+    "containers": 1,
+    "bills": 1,
+    "full": 1,
+    "empty": 0,
+    "unknown": 0,
+    "excluded": 0,
+    "errors": 0,
+    "warnings": 1,
+    "error_records": 0,
+    "review_records": 1,
+    "file_errors": 0,
+    "unresolved_source_fragments": 0,
+    "formula_source_errors": 0
+  },
+  "payload_sha256": "e8e4a33167c098884a840533b29b5abf6faaca545eef22092839fc2b82458058"
+}

@@ -91,7 +91,8 @@ EXPECTED trong demo được chương trình sinh, không phải chuẩn độc 
 |---|---|
 | `common.py` | Text, số/đơn vị, trạng thái rỗng tường minh, đọc XLS/XLSX, kiểm tra nguồn/công thức |
 | `engine.py` | Cấu hình, phiên, validation, chỉnh sửa/xác minh/loại, nguồn SHA-256, save/resume review v2 |
-| `exporter.py` | Mapping 16 cột dùng chung với preview; Excel và sidecar; staging/rollback khi lỗi ghi |
+| `exporter.py` | Bộ cột app theo thứ tự TOS dùng chung với preview; Excel mẫu TOS 46 cột và sidecar; staging/rollback khi lỗi ghi |
+| `bl_change.py` | Đổi B/L giữa file tàu và file hãng gửi hàng, cả hai theo mẫu TOS; file mới và JSON truy vết |
 | `gui.py` | Tkinter, worker/queue, bảng cần kiểm tra, sửa theo trường, nguồn/preview, lưu và khôi phục phiên |
 | `cli.py` | Xử lý/khôi phục/xuất không cần giao diện |
 | `carriers/<hãng>/` | Parser và quy tắc riêng hãng, mapping xuất của hãng |
@@ -121,7 +122,7 @@ form không tự xác minh chúng. Issue đơn trường có `field`; issue kế
 cần lý do và vẫn nằm trong review JSON. Lỗi toàn file như header đổi đơn vị hoặc
 công thức nguồn thiếu kết quả cần sửa/tính lại nguồn rồi nhập lại.
 
-`preview_record_for_export(session, record)` dùng cùng mapping 16 cột với xuất,
+`preview_record_for_export(session, record)` dùng cùng mapping với xuất,
 nhưng preview không vượt qua chốt validation. `export_port_bundle` mặc định tạo
 Excel cùng `.review.json`, cùng `session_id`. Excel có custom properties và
 review có receipt/hash để đối chiếu, không thêm cột vào schema nhập cảng.

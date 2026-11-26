@@ -13,8 +13,10 @@ import unittest
 
 from openpyxl import load_workbook
 
+from manifest_cleaner import exporter
 from manifest_cleaner.engine import process_manifest
 from manifest_cleaner.exporter import build_port_rows, export_port_excel
+from tests.test_integration import EXPECTED_TOS
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "golden_v110"
@@ -54,12 +56,15 @@ class Golden110Tests(unittest.TestCase):
             output = export_port_excel(session, Path(temp) / "golden_output.xlsx")
             book = load_workbook(output, data_only=False)
             try:
-                sheet = book["Processed_Manifest"]
+                sheet = book[exporter.SHEET_NAME]
                 headers = [cell.value for cell in sheet[1]]
-                self.assertEqual(headers, expected["schema_columns"])
+                self.assertEqual(headers, EXPECTED_TOS)
                 self.assertEqual(sheet.max_row - 1, len(expected["export_rows"]))
                 for position, wanted in enumerate(expected["export_rows"], 2):
+                    self.assertIsNone(sheet.cell(position, headers.index("Ghi chú") + 1).value)
                     for field, value in wanted.items():
+                        if field == "STT":
+                            continue  # STT is shown in the app only.
                         cell = sheet.cell(position, headers.index(field) + 1)
                         with self.subTest(excel_row=position, field=field):
                             self.assertEqual(cell.value, value)

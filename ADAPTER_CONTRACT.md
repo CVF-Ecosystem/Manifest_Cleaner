@@ -40,9 +40,11 @@ The payload hash detects accidental corruption or inconsistent saves. It is not 
 
 ## Export contract
 
-`exporter.build_port_rows(session)` validates before producing the carrier's existing 16-column schema. `preview_record_for_export(session, record)` uses the same field mapping, quantity scope and rounding while allowing inspection of an unfinished row. Preview never disables the real export gate.
+`exporter.build_port_rows(session)` validates before producing the app view shared by every carrier: 16 columns in TOS order, including STT and Ghi chú, which only the app shows. `export_port_excel` writes them under the 46 headers of the Port TOS form (`carriers.TOS_COLUMNS`, roadmap MC3) and leaves STT, Ghi chú and the other TOS columns blank. Kích cỡ is the VTOS code; Kích cỡ ISO and the cargo code are filled only for pairs seen in the TOS form. `preview_record_for_export(session, record)` uses the same field mapping, quantity scope and rounding while allowing inspection of an unfinished row. Preview never disables the real export gate.
 
 `export_port_excel(session, path, *, overwrite=False)` writes one workbook and checks source integrity. Both seal columns use the exact declared text, with physical seal verification deferred to the yard. Excel stores strings as text. VIMC/VINAFCO round weight at export to two decimals with the existing pandas convention. VOSCO keeps its established precision. VTOS/operator/cargo mappings, Master B/L grouping and EMPTY output rules remain carrier-specific.
+
+`bl_change.read_tos_file`, `plan_bl_change` and `write_bl_change` change a vessel file's B/L with the shipping line's file, both exported in the TOS form. Six fields come from the shipping line, a blank never overwrites, differences keep the vessel value, and a `.bl_change.json` trace records both sources and every change. Neither source is written.
 
 `export_port_bundle(session, path, *, overwrite=False, include_review=True, review_path=None)` is the normal GUI/CLI path. Default review name is `<output-stem>.review.json`; a custom JSON destination may be in a different directory. It stages both files, checks both destinations, backs up existing outputs separately from prepared files, then commits. Caught commit failures trigger rollback; failed rollback retains recovery copies and reports their locations. Replacement is atomic per file, not a filesystem-wide or power-loss-safe transaction across two files.
 

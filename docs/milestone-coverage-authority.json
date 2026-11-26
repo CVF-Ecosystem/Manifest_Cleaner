@@ -8,6 +8,10 @@
     "MC2": {
       "path": "docs/roadmaps/MC_LEGACY_COMPAT.md",
       "heading": "## Tiêu chí nghiệm thu"
+    },
+    "MC3": {
+      "path": "docs/roadmaps/MC_TOS_EXPORT.md",
+      "heading": "## Tiêu chí nghiệm thu"
     }
   }
 }

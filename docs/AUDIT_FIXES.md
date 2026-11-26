@@ -40,7 +40,7 @@ Một app local; một manifest/một hãng mỗi phiên; menu chọn VOSCO, VIM
 
 - Bảng mã VTOS và mã operator của các repo là căn cứ hiện tại. Các chuyển đổi như `40GP→40HC` được giữ ở lớp mapping xuất; không coi đó là chuyển đổi vật lý phổ quát.
 - VIMC tank xuất GENERAL; VOSCO/VINAFCO theo bảng loại hàng riêng.
-- Tên/thứ tự cột VIMC khác hai app còn lại được giữ tự động theo hãng. Không tự ép cả ba thành một schema mới chưa được hệ thống Cảng xác nhận.
+- Tên/thứ tự cột VIMC khác hai app còn lại được giữ tự động theo hãng. Không tự ép cả ba thành một schema mới chưa được hệ thống Cảng xác nhận. *Thay bằng quyết định operator ngày 26-11-2026: cả ba hãng xuất theo mẫu TOS 46 cột ([roadmap MC3](roadmaps/MC_TOS_EXPORT.md)); nghiệm thu import trên TOS ở MC64.*
 - `Số lượng` giữ phạm vi nhóm theo legacy (BL với VOSCO; Master_BL_Group_ID với VIMC/VINAFCO). Đếm container phân biệt trong nhóm để tránh nhân số do bản sao.
 - Giữ cột seal thứ hai theo mẫu hiện tại và giữ tên cột điểm legacy. Mô tả dữ liệu gốc và nguồn không bị đưa thêm vào file import; có trong phiên/JSON đối chiếu.
 - VOSCO/VINAFCO còn giữ các ngưỡng suy luận đang dùng; trường hợp suy luận hoặc xung đột được ghi rõ. Không tuyên bố tare giả định là cân nặng vỏ chính xác của từng container.

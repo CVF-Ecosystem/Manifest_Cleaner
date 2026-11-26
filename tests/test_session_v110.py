@@ -93,7 +93,7 @@ class Session110Tests(unittest.TestCase):
         session.update_record(record["record_id"], {"Description": "STEEL DEMO"}, "Đối chiếu và sửa riêng mô tả hàng")
         self.assertNotIn("VIMC_LAYOUT_AMBIGUOUS", self.codes(session))
         columns, rows = build_port_rows(session)
-        self.assertEqual(rows[0][columns.index("Trọng lượng (Tấn)")], 12)
+        self.assertEqual(rows[0][columns.index("TL hàng")], 12)
         self.assertEqual(rows[0][columns.index("Hàng hóa")], "STEEL DEMO")
 
     def test_round_trip_preserves_edits_exclusions_history_raw_and_export(self):

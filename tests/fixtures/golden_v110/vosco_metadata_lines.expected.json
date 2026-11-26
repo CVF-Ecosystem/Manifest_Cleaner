@@ -4,16 +4,96 @@
   "carrier": "VOSCO",
   "input_file": "vosco_metadata_lines.input.xlsx",
   "input_sha256": "adcd300ec37f20bc5d6e6e71dbc94f24cbc26fb8c32482195f2d8f4e335ac447",
-  "settings": {"weight_kind": "gross", "number_format": "legacy"},
-  "reasoning": "Hai container trong cột K tương ứng hai mô tả hàng RICE và STEEL trong cột O. PORT HAIPHONG là dòng thông tin cảng ở giữa. Cột S ghi rõ hai trọng lượng 25 TONS. Mã -C dùng VOC; 40HC giữ mã VTOS 40HC. Seal phải giữ số 0 đầu.",
-  "metadata": {"weight_kind": "gross"},
-  "schema_columns": ["STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ", "Kích cỡ VTOS", "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng", "Hàng hóa", "Loại hàng", "Độ chính xác (%)", "Ghi chú"],
+  "settings": {
+    "weight_kind": "gross",
+    "number_format": "legacy"
+  },
+  "reasoning": "Hai container trong cột K tương ứng hai mô tả hàng RICE và STEEL trong cột O. PORT HAIPHONG là dòng thông tin cảng ở giữa. Cột S ghi rõ hai trọng lượng 25 TONS. Mã -C dùng VOC; 40HC giữ mã VTOS 40HC. Seal phải giữ số 0 đầu. Ngày 26-11-2026 (MC3) kỳ vọng xuất được chép sang mẫu TOS: Kích cỡ là mã VTOS, Kích cỡ ISO theo cặp trong mẫu TOS (20DC 22G0, 40HC 45G0), GENERAL thành mã GP và tên General; giá trị nghiệp vụ không đổi.",
+  "metadata": {
+    "weight_kind": "gross"
+  },
+  "schema_columns": [
+    "STT",
+    "Số lượng",
+    "Số BL",
+    "Số Container",
+    "Hãng khai thác",
+    "Kích cỡ",
+    "Kích cỡ ISO",
+    "F/E",
+    "TL hàng",
+    "Số niêm chì",
+    "Số niêm chì 1",
+    "Chủ hàng",
+    "Loại hàng",
+    "Loại hàng ",
+    "Hàng hóa",
+    "Ghi chú"
+  ],
   "records": [
-    {"Container_No": "ABCU1234567", "BL_No": "VOSCO123456", "Seal_No": "001234", "Size_Type": "40HC", "VTOS_Size": "40HC", "Operator": "VOC", "FE_Status": "F", "Weight_Value": 25.0, "Weight_Unit": "TONS", "Description": "RICE", "Cargo_Type": "GENERAL", "Cleaned_Consignee_Name_For_Output": "TEST CONSIGNEE"},
-    {"Container_No": "ABCU1234568", "BL_No": "VOSCO123456", "Seal_No": "001235", "Size_Type": "40HC", "VTOS_Size": "40HC", "Operator": "VOC", "FE_Status": "F", "Weight_Value": 25.0, "Weight_Unit": "TONS", "Description": "STEEL", "Cargo_Type": "GENERAL", "Cleaned_Consignee_Name_For_Output": "TEST CONSIGNEE"}
+    {
+      "Container_No": "ABCU1234567",
+      "BL_No": "VOSCO123456",
+      "Seal_No": "001234",
+      "Size_Type": "40HC",
+      "VTOS_Size": "40HC",
+      "Operator": "VOC",
+      "FE_Status": "F",
+      "Weight_Value": 25.0,
+      "Weight_Unit": "TONS",
+      "Description": "RICE",
+      "Cargo_Type": "GENERAL",
+      "Cleaned_Consignee_Name_For_Output": "TEST CONSIGNEE"
+    },
+    {
+      "Container_No": "ABCU1234568",
+      "BL_No": "VOSCO123456",
+      "Seal_No": "001235",
+      "Size_Type": "40HC",
+      "VTOS_Size": "40HC",
+      "Operator": "VOC",
+      "FE_Status": "F",
+      "Weight_Value": 25.0,
+      "Weight_Unit": "TONS",
+      "Description": "STEEL",
+      "Cargo_Type": "GENERAL",
+      "Cleaned_Consignee_Name_For_Output": "TEST CONSIGNEE"
+    }
   ],
   "export_rows": [
-    {"STT": 1, "Số lượng": 2, "Số BL": "VOSCO123456", "Số Container": "ABCU1234567", "Hãng khai thác": "VOC", "Kích cỡ": "40HC", "Kích cỡ VTOS": "40HC", "F/E": "F", "TL hàng": 25.0, "Số niêm chì": "001234", "Số niêm chì 1": "001234", "Chủ hàng": "TEST CONSIGNEE", "Hàng hóa": "RICE", "Loại hàng": "GENERAL"},
-    {"STT": 2, "Số lượng": 2, "Số BL": "VOSCO123456", "Số Container": "ABCU1234568", "Hãng khai thác": "VOC", "Kích cỡ": "40HC", "Kích cỡ VTOS": "40HC", "F/E": "F", "TL hàng": 25.0, "Số niêm chì": "001235", "Số niêm chì 1": "001235", "Chủ hàng": "TEST CONSIGNEE", "Hàng hóa": "STEEL", "Loại hàng": "GENERAL"}
+    {
+      "STT": 1,
+      "Số lượng": 2,
+      "Số BL": "VOSCO123456",
+      "Số Container": "ABCU1234567",
+      "Hãng khai thác": "VOC",
+      "Kích cỡ": "40HC",
+      "Kích cỡ ISO": "45G0",
+      "F/E": "F",
+      "TL hàng": 25.0,
+      "Số niêm chì": "001234",
+      "Số niêm chì 1": "001234",
+      "Chủ hàng": "TEST CONSIGNEE",
+      "Loại hàng": "GP",
+      "Loại hàng ": "General",
+      "Hàng hóa": "RICE"
+    },
+    {
+      "STT": 2,
+      "Số lượng": 2,
+      "Số BL": "VOSCO123456",
+      "Số Container": "ABCU1234568",
+      "Hãng khai thác": "VOC",
+      "Kích cỡ": "40HC",
+      "Kích cỡ ISO": "45G0",
+      "F/E": "F",
+      "TL hàng": 25.0,
+      "Số niêm chì": "001235",
+      "Số niêm chì 1": "001235",
+      "Chủ hàng": "TEST CONSIGNEE",
+      "Loại hàng": "GP",
+      "Loại hàng ": "General",
+      "Hàng hóa": "STEEL"
+    }
   ]
 }

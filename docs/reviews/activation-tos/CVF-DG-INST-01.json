@@ -1,0 +1,21 @@
+{
+  "action": {
+    "packet": "docs/work_orders/WO_MC_TOS_EXPORT.md",
+    "sha256": "38b99bcefb945248ccbd8442a152bf3a11a55b16eda6e92b062a2fcef783881f",
+    "criteria": [
+      "MC61",
+      "MC62",
+      "MC63"
+    ]
+  },
+  "controlId": "CVF-DG-INST-01",
+  "purpose": "INVOCATION",
+  "reviewer": "Independent admission reviewer, Claude subagent (Opus 5.5)",
+  "authority": "Operator decision of 2026-11-26 and delegated independent admission review for the TOS export milestone",
+  "decision": "ACCEPTED",
+  "reason": "Independent review of 2026-11-26 returned ADMIT_WITH_NOTES with no blocking finding; its eight notes were applied to the roadmap and work order by the orchestrator before binding and were not re-reviewed. Trusted replay shows this control PASS on the bound packet.",
+  "diagnostic": {
+    "path": "docs/reviews/activation-tos/pre-dispatch-diagnostic.json",
+    "sha256": "97ace49666e465698bc790a83675b95d04356f251333c366e646ceb3bc384371"
+  }
+}

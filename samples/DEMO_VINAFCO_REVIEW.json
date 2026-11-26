@@ -1,9 +1,9 @@
 {
   "format": "manifest-cleaner-review-v2",
   "schema_version": 2,
-  "app_version": "1.1.0",
+  "app_version": "1.2.7",
   "carrier": "VINAFCO",
-  "saved_at": "2026-11-22T08:49:22.026140+00:00",
+  "saved_at": "2026-11-26T05:45:52.255539+00:00",
   "records": [
     {
       "record_id": "VINAFCO:Manifest:5",
@@ -21,8 +21,8 @@
       "Description": "GACH DEMO",
       "Cargo_Type": "GENERAL",
       "Confidence": 85,
-      "Warning": "F/E được suy luận từ trọng lượng theo quy tắc VINAFCO; trọng lượng vỏ là ngưỡng cấu hình, không phải cân vỏ thực tế.",
-      "source_file": "/workspace/scratch/be7fbbc6b352/build/Manifest_Cleaner_Unified/samples/DEMO_VINAFCO_INPUT.xlsx",
+      "Warning": "",
+      "source_file": "D:\\UNG DUNG AI\\TOOL AI 2026\\CVF-Workspace\\Manifest_Cleaner\\samples\\DEMO_VINAFCO_INPUT.xlsx",
       "source_sheet": "Manifest",
       "source_row": 5,
       "raw": {
@@ -36,6 +36,7 @@
         "remarks": "",
         "weight_header": "GW",
         "weight_source_unit": "TONS",
+        "weight_cell_is_text": false,
         "party_block": {
           "S": [
             "DEMO SHIPPER"
@@ -61,7 +62,8 @@
       "rules": [
         "VINAFCO_PARTY_BLOCK",
         "VINAFCO_OPERATOR_COC",
-        "VINAFCO_LEGACY_GROSS_TARE"
+        "VINAFCO_LEGACY_GROSS_TARE",
+        "VINAFCO_FE_FULL_WITH_GOODS_AND_WEIGHT"
       ],
       "Shipper": "DEMO SHIPPER",
       "Consignee": "DEMO CONSIGNEE",
@@ -69,32 +71,12 @@
       "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE"
     }
   ],
-  "base_issues": [
-    {
-      "code": "VINAFCO_FE_INFERRED",
-      "severity": "warning",
-      "message": "F/E được suy luận từ trọng lượng theo quy tắc VINAFCO; trọng lượng vỏ là ngưỡng cấu hình, không phải cân vỏ thực tế.",
-      "record_id": "VINAFCO:Manifest:5",
-      "field": "FE_Status",
-      "source_row": 5,
-      "source_sheet": "Manifest"
-    }
-  ],
-  "current_issues": [
-    {
-      "code": "VINAFCO_FE_INFERRED",
-      "severity": "warning",
-      "message": "F/E được suy luận từ trọng lượng theo quy tắc VINAFCO; trọng lượng vỏ là ngưỡng cấu hình, không phải cân vỏ thực tế.",
-      "record_id": "VINAFCO:Manifest:5",
-      "field": "FE_Status",
-      "source_row": 5,
-      "source_sheet": "Manifest"
-    }
-  ],
+  "base_issues": [],
+  "current_issues": [],
   "metadata": {
     "carrier": "VINAFCO",
-    "profile_version": "VINAFCO-1.1.0",
-    "source_file": "/workspace/scratch/be7fbbc6b352/build/Manifest_Cleaner_Unified/samples/DEMO_VINAFCO_INPUT.xlsx",
+    "profile_version": "VINAFCO-1.1.2",
+    "source_file": "D:\\UNG DUNG AI\\TOOL AI 2026\\CVF-Workspace\\Manifest_Cleaner\\samples\\DEMO_VINAFCO_INPUT.xlsx",
     "confidence_kind": "legacy_completeness_score",
     "source_sheet": "Manifest",
     "header_row": 2,
@@ -142,6 +124,22 @@
         "reason": "container_record"
       }
     ],
+    "reconciliation": {
+      "status": "unavailable",
+      "reason": "Không tìm thấy bảng tổng hợp có tiêu đề và số liệu nhận diện được.",
+      "source_sheet": "Manifest",
+      "source_total": null,
+      "source_size_counts": {},
+      "parsed_total": 1,
+      "parsed_size_counts": {
+        "20DC": 1
+      },
+      "parsed_container_bl_pairs": 1,
+      "unresolved_container_rows": [],
+      "total_difference": null,
+      "size_differences": {},
+      "summary_blocks": []
+    },
     "records_detected": 1,
     "coverage": {
       "source_fragments": 4,
@@ -152,8 +150,8 @@
     },
     "source_path": "DEMO_VINAFCO_INPUT.xlsx",
     "source_name": "DEMO_VINAFCO_INPUT.xlsx",
-    "source_sha256": "01d3d20cf47ab81696672d775d14f02d6099409cc9860cdc2da7ec61d20ec434",
-    "session_id": "d5f1492d6fe649439ff10d6f115d2755",
+    "source_sha256": "0aa4106d82fc399c962212aa47d9990fa312c02157db7da643bff9c0569d1c6c",
+    "session_id": "7c199ca025e9455f8e39b89d580f7701",
     "available_sheets": [
       "Manifest"
     ],
@@ -170,8 +168,8 @@
     "source_weight_units": [
       "TONS"
     ],
-    "app_version": "1.1.0",
-    "processed_at": "2026-11-22T08:49:22.022507+00:00"
+    "app_version": "1.2.7",
+    "processed_at": "2026-11-26T05:45:52.237729+00:00"
   },
   "settings": {
     "number_format": "legacy",
@@ -189,12 +187,12 @@
     "unknown": 0,
     "excluded": 0,
     "errors": 0,
-    "warnings": 1,
+    "warnings": 0,
     "error_records": 0,
-    "review_records": 1,
+    "review_records": 0,
     "file_errors": 0,
     "unresolved_source_fragments": 0,
     "formula_source_errors": 0
   },
-  "payload_sha256": "e8e4a33167c098884a840533b29b5abf6faaca545eef22092839fc2b82458058"
+  "payload_sha256": "c46e44e8261808f356a917c6aebe86a02245785a86da0653705e0d27c8fafdaf"
 }

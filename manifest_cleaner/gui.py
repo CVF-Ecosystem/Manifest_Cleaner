@@ -22,6 +22,7 @@ from .common import parse_weight, seal_text, text_value
 from .engine import CARRIERS, EDITABLE_FIELDS, FIELD_LABELS, ReviewSourceError, load_review, load_settings, process_manifest, validate_carrier_settings
 from .carriers import CARRIER_PROFILES
 from .exporter import export_port_bundle, preview_port_rows, preview_record_for_export
+from . import bl_change
 from .issue_display import issue_field, issue_location, issue_raw_value, issue_title
 
 # Light operational palette, Segoe UI hierarchy and shared spacing in pixels at 96 DPI.
@@ -54,7 +55,7 @@ STRIPES = {"Count": ACCENT, "Success": SUCCESS, "Empty": "#6F8FAF", "Error": DAN
            "Warning": "#E0A100", "Muted": LINE_STRONG, "Owner": "#7B6BA8"}
 # Fills that mirror the exported workbook: warning rows, highlighted identifier cells and empty containers.
 EXCEL_EMPTY_BG = "#DAEEF3"
-PREVIEW_WEIGHT_COLUMNS = {"TL hàng", "Trọng lượng (Tấn)"}
+PREVIEW_WEIGHT_COLUMNS = {"TL hàng"}
 FONT = ("Segoe UI", 10)
 FONT_SMALL = ("Segoe UI", 9)
 FONT_BOLD = ("Segoe UI", 10, "bold")
@@ -245,6 +246,15 @@ def _ownership_counts(records, carrier, settings=None):
 
 def _ownership_display(counts):
     return f"{counts.get('soc', 0)} / {counts.get('coc', 0)}", f"khác {counts['other']}" if counts.get("other") else ""
+
+
+# TOS repeats two headers with a trailing space for the name beside a code. The Excel file
+# keeps the TOS spelling; the app labels them so the two columns can be told apart.
+COLUMN_LABELS = {"Loại hàng": "Loại hàng (mã)", "Loại hàng ": "Loại hàng (tên)"}
+
+
+def _column_label(column):
+    return COLUMN_LABELS.get(column, column)
 
 
 def _preview_cell(column, value, weight_format="General"):
@@ -872,8 +882,12 @@ class ManifestApp:
         self.tabs.enable_traversal()
         data_tab = ttk.Frame(self.tabs)
         issues_tab = ttk.Frame(self.tabs)
+        # Step two lives in its own tab and does not use the open session.
+        bl_tab = ttk.Frame(self.tabs)
         self.tabs.add(data_tab, text="Container")
         self.tabs.add(issues_tab, text="Cần kiểm tra")
+        self.tabs.add(bl_tab, text="Đổi B/L")
+        self.bl_tab = bl_tab
         self.tabs.bind("<<NotebookTabChanged>>", self._tab_changed)
         fields = (
             ("status", "Trạng thái", 103), ("Container_No", FIELD_LABELS["Container_No"], 120),
@@ -902,6 +916,7 @@ class ManifestApp:
         self.empty_labels = [tk.Label(tab, bg=SURFACE, fg=MUTED, font=FONT, takefocus=False)
                              for tab in (data_tab, self.issue_list)]
         self._build_recent(data_tab)
+        self._build_bl_change(bl_tab)
         # Tk traverses siblings in stacking order. Match the visible layout.
         self.actionbar.lift()
         footer.lift()
@@ -1469,6 +1484,10 @@ class ManifestApp:
             self.filter_status.set("")
             return
         active = self.tabs.index(self.tabs.select())
+        if active > 1:
+            # The Đổi B/L tab works on exported files, not on the session's filters.
+            self.filter_status.set("")
+            return
         count = self.issue_count if active else len(self.tree.get_children())
         level = {"error": "Lỗi chặn", "warning": "Cảnh báo"}.get(self.severity_filter)
         self.filter_status.set(f"{count} / {self.table_counts[active]} kết quả" + (f" · Mức: {level}" if level else ""))
@@ -1942,7 +1961,7 @@ class ManifestApp:
                       stretchy={"source", "output"})
         self._scrollbars(comparison_frame, comparison)
         comparison.tag_configure("review", background=WARNING_BG)
-        source_fields = {"Số BL": "BL_No", "Số Vận Đơn": "BL_No", "Số Container": "Container_No", "Số niêm chì": "Seal_No", "Số niêm chì 1": "Seal_No", "Chủ hàng": "Cleaned_Consignee_Name_For_Output", "Kích cỡ": "Size_Type", "Kích cỡ VTOS": "Size_Type", "Loại Container": "Size_Type", "Hãng khai thác": "Operator", "F/E": "FE_Status", "TL hàng": "Weight_Value", "Trọng lượng (Tấn)": "Weight_Value", "Hàng hóa": "Description"}
+        source_fields = {"Số BL": "BL_No", "Số Container": "Container_No", "Số niêm chì": "Seal_No", "Số niêm chì 1": "Seal_No", "Chủ hàng": "Cleaned_Consignee_Name_For_Output", "Kích cỡ": "Size_Type", "Kích cỡ ISO": "Size_Type", "Hãng khai thác": "Operator", "F/E": "FE_Status", "TL hàng": "Weight_Value", "Hàng hóa": "Description"}
         def update_preview():
             # Only this record is copied. Engine validation and exporter rules
             # are shared with the real save/export path; no preview is persisted.
@@ -1967,7 +1986,7 @@ class ManifestApp:
             for column, value in preview.items():
                 field = source_fields.get(column)
                 output = seal_text(value) if field == "Seal_No" else text_value(value)
-                comparison.insert("", "end", values=(column, _source_field(record, field) if field else "Theo quy tắc xuất", output), tags=("review",) if field in affected else ())
+                comparison.insert("", "end", values=(_column_label(column), _source_field(record, field) if field else "Theo quy tắc xuất", output), tags=("review",) if field in affected else ())
         notebook.bind("<<NotebookTabChanged>>", lambda _: update_preview())
         ttk.Button(source_tab, text="Cập nhật xem trước theo các ô đang sửa", command=update_preview).pack(anchor="e", pady=6)
         advanced = ttk.Frame(source_tab)
@@ -2083,7 +2102,7 @@ class ManifestApp:
                 self.export_folder_button.grid()
                 self.status.set(f"Đã xuất: {Path(path).name}  |  {stats['active_records']} dòng, {stats['containers']} container.")
                 review_message = f"\nĐối chiếu để mở lại phiên: {review_path}" if review_path else "\nChưa lưu đối chiếu trong lần xuất này; dùng Lưu đối chiếu để giữ phiên làm việc."
-                messagebox.showinfo("Đã xuất file", f"Excel nhập Cảng: {result['excel']}{review_message}\n\nGiữ đúng mẫu 16 cột của {self.session.carrier}.", parent=self.root)
+                messagebox.showinfo("Đã xuất file", f"Excel nhập Cảng: {result['excel']}{review_message}\n\nFile theo mẫu TOS 46 cột, Ghi chú để trống. Ghi chú vẫn xem được trên app.", parent=self.root)
             except Exception as exc:
                 messagebox.showerror("Không xuất được", str(exc), parent=self.root)
 
@@ -2102,7 +2121,7 @@ class ManifestApp:
                                  f"Mở thủ công thư mục {self.export_directory}.\n\n{exc}", parent=self.root)
 
     def preview_export(self):
-        """Show the sixteen Port columns exactly as Export would write them, before saving."""
+        """Show the columns the app fills in the TOS form, with STT and Ghi chú, before saving."""
         if self.busy or self.session is None:
             return
         session = self.session
@@ -2149,8 +2168,9 @@ class ManifestApp:
             export.configure(state="disabled")
             note = f"Chưa xuất được: {blocked} Nền đỏ: dòng còn lỗi chặn. Bản xem trước dùng giá trị hiện tại của phiên."
         else:
-            note = ("Đúng các cột và giá trị sẽ ghi vào file. Nền vàng: dòng có cảnh báo. Nền xanh: container rỗng. "
-                    "Chữ nâu: dòng có ô container, seal hoặc ghi chú được tô vàng trong Excel.")
+            note = ("Các cột app điền vào file theo mẫu TOS 46 cột, đúng giá trị sẽ ghi. STT và Ghi chú chỉ hiện trên app, "
+                    "file Excel để trống. Nền vàng: dòng có cảnh báo. Nền xanh: container rỗng. "
+                    "Chữ nâu: dòng có ô container hoặc seal được tô vàng trong Excel.")
         self.preview_note = _wrapped_label(dialog, text=note, style="Issue.TLabel" if blocked else "Muted.TLabel")
         self.preview_note.pack(anchor="w", padx=pad, pady=(0, gap))
         body = ttk.Frame(dialog, padding=(pad, 0, pad, pad))
@@ -2159,12 +2179,12 @@ class ManifestApp:
         tree = self.preview_tree = ttk.Treeview(body, columns=keys, show="headings", selectmode="browse")
         font = tkfont.Font(root=self.root, font=FONT)
         heading_font = tkfont.Font(root=self.root, font=FONT_BOLD)
-        numeric = {"STT", "Số lượng", "Độ chính xác (%)", *PREVIEW_WEIGHT_COLUMNS}
+        numeric = {"STT", "Số lượng", *PREVIEW_WEIGHT_COLUMNS}
         for index, (key, name) in enumerate(zip(keys, columns)):
             sample = max((font.measure(values[index]) for values, _ in table_rows[:300]), default=0)
             width = min(_pixels(self.root, 320), max(heading_font.measure(name), sample + font.measure(WEIGHT_PAD))
                         + _pixels(self.root, 24))
-            tree.heading(key, text=name, anchor="w")
+            tree.heading(key, text=_column_label(name), anchor="w")
             tree.column(key, width=width, minwidth=_pixels(self.root, 40), stretch=False,
                         anchor="e" if name in numeric else "w")
         tree.tag_configure("error", background=DANGER_BG, foreground=DANGER)
@@ -2190,6 +2210,147 @@ class ManifestApp:
         fill()
         dialog.bind("<Escape>", lambda _: dialog.destroy())
         entry.focus_set()
+
+    def _build_bl_change(self, tab):
+        """Step two: change the B/L of a vessel file with the shipping line's file. Independent of the session."""
+        gap = _pixels(self.root, GAP)
+        state = self.bl_state = {"vessel": None, "partner": None, "plan": None}
+        outer = ttk.Frame(tab, padding=(0, gap, 0, gap))
+        # The tab is short at the minimum window size: one line per file, the export button beside the
+        # summary, and only the table row (weight 1) gives up height when space runs out.
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(2, weight=1)
+        outer.grid(row=0, column=0, sticky="ew")
+        outer.columnconfigure(1, weight=1)
+        _wrapped_label(outer, style="Muted.TLabel", text=(
+            "Ghép theo số container hai file đã xuất ở bước một và lấy B/L của hãng gửi vào file tàu. "
+            "File nguồn không bị ghi.")).grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, gap // 2))
+        paths = {key: tk.StringVar() for key in state if key != "plan"}
+        details = {key: tk.StringVar() for key in paths}
+        labels = {"vessel": "File tàu", "partner": "File hãng gửi hàng"}
+        for row, key in enumerate(("vessel", "partner"), 1):
+            ttk.Label(outer, text=labels[key], font=FONT_BOLD).grid(row=row, column=0, sticky="w", padx=(0, gap))
+            ttk.Entry(outer, textvariable=paths[key], state="readonly").grid(row=row, column=1, sticky="ew",
+                                                                               pady=(0, gap // 2))
+            ttk.Label(outer, textvariable=details[key], style="Muted.TLabel").grid(row=row, column=2, sticky="w",
+                                                                                  padx=(gap, 0))
+            ttk.Button(outer, text="Chọn…", command=lambda name=key: choose(name)).grid(
+                row=row, column=3, sticky="e", padx=(gap, 0), pady=(0, gap // 2))
+        actions = ttk.Frame(tab, padding=(0, gap // 2, 0, gap // 2))
+        actions.grid(row=1, column=0, sticky="ew")
+        actions.columnconfigure(0, weight=1)
+        summary = self.bl_summary = tk.StringVar(value="Chọn hai file để đối chiếu.")
+        summary_label = ttk.Label(actions, textvariable=summary, font=FONT_BOLD)
+        summary_label.grid(row=0, column=0, sticky="ew")
+        export = self.bl_export_button = ttk.Button(actions, text="Xuất file TOS đã đổi B/L…", style="Primary.TButton",
+                                                    state="disabled", command=lambda: write())
+        export.grid(row=0, column=1, sticky="e", padx=(gap, 0))
+        # The summary wraps in the room the button leaves.
+        actions.bind("<Configure>", lambda event: summary_label.configure(
+            wraplength=max(100, event.width - export.winfo_reqwidth() - 2 * gap)), add="+")
+        body = ttk.Frame(tab)
+        body.grid(row=2, column=0, sticky="nsew")
+        fields = (("kind", "Loại", 120), ("container", "Số Container", 120), ("bl", "Số BL", 230),
+                  ("operator", "Hãng khai thác", 120), ("owner", "Chủ hàng", 260), ("weight", "TL hàng", 110),
+                  ("detail", "Chi tiết", 320))
+        tree = self.bl_tree = ttk.Treeview(body, columns=tuple(name for name, _, _ in fields), show="headings",
+                                           selectmode="browse")
+        self._columns(tree, fields, stretchy={"owner", "detail"})
+        self._scrollbars(body, tree)
+        tree.tag_configure("warning", background=WARNING_BG)
+        tree.bind("<Control-c>", lambda _: self._copy_table_row(tree))
+
+        def arrow(change, name):
+            value = change["fields"].get(name)
+            return f"{text_value(value['old'])} → {text_value(value['new'])}" if value else ""
+
+        def show():
+            tree.delete(*tree.get_children())
+            state["plan"] = None
+            export.configure(state="disabled")
+            vessel, partner = state["vessel"], state["partner"]
+            if not (vessel and partner):
+                return
+            try:
+                plan = bl_change.plan_bl_change(vessel, partner)
+            except ValueError as exc:
+                summary.set(str(exc))
+                return
+            state["plan"] = plan
+            for item in plan["partial_bls"]:
+                tree.insert("", "end", tags=("warning",), values=(
+                    "B/L gom còn sót", "", item["bl"], "", "", "",
+                    f"Đổi {item['matched']}/{item['total']} container. Còn: {', '.join(item['remaining'][:6])}. "
+                    "Số lượng của B/L này có thể không còn đúng."))
+            for container in plan["partner_only"]:
+                tree.insert("", "end", tags=("warning",), values=(
+                    "Không có trên tàu", container, "", "", "", "", "Container chỉ có ở file hãng gửi, không được thêm."))
+            for item in plan["conflicts"]:
+                tree.insert("", "end", tags=("warning",), values=(
+                    "Khác biệt", item["container"], "", "", "", "",
+                    f"{item['field'].strip()}: file tàu {text_value(item['vessel'])}, file hãng gửi "
+                    f"{text_value(item['partner'])}. Giữ theo file tàu."))
+            for item in plan["kept_vessel_value_when_partner_blank"]:
+                tree.insert("", "end", values=(
+                    "Giữ giá trị tàu", item["container"], "", "", "", "",
+                    f"{item['field']} trống ở file hãng gửi, giữ {text_value(item['vessel'])}."))
+            for change in plan["changes"]:
+                if change["fields"]:
+                    others = [name for name in change["fields"] if name not in {"Số BL", "Hãng khai thác", "Chủ hàng", "TL hàng"}]
+                    tree.insert("", "end", values=(
+                        "Đổi B/L", change["container"], arrow(change, "Số BL"), arrow(change, "Hãng khai thác"),
+                        text_value((change["fields"].get("Chủ hàng") or {}).get("new")), arrow(change, "TL hàng"),
+                        "; ".join(f"{name}: {arrow(change, name)}" for name in others)))
+            counts = plan["summary"]
+            text = (f"{counts['matched']} container chung, {counts['changed']} container đổi giá trị. "
+                    f"{counts['conflicts']} khác biệt, {counts['partner_only']} container không có trên tàu, "
+                    f"{counts['partial_bls']} B/L gom còn sót.")
+            summary.set(text)
+            export.configure(state="normal" if counts["changed"] else "disabled")
+
+        def choose(name):
+            path = filedialog.askopenfilename(parent=self.root, title=labels[name], filetypes=[("Excel", "*.xlsx")],
+                                              initialdir=self._output_directory())
+            if not path:
+                return
+            try:
+                item = bl_change.read_tos_file(path)
+            except Exception as exc:
+                messagebox.showerror("Không đọc được file", str(exc), parent=self.root)
+                return
+            state[name] = item
+            paths[name].set(str(item.path))
+            # The source manifest name lets the user confirm vessel and voyage; TOS files carry neither.
+            details[name].set(f"{item.carrier or 'Hãng không rõ'} · {len(item.rows)} cont · "
+                              f"{item.source_name or 'nguồn không rõ'}")
+            show()
+
+        def write():
+            plan = state["plan"]
+            if not plan:
+                return
+            counts = plan["summary"]
+            warnings = counts["conflicts"] + counts["partner_only"] + counts["partial_bls"]
+            if warnings and not messagebox.askyesno("Còn mục cần xem", (
+                    f"Còn {counts['conflicts']} khác biệt (giữ theo file tàu), {counts['partner_only']} container "
+                    f"không có trên tàu và {counts['partial_bls']} B/L gom còn sót.\n\nVẫn xuất file?"), parent=self.root):
+                return
+            vessel = state["vessel"]
+            target = filedialog.asksaveasfilename(parent=self.root, title="Lưu file TOS đã đổi B/L",
+                                                  defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")],
+                                                  initialdir=str(vessel.path.parent),
+                                                  initialfile=f"{vessel.path.stem}_DOI_BL.xlsx")
+            if not target:
+                return
+            try:
+                result = bl_change.write_bl_change(vessel, state["partner"], plan, target, overwrite=True)
+            except Exception as exc:
+                messagebox.showerror("Không xuất được", str(exc), parent=self.root)
+                return
+            self.export_directory = result["excel"].parent
+            self.export_folder_button.grid()
+            messagebox.showinfo("Đã xuất", f"File TOS: {result['excel']}\nTruy vết: {result['trace']}\n\n"
+                                "Ô đã đổi có nền xanh lá, ô khác biệt có nền vàng.", parent=self.root)
 
     def save_review(self):
         if not self.session:
@@ -2286,7 +2447,10 @@ class ManifestApp:
             "2. Xem tab Cần kiểm tra. Nhấp đúp một mục để mở đúng dòng. Lỗi chặn xuất Excel. Cảnh báo vẫn cho phép xuất sau khi xác nhận.\n"
             "3. Trong cửa sổ sửa, chỉ tích Đã đối chiếu với trường vừa kiểm tra. Tab Nguồn và giá trị xuất cho thấy nguồn và giá trị dự kiến.\n"
             "4. Nhập lý do rồi bấm Lưu chỉnh sửa / xác nhận để áp dụng vào phiên. Lưu đối chiếu ghi các sửa đổi và lịch sử vào JSON. "
-            "Xuất Excel mặc định lưu kèm JSON. Mở lại JSON cần đúng manifest gốc chưa thay đổi.\n\n"
+            "Xuất Excel mặc định lưu kèm JSON. Mở lại JSON cần đúng manifest gốc chưa thay đổi.\n"
+            "5. File xuất theo mẫu TOS 46 cột để import vào TOS. Ghi chú chỉ hiện trên app.\n"
+            "6. Khi một hãng gửi hàng qua tàu hãng khác: xuất riêng manifest của từng hãng, rồi bấm Đổi B/L… "
+            "để lấy B/L của hãng gửi vào file tàu.\n\n"
             "Cửa sổ sửa — Ctrl+S hoặc Ctrl+Enter để lưu, Esc để hủy. Nhấn Enter khi đang nhập lý do cũng lưu.\n"
             "Cửa sổ chính — Ctrl+O mở manifest, Ctrl+S xuất Excel, F1 xem hướng dẫn.\n"
             "Mục Gần đây (5 manifest đã đọc, mọi hãng) hiện khi chưa mở file. Bấm một mục để mở lại bằng đúng hãng đã dùng.", parent=self.root)

@@ -1,4 +1,9 @@
-"""Port import files: preserve the actual 16-column schemas from each source repo."""
+"""Port import files in the TOS form shared by every carrier (roadmap MC3).
+
+The app view has 16 columns in TOS order, including STT and Ghi chú, which only
+the app shows. The Excel file carries the 46 TOS headers; values keep each
+carrier's rules for quantity scope, rounding, EMPTY and seal checks.
+"""
 from __future__ import annotations
 
 import math
@@ -9,7 +14,6 @@ import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from itertools import groupby
 from pathlib import Path
 
 import pandas as pd
@@ -17,12 +21,30 @@ import xlsxwriter
 
 from .common import seal_text, text_value
 from . import __version__
-from .carriers import CARRIER_PROFILES
+from .carriers import (APP_ONLY_COLUMNS, CARGO_TO_TOS, CARRIER_PROFILES, PORT_COLUMNS, TOS_COLUMNS,
+                       VTOS_TO_TOS_ISO)
 from .engine import EDITABLE_FIELDS, FIELD_LABELS, ManifestSession, assert_source_unchanged, source_sha256
 
 
 SEAL_REFERENCE_NOTE = "⚠️ Seal không hợp lệ"
 IDENTIFIER_COLUMNS = {"Container_No": "Số Container", "Seal_No": "Số niêm chì"}
+SHEET_NAME = "Sheet1"
+EXPORT_FORM = "TOS46"
+NUMBER_COLUMNS = frozenset({"STT", "Số lượng", "TL hàng"})
+WEIGHT_COLUMN = "TL hàng"
+FILL_IDENTIFIER, FILL_WARNING, FILL_EMPTY = "#FFFF00", "#FFF4D8", "#DAEEF3"
+
+
+def tos_cargo(cargo) -> tuple[str, str]:
+    """TOS code and name for the app's cargo type; unknown types keep the app's text and no code."""
+    text = text_value(cargo)
+    return CARGO_TO_TOS.get(text.upper(), ("", text))
+
+
+def tos_row(columns, row) -> list:
+    """Place app-view values under the 46 TOS headers. App-only columns and the rest stay blank."""
+    values = dict(zip(columns, row))
+    return [None if name in APP_ONLY_COLUMNS else values.get(name) for name in TOS_COLUMNS]
 
 
 def _edit_notes(corrections, records):
@@ -73,7 +95,7 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False,
         if item.get("record_id") and item.get("severity") in {"warning", "error"}:
             by_record[str(item["record_id"])].append(item)
     edits = _edit_notes(session.corrections, records)
-    columns = profile.columns
+    columns = PORT_COLUMNS
     rows = []
     highlights = defaultdict(list)
     for index, record in enumerate(records, 1):
@@ -82,8 +104,6 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False,
         if warnings:
             highlights[None].append(index)
         identifier_fields = {item.get("field") for item in warnings if item.get("field") in IDENTIFIER_COLUMNS}
-        # Compatibility column: a rule-based score, never measured accuracy.
-        confidence = max(0, min(float(record.get("Confidence") if record.get("Confidence") is not None else 100), 80 if local_issues else 100))
         remarks = list(dict.fromkeys(i["message"] for i in local_issues if i.get("message")))
         seal = seal_text(record.get("Seal_No"))
         seal_reference = seal.strip()
@@ -116,21 +136,22 @@ def _port_rows(session: ManifestSession, *, allow_errors: bool = False,
         description = text_value(record.get("Description"))
         if record.get("FE_Status") == "E" and profile.empty_description is not None:
             description = profile.empty_description
+        vtos = text_value(record.get("VTOS_Size"))
+        cargo_code, cargo_name = tos_cargo(record.get("Cargo_Type"))
+        # In TOS, Kích cỡ is the VTOS code for every carrier; the manifest's own code stays in the review.
         values = {"STT": index, "Số lượng": len(quantities[quantity_key(record)]),
-                  "Số BL": text_value(record.get("BL_No")), "Số Vận Đơn": text_value(record.get("BL_No")),
+                  "Số BL": text_value(record.get("BL_No")),
                   "Số Container": text_value(record.get("Container_No")), "Hãng khai thác": text_value(record.get("Operator")),
-                  "Kích cỡ": text_value(record.get(profile.primary_size_field)),
-                  "Kích cỡ VTOS": text_value(record.get("VTOS_Size")), "Loại Container": text_value(record.get("VTOS_Size")),
-                  "F/E": text_value(record.get("FE_Status")), "TL hàng": weight, "Trọng lượng (Tấn)": weight,
+                  "Kích cỡ": vtos, "Kích cỡ ISO": VTOS_TO_TOS_ISO.get(vtos.upper(), ""),
+                  "F/E": text_value(record.get("FE_Status")), "TL hàng": weight,
                   "Số niêm chì": seal, "Số niêm chì 1": seal,
                   "Chủ hàng": text_value(record.get("Cleaned_Consignee_Name_For_Output")),
-                  "Hàng hóa": description,
-                  "Loại hàng": text_value(record.get("Cargo_Type")), "Độ chính xác (%)": confidence,
+                  "Loại hàng": cargo_code, "Loại hàng ": cargo_name, "Hàng hóa": description,
                   "Ghi chú": " | ".join(remarks)}
         row = [values[c] for c in columns]
         if not allow_errors:
             for name, value in zip(columns, row):
-                if isinstance(value, str) and len(value) > 32767:
+                if name not in APP_ONLY_COLUMNS and isinstance(value, str) and len(value) > 32767:
                     raise ValueError(f"Dòng {index}, cột {name} dài quá giới hạn 32767 ký tự của Excel; cần rút gọn giá trị xuất, dữ liệu gốc vẫn được giữ.")
         rows.append(row)
     return list(columns), rows, highlights
@@ -151,11 +172,49 @@ def preview_port_rows(session: ManifestSession) -> tuple[list[str], list[list], 
 
 
 def preview_record_for_export(session: ManifestSession, record: dict) -> dict:
-    """Read-only preview using the very same sixteen-column conversion rules."""
+    """Read-only preview using the very same conversion rules as the export."""
     columns, rows, _ = _port_rows(session, allow_errors=True, extra_record=record)
     records = session.active_records()
     index = next((i for i, r in enumerate(records) if r["record_id"] == record["record_id"]), len(records))
     return dict(zip(columns, rows[index]))
+
+
+def _write_tos_sheet(book, rows, fills, weight_format) -> None:
+    """Write rows already laid out under TOS_COLUMNS.
+
+    Fills are static cell formats so that sorting in Excel moves them with their
+    row: a yellow identifier cell beats the row's warning or empty fill.
+    """
+    sheet = book.add_worksheet(SHEET_NAME)
+    header = book.add_format({"bold": True, "bg_color": "#173D5B", "font_color": "#FFFFFF", "border": 1})
+    formats = {}
+
+    def cell_format(kind, fill):
+        key = (kind, fill)
+        if key not in formats:
+            spec = {"num_format": {"text": "@", "weight": weight_format, "number": "General"}[kind]}
+            if fill:
+                spec["bg_color"] = fill
+            formats[key] = book.add_format(spec)
+        return formats[key]
+
+    for col_index, label in enumerate(TOS_COLUMNS):
+        sheet.write_string(0, col_index, label, header)
+        longest = max((len(str(row[col_index])) for row in rows if row[col_index] is not None), default=0)
+        sheet.set_column(col_index, col_index, min(45, max(len(label.strip()) + 2, longest + 2)))
+    for row_index, (row, (base, cells)) in enumerate(zip(rows, fills), 1):
+        for col_index, (label, value) in enumerate(zip(TOS_COLUMNS, row)):
+            fill = cells.get(label, base)
+            kind = "weight" if label == WEIGHT_COLUMN else "number" if label in NUMBER_COLUMNS else "text"
+            if value is None or value == "":
+                if fill:
+                    sheet.write_blank(row_index, col_index, None, cell_format(kind, fill))
+            elif kind != "text":
+                sheet.write_number(row_index, col_index, float(value), cell_format(kind, fill))
+            else:
+                sheet.write_string(row_index, col_index, str(value), cell_format(kind, fill))
+    sheet.freeze_panes(1, 0)
+    sheet.autofilter(0, 0, len(rows), len(TOS_COLUMNS) - 1)
 
 
 def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: bool = False) -> Path:
@@ -176,57 +235,20 @@ def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: 
             session.metadata.setdefault("session_id", uuid.uuid4().hex)
             for name, value in {"session_id": session.metadata["session_id"],
                                 "source_sha256": session.metadata.get("source_sha256", ""),
-                                "app_version": __version__, "carrier": session.carrier}.items():
+                                "app_version": __version__, "carrier": session.carrier,
+                                "source_name": Path(session.metadata.get("source_path", "")).name,
+                                "export_form": EXPORT_FORM}.items():
                 book.set_custom_property(name, str(value))
-            sheet = book.add_worksheet("Processed_Manifest")
-            header = book.add_format({"bold": True, "bg_color": "#173D5B", "font_color": "#FFFFFF", "border": 1})
-            text_format = book.add_format({"num_format": "@"})
-            numeric_format = book.add_format({"num_format": CARRIER_PROFILES[session.carrier].export.weight_format})
-            empty_format = book.add_format({"bg_color": "#DAEEF3"})
-            warning_format = book.add_format({"bg_color": "#FFF4D8"})
-            identifier_format = book.add_format({"bg_color": "#FFFF00"})
-            for col_index, label in enumerate(columns):
-                sheet.write_string(0, col_index, label, header)
-                width = min(45, max(len(label) + 2, max((len(str(row[col_index] or "")) for row in rows), default=0) + 2))
-                sheet.set_column(col_index, col_index, width)
-            number_columns = {"STT", "Số lượng", "TL hàng", "Trọng lượng (Tấn)", "Độ chính xác (%)"}
-            for row_index, row in enumerate(rows, 1):
-                for col_index, value in enumerate(row):
-                    if value is None:
-                        sheet.write_blank(row_index, col_index, None)
-                    elif columns[col_index] in number_columns:
-                        sheet.write_number(row_index, col_index, float(value), numeric_format if columns[col_index] in {"TL hàng", "Trọng lượng (Tấn)"} else None)
-                    else:
-                        sheet.write_string(row_index, col_index, str(value), text_format)
-            from xlsxwriter.utility import xl_col_to_name
-            fe_col = xl_col_to_name(columns.index("F/E"))
-            last_col = xl_col_to_name(len(columns) - 1)
-            if rows:
-                data_range = f"A2:{last_col}{len(rows) + 1}"
-                index_cell = f"${xl_col_to_name(columns.index('STT'))}2"
-                # STT follows complete rows when sorted. Give the identity
-                # cells priority over the general warning and empty-row colors.
-                for label in ("Số Container", "Số niêm chì", "Ghi chú", None):
-                    target = data_range
-                    if label is not None:
-                        letter = xl_col_to_name(columns.index(label))
-                        target = f"{letter}2:{letter}{len(rows) + 1}"
-                    conditions = []
-                    numbers = highlights.get(label, ())
-                    for _, run in groupby(enumerate(numbers), key=lambda item: item[1] - item[0]):
-                        first, *rest = (number for _, number in run)
-                        conditions.append(f"AND({index_cell}>={first},{index_cell}<={rest[-1]})"
-                                          if rest else f"{index_cell}={first}")
-                    for start in range(0, len(conditions), 100):
-                        formula = "=OR(" + ",".join(conditions[start:start + 100]) + ")"
-                        sheet.conditional_format(target, {
-                            "type": "formula", "criteria": formula,
-                            "format": identifier_format if label is not None else warning_format,
-                            "stop_if_true": True,
-                        })
-                sheet.conditional_format(data_range, {"type": "formula", "criteria": f'=${fe_col}2="E"', "format": empty_format})
-            sheet.freeze_panes(1, 0)
-            sheet.autofilter(0, 0, len(rows), len(columns) - 1)
+            warning_rows = set(highlights.get(None, ()))
+            marked = {label: set(highlights.get(label, ())) for label in IDENTIFIER_COLUMNS.values()}
+            fe = columns.index("F/E")
+            fills = []
+            for number, row in enumerate(rows, 1):
+                base = FILL_WARNING if number in warning_rows else FILL_EMPTY if row[fe] == "E" else None
+                cells = {label: FILL_IDENTIFIER for label, numbers in marked.items() if number in numbers}
+                fills.append((base, cells))
+            _write_tos_sheet(book, [tos_row(columns, row) for row in rows], fills,
+                             CARRIER_PROFILES[session.carrier].export.weight_format)
         os.replace(temp_name, path)
     except Exception:
         Path(temp_name).unlink(missing_ok=True)

@@ -22,12 +22,25 @@ from manifest_cleaner.engine import process_manifest
 from scripts.create_samples import CREATORS, create_vimc
 
 
-COMMON_COLUMNS = ["STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ",
-                  "Kích cỡ VTOS", "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng",
-                  "Hàng hóa", "Loại hàng", "Độ chính xác (%)", "Ghi chú"]
-VIMC_COLUMNS = ["STT", "Số Vận Đơn", "Số Container", "Số niêm chì", "Số niêm chì 1", "Chủ hàng",
-                "Kích cỡ", "Loại Container", "Hãng khai thác", "Loại hàng", "F/E", "Trọng lượng (Tấn)",
-                "Hàng hóa", "Số lượng", "Độ chính xác (%)", "Ghi chú"]
+# Transcribed from the Port TOS form Manifest/Vtos.xlsx (roadmap MC3), not from the exporter.
+TOS_HEADERS = ["Xác nhận", "ĐTTT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ",
+               "Kích cỡ ISO", "F/E", "TL hàng", "VGM", "Nhóm TL", "Số niêm chì", "Số niêm chì 1",
+               "Cảng xếp", "Cảng dỡ", "Cảng đích", "Phương Án", "Phương Án ", "Phương Thức Giao Nhận",
+               "Phương Thức Giao Nhận ", "Chủ hàng", "Loại hàng", "Loại hàng ", "Hàng hóa", "CLASS",
+               "UNNO", "Nhiệt độ", "Vent", "Vent_Unit", "Cntr Class", "CntrClass", "Hàng nội/ngoại",
+               "Hàng nội/ngoại ", "Ghi chú", "OOG_TOP", "OOG_LEFT", "OOG_RIGHT", "OOG_BACK",
+               "OOG_FRONT", "Term", "Số thứ tự", "Transist", "Cảng chuyển", "Cảng giao nhận",
+               "Chỉ dẫn xếp dỡ"]
+# The app view shared by every carrier: TOS order, plus STT and Ghi chú shown only in the app.
+APP_COLUMNS = ["STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ", "Kích cỡ ISO",
+               "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng", "Loại hàng", "Loại hàng ",
+               "Hàng hóa", "Ghi chú"]
+YELLOW, WARNING_FILL, EMPTY_FILL = "FFFF00", "FFF4D8", "DAEEF3"
+
+
+def fill_of(cell):
+    """Static fill colour of an exported cell, or None."""
+    return cell.fill.fgColor.rgb[-6:] if cell.fill and cell.fill.fill_type == "solid" else None
 
 
 class Export110Tests(unittest.TestCase):
@@ -46,7 +59,7 @@ class Export110Tests(unittest.TestCase):
     def output_rows(path):
         book = load_workbook(path, data_only=False)
         try:
-            sheet = book["Processed_Manifest"]
+            sheet = book[exporter.SHEET_NAME]
             headers = [cell.value for cell in sheet[1]]
             rows = [dict(zip(headers, (cell.value for cell in cells))) for cells in sheet.iter_rows(min_row=2)]
             return headers, rows
@@ -60,6 +73,11 @@ class Export110Tests(unittest.TestCase):
         return {item.attrib["name"]: next(iter(item)).text for item in root}
 
     def assert_preview_equal(self, preview, actual):
+        """Compare the app view with an exported TOS row. STT and Ghi chú stay in the app only."""
+        preview = {k: v for k, v in preview.items() if k not in {"STT", "Ghi chú"}}
+        if "Xác nhận" in actual:
+            self.assertIsNone(actual.get("Ghi chú"))
+            actual = {k: v for k, v in actual.items() if k in preview}
         self.assertEqual(set(preview), set(actual))
         for field, expected in preview.items():
             # Excel blank strings round-trip as None; they have the same empty
@@ -97,17 +115,18 @@ class Export110Tests(unittest.TestCase):
         output = exporter.export_port_excel(session, self.outputs / "seal.xlsx")
         book = load_workbook(output)
         try:
-            sheet = book["Processed_Manifest"]
-            for col in ("D", "E"):
+            sheet = book[exporter.SHEET_NAME]
+            for col in ("M", "N"):
                 self.assertEqual(sheet[f"{col}2"].value, seal)
                 self.assertEqual(sheet[f"{col}2"].data_type, "s")
-            self.assertIn("⚠️ Seal không hợp lệ", sheet["P2"].value)
-            rules = {str(entry.sqref): sheet.conditional_formatting[entry][0]
-                     for entry in sheet.conditional_formatting}
-            self.assertEqual(set(rules), {"D2", "P2", "A2:P2"})
-            for field in ("D2", "P2"):
-                self.assertEqual(rules[field].dxf.fill.bgColor.rgb[-6:], "FFFF00")
-                self.assertLess(rules[field].priority, rules["A2:P2"].priority)
+            # Ghi chú stays blank in the file; the app still shows the note.
+            self.assertIsNone(sheet["AI2"].value)
+            columns, rows, _ = exporter.preview_port_rows(session)
+            self.assertIn("⚠️ Seal không hợp lệ", rows[0][columns.index("Ghi chú")])
+            self.assertEqual(fill_of(sheet["M2"]), YELLOW)
+            self.assertIsNone(fill_of(sheet["N2"]))
+            self.assertIsNone(fill_of(sheet["E2"]))
+            self.assertEqual(len(sheet.conditional_formatting), 0)
         finally:
             book.close()
 
@@ -120,7 +139,7 @@ class Export110Tests(unittest.TestCase):
                 output = exporter.export_port_excel(session, self.outputs / "weight.xlsx", overwrite=True)
                 with open(output, "rb") as stream:
                     book = load_workbook(stream)
-                    cell = book.active["I2"]
+                    cell = book.active["J2"]
                     self.assertEqual((cell.value, cell.data_type, cell.number_format), (weight, "n", "General"))
                     book.close()
 
@@ -142,17 +161,17 @@ class Export110Tests(unittest.TestCase):
                     book = load_workbook(target)
                     try:
                         sheet = book.active
-                        seal_cell = "D2" if carrier == "VIMC" else "J2"
-                        container_cell = "C2" if carrier == "VIMC" else "D2"
+                        seal_cell, container_cell = "M2", "E2"
                         expected_seal = show_seal and not seal_verified
                         self.assertEqual(sheet[seal_cell].value, "0064556")
                         self.assertEqual(sheet[seal_cell].data_type, "s")
-                        self.assertIn(message, sheet["P2"].value)
-                        self.assertEqual("⚠️ Seal không hợp lệ" in sheet["P2"].value, expected_seal)
-                        highlighted = {str(entry.sqref) for entry in sheet.conditional_formatting
-                                       for rule in sheet.conditional_formatting[entry]
-                                       if rule.dxf.fill.bgColor.rgb[-6:] == "FFFF00"}
-                        expected_highlights = {container_cell, "P2"} | ({seal_cell} if expected_seal else set())
+                        columns, rows, _ = exporter.preview_port_rows(session)
+                        note = rows[0][columns.index("Ghi chú")]
+                        self.assertIn(message, note)
+                        self.assertEqual("⚠️ Seal không hợp lệ" in note, expected_seal)
+                        self.assertIsNone(sheet["AI2"].value)
+                        highlighted = {cell.coordinate for cell in sheet[2] if fill_of(cell) == YELLOW}
+                        expected_highlights = {container_cell} | ({seal_cell} if expected_seal else set())
                         self.assertEqual(highlighted, expected_highlights)
                     finally:
                         book.close()
@@ -180,19 +199,20 @@ class Export110Tests(unittest.TestCase):
                 book = load_workbook(output)
                 try:
                     sheet = book.active
-                    rules = sorted(((str(entry.sqref), rule) for entry in sheet.conditional_formatting
-                                    for rule in sheet.conditional_formatting[entry]), key=lambda pair: pair[1].priority)
-                    (warn_range, warning), (empty_range, empty) = rules
-                    self.assertEqual((warn_range, empty_range), ("A2:P4", "A2:P4"))
-                    self.assertEqual(warning.formula, ["OR($A2=2)" if verified else "OR(AND($A2>=1,$A2<=2))"])
-                    self.assertEqual(warning.dxf.fill.bgColor.rgb[-6:], "FFF4D8")
-                    self.assertTrue(warning.stopIfTrue)
-                    self.assertLess(warning.priority, empty.priority)
-                    self.assertEqual(sheet["D3"].value, "001234")
-                    self.assertEqual(sheet["L3"].value, 4.3)
-                    self.assertEqual(sheet["P3"].value, message)
-                    self.assertIn(sheet["P4"].value, (None, ""))
-                    self.assertEqual([cell.value for cell in sheet[1]], VIMC_COLUMNS)
+                    self.assertEqual(len(sheet.conditional_formatting), 0)
+                    # Static fills sort with their rows. Warning beats empty; the whole TOS row is filled.
+                    for column in ("A", "J", "AI", "AT"):
+                        self.assertEqual(fill_of(sheet[f"{column}2"]), None if verified else WARNING_FILL)
+                        self.assertEqual(fill_of(sheet[f"{column}3"]), WARNING_FILL)
+                        self.assertIsNone(fill_of(sheet[f"{column}4"]))
+                    self.assertEqual(sheet["I3"].value, "E")
+                    self.assertEqual(sheet["M3"].value, "001234")
+                    self.assertEqual(sheet["J3"].value, 4.3)
+                    self.assertIsNone(sheet["AI3"].value)
+                    columns, rows, _ = exporter.preview_port_rows(session)
+                    self.assertEqual(rows[1][columns.index("Ghi chú")], message)
+                    self.assertIn(rows[2][columns.index("Ghi chú")], (None, ""))
+                    self.assertEqual([cell.value for cell in sheet[1]], TOS_HEADERS)
                 finally:
                     book.close()
 
@@ -205,17 +225,20 @@ class Export110Tests(unittest.TestCase):
         session.update_record(rid, {"Seal_No": "123"}, "lần đầu")
         session.update_record(rid, {"Seal_No": "00123"}, "theo chứng từ mới", verified_fields=["Description"])
         path = exporter.export_port_excel(session, self.outputs / "notes.xlsx")
-        _, rows = self.output_rows(path)
+        headers, exported = self.output_rows(path)
+        self.assertTrue(all(row["Ghi chú"] is None for row in exported))
+        self.assertNotIn("Độ chính xác (%)", headers)
+        columns, rows, _ = exporter.preview_port_rows(session)
+        rows = [dict(zip(columns, row)) for row in rows]
         note = rows[0]["Ghi chú"]
         for expected in ("Đã sửa Số niêm chì", "Đã đối chiếu Hàng hóa", "theo chứng từ mới"):
             self.assertIn(expected, note)
         for unrelated in ("Kiểm tổng hợp", "Dấu vết", "lần đầu"):
             self.assertNotIn(unrelated, note)
         self.assertIn(rows[1]["Ghi chú"], (None, ""))
-        self.assertEqual(rows[1]["Độ chính xác (%)"], session.records[1]["Confidence"])
         self.assertTrue(any(i["code"] == "FILE_NOTE" for i in session.review_data()["current_issues"]))
 
-    def test_preview_matches_actual_sixteen_column_export_all_carriers(self):
+    def test_preview_matches_actual_tos_export_all_carriers(self):
         for carrier in CREATORS:
             for status in ("F", "E"):
                 with self.subTest(carrier=carrier, status=status):
@@ -226,15 +249,14 @@ class Export110Tests(unittest.TestCase):
                         "FE_Status": status, "Description": "REVIEWED GOODS" if status == "F" else "REVIEWED EMPTY NOTE",
                     }, "Đối chiếu dữ liệu để kiểm tra preview và file import")
                     preview = exporter.preview_record_for_export(session, record)
-                    expected_columns = VIMC_COLUMNS if carrier == "VIMC" else COMMON_COLUMNS
-                    self.assertEqual(list(preview), expected_columns)
+                    self.assertEqual(list(preview), APP_COLUMNS)
                     path = exporter.export_port_excel(session, self.outputs / f"{carrier}_{status}.xlsx")
                     headers, rows = self.output_rows(path)
-                    self.assertEqual(headers, expected_columns)
+                    self.assertEqual(headers, TOS_HEADERS)
                     self.assertEqual(len(rows), 1)
                     self.assert_preview_equal(preview, rows[0])
-                    weight_field = "Trọng lượng (Tấn)" if carrier == "VIMC" else "TL hàng"
-                    self.assertEqual(preview[weight_field], (16.055 if carrier == "VOSCO" else 16.06) if status == "F" else 3)
+                    self.assertTrue(all(value is None for key, value in rows[0].items() if key not in APP_COLUMNS))
+                    self.assertEqual(preview["TL hàng"], (16.055 if carrier == "VOSCO" else 16.06) if status == "F" else 3)
                     self.assertEqual(preview["Hàng hóa"], "EMPTY" if status == "E" and carrier != "VOSCO" else record["Description"])
 
     def test_preview_quantity_and_sequence_follow_active_records(self):
@@ -276,7 +298,8 @@ class Export110Tests(unittest.TestCase):
                 self.assertEqual(properties["source_sha256"], session.metadata["source_sha256"])
                 self.assertEqual(properties["carrier"], carrier)
                 self.assertEqual(properties["app_version"], data["app_version"])
-                self.assertEqual(len(self.output_rows(path)[0]), 16)
+                self.assertEqual(properties["export_form"], "TOS46")
+                self.assertEqual(self.output_rows(path)[0], TOS_HEADERS)
 
     def test_existing_either_output_blocks_without_overwrite_and_preserves_both(self):
         session = self.session()
@@ -455,7 +478,7 @@ class Export110Tests(unittest.TestCase):
                     result = exporter.export_port_bundle(session, path)
                     book = load_workbook(result["excel"], data_only=False)
                     try:
-                        sheet = book["Processed_Manifest"]
+                        sheet = book[exporter.SHEET_NAME]
                         headers = [cell.value for cell in sheet[1]]
                         cargo = sheet.cell(2, headers.index("Hàng hóa") + 1)
                         party = sheet.cell(2, headers.index("Chủ hàng") + 1)

@@ -1,6 +1,6 @@
 # Giao diện và đối chiếu dữ liệu — 1.1.0
 
-Ứng dụng vẫn chạy local, mỗi phiên xử lý một manifest của một hãng tàu. File nhập Cảng giữ đúng mẫu 16 cột theo hãng.
+Ứng dụng vẫn chạy local, mỗi phiên xử lý một manifest của một hãng tàu. Từ 26-11-2026 (MC3), file nhập Cảng theo mẫu TOS 46 cột dùng chung cho cả ba hãng.
 
 ## Các thay đổi người dùng nhìn thấy
 
@@ -35,7 +35,7 @@ Trong cửa sổ sửa, mở tab **Nguồn và giá trị sẽ xuất** để xe
 
 - Nguyên văn dòng/ô nguồn khi adapter có lưu thông tin này.
 - Bằng chứng nguồn theo từng cột.
-- Giá trị sẽ ghi vào mẫu 16 cột, theo đúng hàm tạo dữ liệu của exporter.
+- Giá trị sẽ ghi vào file theo mẫu TOS, theo đúng hàm tạo dữ liệu của exporter.
 - Chỗ quy đổi kích cỡ, làm tròn trọng lượng và nhãn hàng `EMPTY` có thể được nhìn thấy trước khi xuất.
 
 Sau khi sửa ô nhập, bấm **Cập nhật xem trước theo các ô đang sửa**. Xem trước không tự lưu chỉnh sửa và không bỏ qua các lỗi chặn xuất.
@@ -106,10 +106,10 @@ Thẻ thứ 7 ghi `số dòng SOC / số dòng COC`, đếm theo dòng như th�
 
 ## Xem trước file Manifest
 
-Nút **Xem trước…** cạnh **Lưu đối chiếu…** mở bảng đúng 16 cột và giá trị sẽ ghi vào file Excel của hãng: seal dạng văn bản, trọng lượng đã quy đổi và làm tròn, mã VTOS, ghi chú. Bản xem trước dùng chung hàm dựng dòng với lệnh xuất, nên hai bên khớp từng ô.
+Nút **Xem trước…** cạnh **Lưu đối chiếu…** mở bảng các cột app điền vào file mẫu TOS, theo thứ tự TOS, cùng STT và Ghi chú chỉ hiện trên app: seal dạng văn bản, trọng lượng đã quy đổi và làm tròn, mã VTOS, mã ISO và loại hàng theo TOS. File Excel để trống Ghi chú. Bản xem trước dùng chung hàm dựng dòng với lệnh xuất, nên hai bên khớp từng ô.
 
 - Ô **Lọc** tìm trong mọi cột. Dòng đếm ghi tổng, số đang hiện, F và E.
-- Màu theo file Excel: nền vàng là dòng có cảnh báo, nền xanh là container rỗng, chữ nâu là dòng có ô container, seal hoặc ghi chú được tô vàng.
+- Màu theo file Excel: nền vàng là dòng có cảnh báo, nền xanh là container rỗng, chữ nâu là dòng có ô container hoặc seal được tô vàng.
 - Khi còn lỗi chặn, vẫn xem trước được. Dòng còn lỗi có nền đỏ, nút xuất trong cửa sổ bị khóa và ghi rõ lý do.
 - **Xuất file Manifest…** trong cửa sổ đóng bản xem trước rồi chạy lệnh xuất như bình thường. Esc để đóng. Ctrl+C sao chép dòng đang chọn.
 

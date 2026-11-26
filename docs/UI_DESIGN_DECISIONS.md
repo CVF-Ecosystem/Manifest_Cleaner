@@ -42,6 +42,11 @@ Operator chọn 5 mục, hiện manifest của mọi hãng, đặt trong vùng b
 **Quyết định operator ngày 24-11-2026**  
 Cột **Ghi chú** trong Excel 16 cột và JSON giữ nguyên câu thông báo đầy đủ. Tiêu đề ngắn chỉ dùng trong giao diện.
 
+**Quyết định operator ngày 26-11-2026 (MC3)**  
+File Excel theo mẫu TOS để trống Ghi chú, vì file được import thẳng vào TOS và TOS dùng cột này cho nhãn ngắn do người nhập gõ. Thông điệp đầy đủ vẫn hiện trên app (bảng, cửa sổ sửa, xem trước) và nằm trong JSON. Quyết định này thay đoạn trên cho file Excel.
+
+Đổi B/L là tab thứ ba **Đổi B/L** cạnh Container và Cần kiểm tra, dùng được khi chưa mở manifest. Một nút trên thanh công cụ làm thanh này vượt chiều rộng tối thiểu 995 px ở 125% và 150%, nên không dùng nút. Tab đặt hàng nút Xuất ở dưới trước bảng để nút luôn hiện ở kích thước tối thiểu.
+
 **Nguồn và kiểm thử**  
 Suy ra từ `DESIGN.md` §1, §5, §8 và §12 Ops / Industrial. Pin đọc trước là commit `09c970f449f4806e7dbd852fa449dfe4fb6fcd30`. Repo CVF gốc tại lần đọc bổ sung ở commit `deeb2170a8f30477c6d51a6e70e6f98289d54959`, cho cùng Git blob `7a3a812f886c70b1c49f0fc630867f8936041ec7` theo `git hash-object DESIGN.md`. Chỉ dẫn `.cvf/runtime/workspace-advice/MANIFEST_CLEANER_UI_GUIDANCE.vi.md` có SHA-256 `802b773bd8bc2aeb19fe0e29e589fac85001e11af4a6f6e45e4a634ef05b3341`. Tài liệu gốc thuộc repo tham chiếu, quyết định triển khai nằm tại project.
 

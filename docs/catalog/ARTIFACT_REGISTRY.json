@@ -159,6 +159,13 @@
       "description": "Manifest Cleaner 1.2.7 desktop implementation worker evidence."
     },
     {
+      "id": "truth-tos-export-mc3",
+      "family": "implementation_truth",
+      "path": "docs/reviews/MC3_TOS_EXPORT_REVIEW.md",
+      "status": "ACTIVE",
+      "description": "TOS export form and Đổi B/L tab (MC3) worker evidence."
+    },
+    {
       "id": "decision-tkinter-ui",
       "family": "continuity",
       "path": "docs/UI_DESIGN_DECISIONS.md",

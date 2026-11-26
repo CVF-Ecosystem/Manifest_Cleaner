@@ -4,14 +4,67 @@
   "carrier": "VINAFCO",
   "input_file": "vinafco_joined_kg_header.input.xlsx",
   "input_sha256": "b42fe5d9f31adf70f1a5d5fabc5e1ea4d6157db3ef885ec31c6bd14c6c63e71e",
-  "settings": {"weight_kind": "gross", "number_format": "legacy", "default_weight_unit": "TONS"},
-  "reasoning": "Tiêu đề GWKGS ghi đơn vị kg dù không có khoảng trắng. Số Excel 25000 vì vậy là 25000 kg = 25 tấn, ưu tiên hơn đơn vị mặc định TONS. B/L BL001 ở dòng shipper áp dụng cho container tiếp theo. Không có SOC; mã hãng là VFC. Seal 001234 giữ nguyên dạng chữ.",
-  "metadata": {"default_weight_unit": "KGS", "weight_kind": "gross"},
-  "schema_columns": ["STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ", "Kích cỡ VTOS", "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng", "Hàng hóa", "Loại hàng", "Độ chính xác (%)", "Ghi chú"],
+  "settings": {
+    "weight_kind": "gross",
+    "number_format": "legacy",
+    "default_weight_unit": "TONS"
+  },
+  "reasoning": "Tiêu đề GWKGS ghi đơn vị kg dù không có khoảng trắng. Số Excel 25000 vì vậy là 25000 kg = 25 tấn, ưu tiên hơn đơn vị mặc định TONS. B/L BL001 ở dòng shipper áp dụng cho container tiếp theo. Không có SOC; mã hãng là VFC. Seal 001234 giữ nguyên dạng chữ. Ngày 26-11-2026 (MC3) kỳ vọng xuất được chép sang mẫu TOS: Kích cỡ là mã VTOS, Kích cỡ ISO theo cặp trong mẫu TOS (20DC 22G0, 40HC 45G0), GENERAL thành mã GP và tên General; giá trị nghiệp vụ không đổi.",
+  "metadata": {
+    "default_weight_unit": "KGS",
+    "weight_kind": "gross"
+  },
+  "schema_columns": [
+    "STT",
+    "Số lượng",
+    "Số BL",
+    "Số Container",
+    "Hãng khai thác",
+    "Kích cỡ",
+    "Kích cỡ ISO",
+    "F/E",
+    "TL hàng",
+    "Số niêm chì",
+    "Số niêm chì 1",
+    "Chủ hàng",
+    "Loại hàng",
+    "Loại hàng ",
+    "Hàng hóa",
+    "Ghi chú"
+  ],
   "records": [
-    {"Container_No": "MSCU1234567", "BL_No": "BL001", "Seal_No": "001234", "Size_Type": "20DC", "VTOS_Size": "20DC", "Operator": "VFC", "FE_Status": "F", "Weight_Value": 25.0, "Weight_Unit": "TONS", "Description": "CARGO", "Cargo_Type": "GENERAL", "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE"}
+    {
+      "Container_No": "MSCU1234567",
+      "BL_No": "BL001",
+      "Seal_No": "001234",
+      "Size_Type": "20DC",
+      "VTOS_Size": "20DC",
+      "Operator": "VFC",
+      "FE_Status": "F",
+      "Weight_Value": 25.0,
+      "Weight_Unit": "TONS",
+      "Description": "CARGO",
+      "Cargo_Type": "GENERAL",
+      "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE"
+    }
   ],
   "export_rows": [
-    {"STT": 1, "Số lượng": 1, "Số BL": "BL001", "Số Container": "MSCU1234567", "Hãng khai thác": "VFC", "Kích cỡ": "20DC", "Kích cỡ VTOS": "20DC", "F/E": "F", "TL hàng": 25.0, "Số niêm chì": "001234", "Số niêm chì 1": "001234", "Chủ hàng": "DEMO CONSIGNEE", "Hàng hóa": "CARGO", "Loại hàng": "GENERAL"}
+    {
+      "STT": 1,
+      "Số lượng": 1,
+      "Số BL": "BL001",
+      "Số Container": "MSCU1234567",
+      "Hãng khai thác": "VFC",
+      "Kích cỡ": "20DC",
+      "Kích cỡ ISO": "22G0",
+      "F/E": "F",
+      "TL hàng": 25.0,
+      "Số niêm chì": "001234",
+      "Số niêm chì 1": "001234",
+      "Chủ hàng": "DEMO CONSIGNEE",
+      "Loại hàng": "GP",
+      "Loại hàng ": "General",
+      "Hàng hóa": "CARGO"
+    }
   ]
 }

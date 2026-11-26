@@ -37,6 +37,15 @@
         "MC53",
         "MC54"
       ]
+    },
+    {
+      "packet": "docs/work_orders/WO_MC_TOS_EXPORT.md",
+      "sha256": "38b99bcefb945248ccbd8442a152bf3a11a55b16eda6e92b062a2fcef783881f",
+      "criteria": [
+        "MC61",
+        "MC62",
+        "MC63"
+      ]
     }
   ],
   "supplemental": [
@@ -57,6 +66,10 @@
         {
           "path": "docs/reviews/activation-legacy/SUPPLEMENTAL_ASSESSMENT.json",
           "sha256": "cfbd6843430c91109c2ccae567db8f1e506798584cbdbbb7d48e349a11c875be"
+        },
+        {
+          "path": "docs/reviews/activation-tos/SUPPLEMENTAL_ASSESSMENT.json",
+          "sha256": "8ff2b27556a0371e5b51027dabb56037df53522be4f7da0edbf53ba050a8574c"
         }
       ]
     }
@@ -69,7 +82,8 @@
       "reason": "Installed bundle, profile and runner match the verified pinned Core.",
       "actions": [
         "docs/work_orders/WO_MC_ROADMAP.md",
-        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+        "docs/work_orders/WO_MC_TOS_EXPORT.md"
       ],
       "actionBindings": [
         {
@@ -94,6 +108,15 @@
             "MC53",
             "MC54"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_TOS_EXPORT.md",
+          "sha256": "38b99bcefb945248ccbd8442a152bf3a11a55b16eda6e92b062a2fcef783881f",
+          "criteria": [
+            "MC61",
+            "MC62",
+            "MC63"
+          ]
         }
       ],
       "criteria": [
@@ -107,7 +130,10 @@
         "MC51",
         "MC52",
         "MC53",
-        "MC54"
+        "MC54",
+        "MC61",
+        "MC62",
+        "MC63"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -126,6 +152,10 @@
         {
           "path": "docs/reviews/activation-legacy/CVF-DG-INST-01.json",
           "sha256": "57c22e2468fc75ed0a70c9c36c03af6eb98c833054523dd8a14e15804892b18c"
+        },
+        {
+          "path": "docs/reviews/activation-tos/CVF-DG-INST-01.json",
+          "sha256": "d860ca42e9f9c46aa3350e8de305f5fc68ec064ba69ad8dc6fd23c468d33f54a"
         }
       ]
     },
@@ -136,7 +166,8 @@
       "reason": "Project memory, active state, handoff and order agree.",
       "actions": [
         "docs/work_orders/WO_MC_ROADMAP.md",
-        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+        "docs/work_orders/WO_MC_TOS_EXPORT.md"
       ],
       "actionBindings": [
         {
@@ -161,6 +192,15 @@
             "MC53",
             "MC54"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_TOS_EXPORT.md",
+          "sha256": "38b99bcefb945248ccbd8442a152bf3a11a55b16eda6e92b062a2fcef783881f",
+          "criteria": [
+            "MC61",
+            "MC62",
+            "MC63"
+          ]
         }
       ],
       "criteria": [
@@ -174,7 +214,10 @@
         "MC51",
         "MC52",
         "MC53",
-        "MC54"
+        "MC54",
+        "MC61",
+        "MC62",
+        "MC63"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -193,6 +236,10 @@
         {
           "path": "docs/reviews/activation-legacy/CVF-DG-CONT-01.json",
           "sha256": "cdd3673644b5cc1665d660a335191f5d5a0ee554bad2f40e4dea7467c0ffa466"
+        },
+        {
+          "path": "docs/reviews/activation-tos/CVF-DG-CONT-01.json",
+          "sha256": "f60245631a9c45e60405bdc68f3a944870571a77e9ca9eb8573aea4456aacffa"
         }
       ]
     },
@@ -203,7 +250,8 @@
       "reason": "Reviewed initial Git baseline and actual worktree scope, six candidates and zero deletions.",
       "actions": [
         "docs/work_orders/WO_MC_ROADMAP.md",
-        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+        "docs/work_orders/WO_MC_TOS_EXPORT.md"
       ],
       "actionBindings": [
         {
@@ -228,6 +276,15 @@
             "MC53",
             "MC54"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_TOS_EXPORT.md",
+          "sha256": "38b99bcefb945248ccbd8442a152bf3a11a55b16eda6e92b062a2fcef783881f",
+          "criteria": [
+            "MC61",
+            "MC62",
+            "MC63"
+          ]
         }
       ],
       "criteria": [
@@ -241,7 +298,10 @@
         "MC51",
         "MC52",
         "MC53",
-        "MC54"
+        "MC54",
+        "MC61",
+        "MC62",
+        "MC63"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -260,6 +320,10 @@
         {
           "path": "docs/reviews/activation-legacy/CVF-DG-RANGE-01.json",
           "sha256": "178534d34e0689a4ab3dd662e3755daff4d0cc7d27b27945e750bf5d47929717"
+        },
+        {
+          "path": "docs/reviews/activation-tos/CVF-DG-RANGE-01.json",
+          "sha256": "874ecb1ac8a2d0f052e80030ae1d7b02a73090e342adfd870d020a17000f64bf"
         }
       ]
     },
@@ -270,7 +334,8 @@
       "reason": "READY order and required gate-to-role closeability graph were checked.",
       "actions": [
         "docs/work_orders/WO_MC_ROADMAP.md",
-        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+        "docs/work_orders/WO_MC_TOS_EXPORT.md"
       ],
       "actionBindings": [
         {
@@ -295,6 +360,15 @@
             "MC53",
             "MC54"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_TOS_EXPORT.md",
+          "sha256": "38b99bcefb945248ccbd8442a152bf3a11a55b16eda6e92b062a2fcef783881f",
+          "criteria": [
+            "MC61",
+            "MC62",
+            "MC63"
+          ]
         }
       ],
       "criteria": [
@@ -308,7 +382,10 @@
         "MC51",
         "MC52",
         "MC53",
-        "MC54"
+        "MC54",
+        "MC61",
+        "MC62",
+        "MC63"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -327,6 +404,10 @@
         {
           "path": "docs/reviews/activation-legacy/CVF-DG-APPL-01.json",
           "sha256": "5719b62b4e3f9a439f2157ba98096c832e7c3b5fc1385598d202338d5e9fddb4"
+        },
+        {
+          "path": "docs/reviews/activation-tos/CVF-DG-APPL-01.json",
+          "sha256": "a81b4bb6373db63178ceeb66f39c74908576738ea6c6b125a18e64b379b430e5"
         }
       ]
     },
@@ -337,7 +418,8 @@
       "reason": "INITIAL dispatch was checked for the exact packet.",
       "actions": [
         "docs/work_orders/WO_MC_ROADMAP.md",
-        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+        "docs/work_orders/WO_MC_TOS_EXPORT.md"
       ],
       "actionBindings": [
         {
@@ -362,6 +444,15 @@
             "MC53",
             "MC54"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_TOS_EXPORT.md",
+          "sha256": "38b99bcefb945248ccbd8442a152bf3a11a55b16eda6e92b062a2fcef783881f",
+          "criteria": [
+            "MC61",
+            "MC62",
+            "MC63"
+          ]
         }
       ],
       "criteria": [
@@ -375,7 +466,10 @@
         "MC51",
         "MC52",
         "MC53",
-        "MC54"
+        "MC54",
+        "MC61",
+        "MC62",
+        "MC63"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -394,6 +488,10 @@
         {
           "path": "docs/reviews/activation-legacy/CVF-DG-ROUTE-01.json",
           "sha256": "de8a7246bded7252a40a1e215eb198c7ff878295580cd705805b23bbe7a7e97d"
+        },
+        {
+          "path": "docs/reviews/activation-tos/CVF-DG-ROUTE-01.json",
+          "sha256": "243f15398640f41d3be5a84c54c3b077a7a22cef9aadc2d2a933d6dd18b553e7"
         }
       ]
     },
@@ -404,7 +502,8 @@
       "reason": "Bound authority, selected criteria and owned M42 remainder were checked.",
       "actions": [
         "docs/work_orders/WO_MC_ROADMAP.md",
-        "docs/work_orders/WO_MC_LEGACY_COMPAT.md"
+        "docs/work_orders/WO_MC_LEGACY_COMPAT.md",
+        "docs/work_orders/WO_MC_TOS_EXPORT.md"
       ],
       "actionBindings": [
         {
@@ -429,6 +528,15 @@
             "MC53",
             "MC54"
           ]
+        },
+        {
+          "packet": "docs/work_orders/WO_MC_TOS_EXPORT.md",
+          "sha256": "38b99bcefb945248ccbd8442a152bf3a11a55b16eda6e92b062a2fcef783881f",
+          "criteria": [
+            "MC61",
+            "MC62",
+            "MC63"
+          ]
         }
       ],
       "criteria": [
@@ -442,7 +550,10 @@
         "MC51",
         "MC52",
         "MC53",
-        "MC54"
+        "MC54",
+        "MC61",
+        "MC62",
+        "MC63"
       ],
       "disposition": "APPLIED",
       "evidence": {
@@ -461,6 +572,10 @@
         {
           "path": "docs/reviews/activation-legacy/CVF-DG-COV-01.json",
           "sha256": "59b63cd1fa07427d35dab7f564ac51144169399299457dc6699d31b457e37145"
+        },
+        {
+          "path": "docs/reviews/activation-tos/CVF-DG-COV-01.json",
+          "sha256": "4ab29b957b2148f7639aff06058e86414f1cc8b31b5c1ba6368020110a4a4cb3"
         }
       ]
     }

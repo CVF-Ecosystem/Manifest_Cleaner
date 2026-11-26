@@ -9,6 +9,7 @@ import unittest
 
 from openpyxl import load_workbook
 
+from manifest_cleaner import exporter
 from manifest_cleaner.cli import main
 from manifest_cleaner.engine import load_review, process_manifest
 from scripts.create_samples import create_vimc
@@ -183,9 +184,9 @@ class Cli111Tests(unittest.TestCase):
         try:
             properties = {prop.name: prop.value for prop in book.custom_doc_props}
             self.assertEqual(properties["session_id"], data["metadata"]["session_id"])
-            sheet = book["Processed_Manifest"]
+            sheet = book[exporter.SHEET_NAME]
             headers = [cell.value for cell in sheet[1]]
-            self.assertEqual(sheet.cell(2, headers.index("Trọng lượng (Tấn)") + 1).value, 30)
+            self.assertEqual(sheet.cell(2, headers.index("TL hàng") + 1).value, 30)
         finally:
             book.close()
 

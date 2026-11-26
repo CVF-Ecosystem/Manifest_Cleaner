@@ -14,9 +14,9 @@
     "FREEZE"
   ],
   "activeHandoff": "CVF_SESSION/handoffs/AGENT_HANDOFF_V1_2026-11-24.md",
-  "nextAllowedMove": "Reconcile the documented VOSCO F/E conflicts when evidence is supplied and continue Port acceptance checks.",
+  "nextAllowedMove": "Independent implementation review of MC61-MC63, then operator TOS import test (MC64); commit MC52 then MC3 separately when the operator asks.",
   "parkedOperatorCheckpoint": null,
   "activeRole": "ORCHESTRATOR",
   "roleRoute": "SINGLE_AGENT_MULTI_ROLE_ALLOWED",
-  "updatedAt": "2026-11-24"
+  "updatedAt": "2026-11-26"
 }

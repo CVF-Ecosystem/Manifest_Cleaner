@@ -319,8 +319,8 @@ class Vimc110Tests(unittest.TestCase):
         self.assertEqual([(i["code"], i["severity"]) for i in session.validate()],
                          [("VIMC_REEFER_SIZE_REVIEW", "warning")])
         columns, (row,) = build_port_rows(session)
-        self.assertEqual(row[columns.index("Loại Container")], "40RH")
-        self.assertEqual(row[columns.index("Loại hàng")], "REEFER")
+        self.assertEqual(row[columns.index("Kích cỡ")], "40RH")
+        self.assertEqual((row[columns.index("Loại hàng")], row[columns.index("Loại hàng ")]), ("", "REEFER"))
         self.assertEqual(row[columns.index("Số niêm chì")], "001237")
         self.assertIn("MARKS ghi 40RF", row[columns.index("Ghi chú")])
         review = self.root / "reefer.review.json"

@@ -1,9 +1,9 @@
 {
   "format": "manifest-cleaner-review-v2",
   "schema_version": 2,
-  "app_version": "1.1.0",
+  "app_version": "1.2.7",
   "carrier": "VOSCO",
-  "saved_at": "2026-11-22T08:49:21.973301+00:00",
+  "saved_at": "2026-11-26T05:45:52.181853+00:00",
   "records": [
     {
       "record_id": "VOSCO:Manifest:17:1",
@@ -16,14 +16,14 @@
       "FE_Status": "F",
       "Weight_Value": 16.055,
       "Weight_Unit": "TONS",
-      "Weight_Kind": "unknown",
+      "Weight_Kind": "gross",
       "Description": "GAO DEMO",
       "Shipper": "",
       "Consignee": "DEMO CONSIGNEE",
       "Notify": "",
       "Cleaned_Consignee_Name_For_Output": "DEMO CONSIGNEE",
       "Confidence": 100,
-      "Warning": "F/E đang theo quy tắc suy luận trọng lượng của mẫu VOSCO. Chưa xác nhận trọng lượng nguồn là hàng hay tổng; cần đối chiếu F/E.",
+      "Warning": "",
       "source_file": "DEMO_VOSCO_INPUT.xlsx",
       "source_sheet": "Manifest",
       "source_row": 17,
@@ -34,6 +34,14 @@
         "container_line_number": 1,
         "weight_cell": "16.055 TONS",
         "weight_line": "16.055 TONS",
+        "weight_source_row": 17,
+        "weight_source_column": 19,
+        "weight_total_source_row": null,
+        "weight_total_source_column": null,
+        "weight_total_source_line": null,
+        "weight_source_line": null,
+        "weight_expected_source_line": null,
+        "weight_alignment": null,
         "weight_cell_value": "16.055 TONS",
         "weight_source_unit": "TONS",
         "description_cell": "GẠO DEMO",
@@ -93,39 +101,19 @@
       "Cargo_Type": "GENERAL"
     }
   ],
-  "base_issues": [
-    {
-      "code": "FE_WEIGHT_KIND_UNCONFIRMED",
-      "severity": "warning",
-      "message": "F/E đang theo quy tắc suy luận trọng lượng của mẫu VOSCO. Chưa xác nhận trọng lượng nguồn là hàng hay tổng; cần đối chiếu F/E.",
-      "record_id": "VOSCO:Manifest:17:1",
-      "field": "FE_Status",
-      "source_row": 17,
-      "source_sheet": "Manifest"
-    }
-  ],
-  "current_issues": [
-    {
-      "code": "FE_WEIGHT_KIND_UNCONFIRMED",
-      "severity": "warning",
-      "message": "F/E đang theo quy tắc suy luận trọng lượng của mẫu VOSCO. Chưa xác nhận trọng lượng nguồn là hàng hay tổng; cần đối chiếu F/E.",
-      "record_id": "VOSCO:Manifest:17:1",
-      "field": "FE_Status",
-      "source_row": 17,
-      "source_sheet": "Manifest"
-    }
-  ],
+  "base_issues": [],
+  "current_issues": [],
   "metadata": {
     "carrier": "VOSCO",
-    "adapter_version": "1.1.0",
-    "profile_version": "vosco-1.1.0",
+    "adapter_version": "1.1.6",
+    "profile_version": "vosco-1.1.6",
     "source_file": "DEMO_VOSCO_INPUT.xlsx",
     "source_baseline": "e5a78dd0444349990b08992ceb57758aa074dcb8",
     "available_sheets": [
       "Manifest"
     ],
     "layout": "VOSCO A/B/F/K/O/S; header rows detected from content",
-    "weight_kind": "unknown",
+    "weight_kind": "gross",
     "selected_sheet": "Manifest",
     "source_sheet": "Manifest",
     "record_count": 1,
@@ -143,7 +131,7 @@
         "reason": "container_record"
       }
     ],
-    "coverage_scope": "Candidate container lines in column K, excluded non-cargo description lines and quantity evidence in column O on candidate rows; parse-time snapshot, not a whole-workbook accuracy measure.",
+    "coverage_scope": "Candidate container lines in column K, bounded adjacent-column audit and description evidence; parse-time snapshot, not a whole-workbook accuracy measure.",
     "coverage": {
       "source_fragments": 1,
       "parsed_fragments": 1,
@@ -153,8 +141,8 @@
     },
     "source_path": "DEMO_VOSCO_INPUT.xlsx",
     "source_name": "DEMO_VOSCO_INPUT.xlsx",
-    "source_sha256": "b62cd9fca35952334f015ecc06142f0b437f8b5d1ee8230f77e3f7cb237e14e9",
-    "session_id": "9a3c59e6612e40c8bcdb334dda06e102",
+    "source_sha256": "c97f3531b491860252cc79b828f0c02cbc213223a43c6e2b19e2fd9f56521350",
+    "session_id": "6719c13a33404b3080fa63e7b53b9013",
     "used_sheets": [
       "Manifest"
     ],
@@ -162,18 +150,18 @@
     "formula_source_cells": [],
     "effective_settings": {
       "number_format": "legacy",
-      "weight_kind": "unknown",
+      "weight_kind": "gross",
       "default_weight_unit": "TONS"
     },
     "source_weight_units": [
       "TONS"
     ],
-    "app_version": "1.1.0",
-    "processed_at": "2026-11-22T08:49:21.965344+00:00"
+    "app_version": "1.2.7",
+    "processed_at": "2026-11-26T05:45:52.157180+00:00"
   },
   "settings": {
     "number_format": "legacy",
-    "weight_kind": "unknown",
+    "weight_kind": "gross",
     "default_weight_unit": "TONS"
   },
   "corrections": [],
@@ -187,12 +175,12 @@
     "unknown": 0,
     "excluded": 0,
     "errors": 0,
-    "warnings": 1,
+    "warnings": 0,
     "error_records": 0,
-    "review_records": 1,
+    "review_records": 0,
     "file_errors": 0,
     "unresolved_source_fragments": 0,
     "formula_source_errors": 0
   },
-  "payload_sha256": "871d94877321d53a5597ea6c7563d6a403d0bfa10264d69ba501744423953fd5"
+  "payload_sha256": "3de22ad7dc4d4723d96ea46cdb80db34deb4a2901227ae72e6dc44c7eed99267"
 }
