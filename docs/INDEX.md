@@ -20,6 +20,7 @@ Machine-readable source: `docs/catalog/ARTIFACT_REGISTRY.json`
 - Observed results and remaining work for Manifest Cleaner 1.2.0.: `docs/reviews/ROADMAP_1_2_REVIEW.md`
 - Tkinter desktop guidance gap candidate and local evidence.: `docs/reviews/learnings/TKINTER_DESKTOP_UI_GUIDANCE.md`
 - TOS export form and Đổi B/L tab (MC3) worker evidence.: `docs/reviews/MC3_TOS_EXPORT_REVIEW.md`
+- Export written as the Port TOS import template table (MC64), independent review.: `docs/reviews/MC64_TOS_TEMPLATE_REVIEW.md`
 - Manifest Cleaner 1.2.7 desktop implementation worker evidence.: `docs/reviews/ui-1.2.7/README.md`
 - Generated documentation index.: `docs/INDEX.md`
 - Generated human module catalog.: `docs/catalog/MODULE_CATALOG.md`

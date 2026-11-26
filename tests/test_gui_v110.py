@@ -1238,7 +1238,8 @@ class GUIRegressionTests(unittest.TestCase):
                 finally:
                     book.close()
                 headers = [str(value) for value in exported[0]]
-                self.assertEqual(len(headers), 46)
+                self.assertEqual(len(headers), 47)
+                self.assertEqual(headers[-1], "Column1")
                 self.assertEqual(len(exported) - 1, len(table))
                 # Every column the app fills sits under the TOS header of the same name.
                 # STT and Ghi chú are app-only: no STT header, and Ghi chú stays blank in Excel.

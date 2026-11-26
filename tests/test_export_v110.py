@@ -32,9 +32,14 @@ TOS_HEADERS = ["Xác nhận", "ĐTTT", "Số lượng", "Số BL", "Số Contain
                "OOG_FRONT", "Term", "Số thứ tự", "Transist", "Cảng chuyển", "Cảng giao nhận",
                "Chỉ dẫn xếp dỡ"]
 # The app view shared by every carrier: TOS order, plus STT and Ghi chú shown only in the app.
+# The exported workbook is the template's Excel Table: the 46 headers plus a blank Column1.
+TOS_EXPORT_HEADERS = TOS_HEADERS + ["Column1"]
 APP_COLUMNS = ["STT", "Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ", "Kích cỡ ISO",
                "F/E", "TL hàng", "Số niêm chì", "Số niêm chì 1", "Chủ hàng", "Loại hàng", "Loại hàng ",
                "Hàng hóa", "Ghi chú"]
+# Operator decision 2026-11-26: fixed on every data row, written literally so a silent change fails.
+FIXED = {"Phương Án": "NTAU", "Phương Án ": "NHẬP TÀU", "Phương Thức Giao Nhận": "TAU-BAI",
+         "Phương Thức Giao Nhận ": "GIAO NHẬN TÀU <=> BÃI", "CntrClass": "IMPORT", "Hàng nội/ngoại ": "HÀNG NỘI"}
 YELLOW, WARNING_FILL, EMPTY_FILL = "FFFF00", "FFF4D8", "DAEEF3"
 
 
@@ -205,6 +210,7 @@ class Export110Tests(unittest.TestCase):
                         self.assertEqual(fill_of(sheet[f"{column}2"]), None if verified else WARNING_FILL)
                         self.assertEqual(fill_of(sheet[f"{column}3"]), WARNING_FILL)
                         self.assertIsNone(fill_of(sheet[f"{column}4"]))
+                    self.assertIsNone(fill_of(sheet["AU2"]))
                     self.assertEqual(sheet["I3"].value, "E")
                     self.assertEqual(sheet["M3"].value, "001234")
                     self.assertEqual(sheet["J3"].value, 4.3)
@@ -212,7 +218,7 @@ class Export110Tests(unittest.TestCase):
                     columns, rows, _ = exporter.preview_port_rows(session)
                     self.assertEqual(rows[1][columns.index("Ghi chú")], message)
                     self.assertIn(rows[2][columns.index("Ghi chú")], (None, ""))
-                    self.assertEqual([cell.value for cell in sheet[1]], TOS_HEADERS)
+                    self.assertEqual([cell.value for cell in sheet[1]], TOS_EXPORT_HEADERS)
                 finally:
                     book.close()
 
@@ -252,10 +258,11 @@ class Export110Tests(unittest.TestCase):
                     self.assertEqual(list(preview), APP_COLUMNS)
                     path = exporter.export_port_excel(session, self.outputs / f"{carrier}_{status}.xlsx")
                     headers, rows = self.output_rows(path)
-                    self.assertEqual(headers, TOS_HEADERS)
+                    self.assertEqual(headers, TOS_EXPORT_HEADERS)
                     self.assertEqual(len(rows), 1)
                     self.assert_preview_equal(preview, rows[0])
-                    self.assertTrue(all(value is None for key, value in rows[0].items() if key not in APP_COLUMNS))
+                    self.assertEqual({key: value for key, value in rows[0].items()
+                                      if key not in APP_COLUMNS and value is not None}, FIXED)
                     self.assertEqual(preview["TL hàng"], (16.055 if carrier == "VOSCO" else 16.06) if status == "F" else 3)
                     self.assertEqual(preview["Hàng hóa"], "EMPTY" if status == "E" and carrier != "VOSCO" else record["Description"])
 
@@ -298,8 +305,8 @@ class Export110Tests(unittest.TestCase):
                 self.assertEqual(properties["source_sha256"], session.metadata["source_sha256"])
                 self.assertEqual(properties["carrier"], carrier)
                 self.assertEqual(properties["app_version"], data["app_version"])
-                self.assertEqual(properties["export_form"], "TOS46")
-                self.assertEqual(self.output_rows(path)[0], TOS_HEADERS)
+                self.assertEqual(properties["export_form"], "TOS_TEMPLATE47")
+                self.assertEqual(self.output_rows(path)[0], TOS_EXPORT_HEADERS)
 
     def test_existing_either_output_blocks_without_overwrite_and_preserves_both(self):
         session = self.session()

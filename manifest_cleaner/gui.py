@@ -2125,7 +2125,7 @@ class ManifestApp:
                 self.export_folder_button.grid()
                 self.status.set(f"Đã xuất: {Path(path).name}  |  {stats['active_records']} dòng, {stats['containers']} container.")
                 review_message = f"\nĐối chiếu để mở lại phiên: {review_path}" if review_path else "\nChưa lưu đối chiếu trong lần xuất này; dùng Lưu đối chiếu để giữ phiên làm việc."
-                messagebox.showinfo("Đã xuất file", f"Excel nhập Cảng: {result['excel']}{review_message}\n\nFile theo mẫu TOS 46 cột, Ghi chú để trống. Ghi chú vẫn xem được trên app.", parent=self.root)
+                messagebox.showinfo("Đã xuất file", f"Excel nhập Cảng: {result['excel']}{review_message}\n\nFile theo mẫu import TOS (Template_LuocKhaiHangHoa), Ghi chú để trống. Ghi chú vẫn xem được trên app.", parent=self.root)
             except Exception as exc:
                 messagebox.showerror("Không xuất được", str(exc), parent=self.root)
 
@@ -2191,8 +2191,8 @@ class ManifestApp:
             export.configure(state="disabled")
             note = f"Chưa xuất được: {blocked} Nền đỏ: dòng còn lỗi chặn. Bản xem trước dùng giá trị hiện tại của phiên."
         else:
-            note = ("Các cột app điền vào file theo mẫu TOS 46 cột, đúng giá trị sẽ ghi. STT và Ghi chú chỉ hiện trên app, "
-                    "file Excel để trống. Nền vàng: dòng có cảnh báo. Nền xanh: container rỗng. "
+            note = ("Các cột app điền vào file theo mẫu import TOS (Template_LuocKhaiHangHoa), đúng giá trị sẽ ghi. STT và Ghi chú chỉ hiện trên app, "
+                    "file Excel để trống. File còn mang giá trị cố định Phương Án, Phương Thức Giao Nhận, CntrClass, Hàng nội/ngoại. Nền vàng: dòng có cảnh báo. Nền xanh: container rỗng. "
                     "Chữ nâu: dòng có ô container hoặc seal được tô vàng trong Excel.")
         self.preview_note = _wrapped_label(dialog, text=note, style="Issue.TLabel" if blocked else "Muted.TLabel")
         self.preview_note.pack(anchor="w", padx=pad, pady=(0, gap))
@@ -2487,7 +2487,7 @@ class ManifestApp:
             "3. Trong cửa sổ sửa, chỉ tích Đã đối chiếu với trường vừa kiểm tra. Tab Nguồn và giá trị xuất cho thấy nguồn và giá trị dự kiến.\n"
             "4. Nhập lý do rồi bấm Lưu chỉnh sửa / xác nhận để áp dụng vào phiên. Lưu đối chiếu ghi các sửa đổi và lịch sử vào JSON. "
             "Xuất Excel mặc định lưu kèm JSON. Mở lại JSON cần đúng manifest gốc chưa thay đổi.\n"
-            "5. File xuất theo mẫu TOS 46 cột để import vào TOS. Ghi chú chỉ hiện trên app.\n"
+            "5. File xuất đúng mẫu Template_LuocKhaiHangHoa (Excel Table Sheet1) để import thẳng vào TOS, không cần copy/paste. Ghi chú chỉ hiện trên app.\n"
             "6. Hàng của hãng khác đi trên tàu (ví dụ VIMC trên tàu VOSCO): B1 mở và xuất manifest tổng của tàu; "
             "B2 mở và xuất manifest của hãng gửi; B3 mở tab Đổi B/L, chọn hai file .xlsx vừa xuất rồi bấm Xuất. "
             "Thêm hãng gửi: làm lại B2, B3 với File tàu là file _DOI_BL vừa ra. Tab Đổi B/L có nút Hướng dẫn… chi tiết.\n\n"

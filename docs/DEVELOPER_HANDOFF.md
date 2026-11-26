@@ -91,7 +91,7 @@ EXPECTED trong demo được chương trình sinh, không phải chuẩn độc 
 |---|---|
 | `common.py` | Text, số/đơn vị, trạng thái rỗng tường minh, đọc XLS/XLSX, kiểm tra nguồn/công thức |
 | `engine.py` | Cấu hình, phiên, validation, chỉnh sửa/xác minh/loại, nguồn SHA-256, save/resume review v2 |
-| `exporter.py` | Bộ cột app theo thứ tự TOS dùng chung với preview; Excel mẫu TOS 46 cột và sidecar; staging/rollback khi lỗi ghi |
+| `exporter.py` | Bộ cột app theo thứ tự TOS dùng chung với preview; Excel Table theo mẫu import TOS (46 cột TOS và Column1) và sidecar; staging/rollback khi lỗi ghi |
 | `bl_change.py` | Đổi B/L giữa file tàu và file hãng gửi hàng, cả hai theo mẫu TOS; file mới và JSON truy vết |
 | `gui.py` | Tkinter, worker/queue, bảng cần kiểm tra, sửa theo trường, nguồn/preview, lưu và khôi phục phiên |
 | `cli.py` | Xử lý/khôi phục/xuất không cần giao diện |

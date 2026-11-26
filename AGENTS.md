@@ -197,6 +197,6 @@ Project đích là thư mục này. Ba thư mục `../Manifest Cleaner Final/VIM
 ## Quy tắc của app hợp nhất
 
 - Mỗi phiên xử lý một workbook của một hãng do người dùng chọn. Giữ quy tắc nhận diện bố cục và mapping theo hãng. Giá trị xuất phải truy được tới dữ liệu gốc và quy tắc áp dụng.
-- Giữ mẫu nhập Cảng theo form TOS 46 cột dùng chung cho cả ba hãng (quyết định operator ngày 26-11-2026, [roadmap MC3](docs/roadmaps/MC_TOS_EXPORT.md)), Ghi chú để trống trong Excel, quy ước kg/tấn, mã VTOS, giá trị seal dạng văn bản, kiểm tra nguồn và khả năng mở lại review v2. Một thay đổi nghiệp vụ cần căn cứ phù hợp và ca kiểm thử hồi quy.
+- Giữ mẫu nhập Cảng theo mẫu import TOS Template_LuocKhaiHangHoa (Excel Table Sheet1: 46 cột TOS và cột trống Column1) dùng chung cho cả ba hãng (quyết định operator ngày 26-11-2026, [roadmap MC3](docs/roadmaps/MC_TOS_EXPORT.md)), Ghi chú để trống trong Excel, quy ước kg/tấn, mã VTOS, giá trị seal dạng văn bản, kiểm tra nguồn và khả năng mở lại review v2. Một thay đổi nghiệp vụ cần căn cứ phù hợp và ca kiểm thử hồi quy.
 - Giữ dữ liệu gốc và tọa độ nguồn. Ứng viên container còn thiếu dữ liệu phải xuất hiện trong danh sách đối chiếu. Phần tổng hợp xác định được có thể dùng làm bằng chứng đối soát.
 - Dùng kiểm thử hiện có và bổ sung ca hồi quy cho lỗi tái hiện được. Thu thập bằng chứng của đúng môi trường và bản build trước khi kết luận sẵn sàng sử dụng. Dữ liệu manifest nghiệp vụ dùng cục bộ cho việc được giao. Ưu tiên fixture tổng hợp cho bộ test chia sẻ.

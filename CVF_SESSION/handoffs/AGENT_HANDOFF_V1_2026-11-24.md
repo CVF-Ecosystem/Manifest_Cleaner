@@ -403,3 +403,75 @@ Operator yêu cầu commit, push GitHub và build EXE ngày 26-11-2026.
 - Build bản thư mục xóa `dist/ManifestCleaner/recent_files.json` của operator. File được sao lưu trước và trả lại, giống hệt. `dist/onefile/recent_files.json` không đổi.
 
 Chưa làm: chạy EXE với manifest thật, xuất Excel hoặc dùng tab Đổi B/L; chạy trên máy Cảng. Số phiên bản vẫn là 1.2.7. Mã băm EXE không tái lập được giữa các lần build. MC64 (operator import thử trên TOS) và review độc lập cho MC3 vẫn mở.
+
+### MC64: kết quả import thử trên TOS
+
+Ngày 26-11-2026, operator đưa `Manifest/Test/Template_LuocKhaiHangHoa.xlsx` (mẫu TOS dùng để import thật) và `Manifest/Test/mnf.xlsx` (file ghép thủ công đã import được vào TOS). 14 cột app điền trong `mnf.xlsx` khớp file `_DOI_BL.xlsx` của app trên 297 container. Operator chốt: bỏ qua cột Xác nhận, giữ nguyên mẫu xuất, chỉ nạp dữ liệu đã xử lý vào đúng cột. Chi tiết ở `docs/reviews/MC3_TOS_EXPORT_REVIEW.md`, mục "Kết quả import thử trên TOS". Không đổi mã.
+
+Còn mở:
+
+- Hai dòng đầu của `mnf.xlsx` còn giá trị OOG và Cảng chuyển/giao nhận của mẫu. Cần operator kiểm TOS.
+- 7 cột operator điền tay thay đổi theo tàu. Chưa quyết định có đưa vào app hay không.
+- Mã Hàng nội/ngoại `F` đi với `Hàng nội` chưa khớp Vtos.xlsx (`L` với `Hàng nội`).
+- Cont VINAFCO còn SVM, chưa được sửa tay thành VFC.
+- Review độc lập cho MC3 chưa có. Chưa commit lượt ghi chép này.
+
+### MC64 sửa theo mẫu TOS thật: giao việc
+
+CVF Agent Declaration:
+
+- Project Manifest_Cleaner, Core b6d5a51a, CORE_ONLY. Activation CURRENT_ASSESSED, pre-dispatch PASS 7/7.
+- Phase REVIEW, chuyển sang sửa lỗi cùng phạm vi. Trần R2. Live evidence YES cho mọi tuyên bố quản trị.
+- Không có checkpoint đang treo.
+
+Phân vai do operator chốt ngày 26-11-2026: agent này là ORCHESTRATOR và REVIEWER. Agent làm việc được gọi là Sonnet 5.5, effort high, giữ vai IMPLEMENTATION_WORKER cho việc khó. Haiku 5.5, effort high, nhận các việc dễ. Như vậy reviewer tách khỏi người làm cho lượt này.
+
+Căn cứ: Template TOS thật và `mnf.xlsx` đã import được. Operator yêu cầu app ghi dữ liệu đã lọc thẳng vào cấu trúc Template, thay cho copy/paste. Các cột app không có dữ liệu để trống.
+
+Đánh giá phạm vi:
+
+- Mục tiêu không đổi: file import được vào TOS, theo MC61 và MC64.
+- Đường dẫn cũng không đổi: `manifest_cleaner/`, `tests/`, tài liệu.
+- Rủi ro, tác động ngoài và người commit giữ nguyên.
+- Vì vậy đây là sửa lỗi cùng phạm vi WO_MC_TOS_EXPORT, không cần work order mới.
+
+Thay đổi:
+
+- Xuất thành Excel Table `Sheet1`, kiểu TableStyleMedium2, 47 cột: 46 cột TOS cộng `Column1`.
+- Tab Đổi B/L nhận cả file 46 cột lẫn file 47 cột.
+
+Base `b62c509`. Material-SHA marker: pending.
+
+### MC64 sửa theo mẫu TOS thật: kết quả và review
+
+- Worker Sonnet 5.5 (effort high) làm xong trong `manifest_cleaner/` và `tests/`. Lượt này không commit.
+- Reviewer là Opus 5.5 orchestrator, không viết mã của lượt này. Hồ sơ ở `docs/reviews/MC64_TOS_TEMPLATE_REVIEW.md`.
+- Kết quả: 342 test đạt, gate worker-return PASS 7/7, reviewer-fast PASS 8/8, kiểm tra phát hành PASS với 152 mục.
+- Chạy luồng FF2643S thật cho ra file giống `mnf.xlsx` về cấu trúc Table và các cột app điền, trên 297/297 container.
+- Reviewer tự sửa chữ trên app và tài liệu sang "mẫu import TOS (Template_LuocKhaiHangHoa)". Dòng quy tắc trong `AGENTS.md` đổi cùng nội dung.
+- Không kiểm được bằng Excel thật: COM báo `0x800A03EC` cả với `mnf.xlsx`, tức là lỗi do môi trường.
+- File thử cho operator: `Manifest/Test/FF2643S_APP_TEMPLATE_DOI_BL.xlsx`. Chưa commit, chưa build EXE.
+
+### MC64: TOS nhận file của app; điền sẵn các cột cố định
+
+Ngày 26-11-2026, operator báo `Manifest/Test/FF2643S_APP_TEMPLATE_DOI_BL.xlsx`, tức file app xuất theo Template, **đã import vào SGPTOS thành công**. Ảnh Lược khai hàng hóa cho thấy dữ liệu nạp đúng cột.
+
+Operator quyết định điền sẵn cho tàu nội địa, ở mọi dòng của cả ba hãng, viết hoa toàn bộ:
+
+| Cột | Giá trị |
+|---|---|
+| R "Phương Án" | `NTAU` |
+| S "Phương Án " | `NHẬP TÀU` |
+| T "Phương Thức Giao Nhận" | `TAU-BAI` |
+| U "Phương Thức Giao Nhận " | `GIAO NHẬN TÀU <=> BÃI` |
+| AF "CntrClass" | `IMPORT` |
+| AG "Hàng nội/ngoại" | để trống |
+| AH "Hàng nội/ngoại " | `HÀNG NỘI` |
+
+Operator đính chính hai điểm. Chữ `F` trong `mnf.xlsx` nghĩa là FULL, không phải hàng ngoại. Hai cột AG và AH mang cùng một thông tin. AE "Cntr Class" không nằm trong yêu cầu nên vẫn để trống.
+
+Quyết định này thay câu "các cột TOS khác để trống" của MC61 cho 6 cột trên. Bảng tiêu chí trong roadmap không sửa, để giữ nguyên mã băm đã duyệt. Căn cứ được ghi tại đây và trong hồ sơ review.
+
+Đây là sửa lỗi cùng phạm vi WO_MC_TOS_EXPORT. Worker là Sonnet 5.5 effort high. Orchestrator Opus 5.5 review.
+
+Kết quả: worker hoàn thành phần giá trị cố định. Reviewer đưa 6 file từ CRLF về LF, chạy 348 ca đạt, và kiểm luồng FF2643S thật đúng 6 giá trị trên 297 dòng. File thử là `Manifest/Test/FF2643S_APP_TEMPLATE_DOI_BL_v2.xlsx`. Chưa commit, chưa build EXE.

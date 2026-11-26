@@ -22,14 +22,16 @@ import xlsxwriter
 from .common import seal_text, text_value
 from . import __version__
 from .carriers import (APP_ONLY_COLUMNS, CARGO_TO_TOS, CARRIER_PROFILES, PORT_COLUMNS, TOS_COLUMNS,
-                       VTOS_TO_TOS_ISO)
+                       TOS_EXPORT_COLUMNS, TOS_FIXED_VALUES, VTOS_TO_TOS_ISO)
 from .engine import EDITABLE_FIELDS, FIELD_LABELS, ManifestSession, assert_source_unchanged, source_sha256
 
 
 SEAL_REFERENCE_NOTE = "⚠️ Seal không hợp lệ"
 IDENTIFIER_COLUMNS = {"Container_No": "Số Container", "Seal_No": "Số niêm chì"}
 SHEET_NAME = "Sheet1"
-EXPORT_FORM = "TOS46"
+EXPORT_FORM = "TOS_TEMPLATE47"
+TABLE_STYLE = "Table Style Medium 2"
+EXTRA_COLUMN_WIDTH = 0.1
 NUMBER_COLUMNS = frozenset({"STT", "Số lượng", "TL hàng"})
 WEIGHT_COLUMN = "TL hàng"
 FILL_IDENTIFIER, FILL_WARNING, FILL_EMPTY = "#FFFF00", "#FFF4D8", "#DAEEF3"
@@ -42,8 +44,15 @@ def tos_cargo(cargo) -> tuple[str, str]:
 
 
 def tos_row(columns, row) -> list:
-    """Place app-view values under the 46 TOS headers. App-only columns and the rest stay blank."""
+    """Place app-view values under the 46 TOS headers and add the operator's fixed values.
+
+    The fixed values (TOS_FIXED_VALUES) are added here, not in _write_tos_sheet: the exporter
+    owns what a data row means, while the writer stays a generic layout writer that never
+    invents values (an empty export's placeholder row and hand-made rows stay as given).
+    App-only columns and every other column stay blank.
+    """
     values = dict(zip(columns, row))
+    values.update(TOS_FIXED_VALUES)
     return [None if name in APP_ONLY_COLUMNS else values.get(name) for name in TOS_COLUMNS]
 
 
@@ -180,14 +189,18 @@ def preview_record_for_export(session: ManifestSession, record: dict) -> dict:
 
 
 def _write_tos_sheet(book, rows, fills, weight_format) -> None:
-    """Write rows already laid out under TOS_COLUMNS.
+    """Write rows laid out under TOS_COLUMNS (46 values; a 47th is ignored) as the template's Excel Table.
 
-    Fills are static cell formats so that sorting in Excel moves them with their
-    row: a yellow identifier cell beats the row's warning or empty fill.
+    The table is named Sheet1 and has the 46 TOS headers plus the blank Column1,
+    as in the Port's import template. It needs at least one data row, so an empty
+    export gets one empty row. Fills are static cell formats so that sorting in
+    Excel moves them with their row: a yellow identifier cell beats the row's
+    warning or empty fill.
     """
     sheet = book.add_worksheet(SHEET_NAME)
-    header = book.add_format({"bold": True, "bg_color": "#173D5B", "font_color": "#FFFFFF", "border": 1})
     formats = {}
+    width = len(TOS_COLUMNS)
+    rows = [list(row[:width]) + [None] * (width - len(row)) for row in rows]
 
     def cell_format(kind, fill):
         key = (kind, fill)
@@ -199,7 +212,6 @@ def _write_tos_sheet(book, rows, fills, weight_format) -> None:
         return formats[key]
 
     for col_index, label in enumerate(TOS_COLUMNS):
-        sheet.write_string(0, col_index, label, header)
         longest = max((len(str(row[col_index])) for row in rows if row[col_index] is not None), default=0)
         sheet.set_column(col_index, col_index, min(45, max(len(label.strip()) + 2, longest + 2)))
     for row_index, (row, (base, cells)) in enumerate(zip(rows, fills), 1):
@@ -213,8 +225,11 @@ def _write_tos_sheet(book, rows, fills, weight_format) -> None:
                 sheet.write_number(row_index, col_index, float(value), cell_format(kind, fill))
             else:
                 sheet.write_string(row_index, col_index, str(value), cell_format(kind, fill))
+    sheet.set_column(width, width, EXTRA_COLUMN_WIDTH)
+    sheet.add_table(0, 0, max(len(rows), 1), len(TOS_EXPORT_COLUMNS) - 1,
+                    {"name": SHEET_NAME, "style": TABLE_STYLE,
+                     "columns": [{"header": label} for label in TOS_EXPORT_COLUMNS]})
     sheet.freeze_panes(1, 0)
-    sheet.autofilter(0, 0, len(rows), len(TOS_COLUMNS) - 1)
 
 
 def export_port_excel(session: ManifestSession, path: str | Path, *, overwrite: bool = False) -> Path:

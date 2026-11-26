@@ -23,7 +23,7 @@ from openpyxl.packaging.custom import StringProperty
 from openpyxl.styles import PatternFill
 
 from . import __version__
-from .carriers import TOS_COLUMNS
+from .carriers import TOS_COLUMNS, TOS_EXPORT_COLUMNS
 from .common import text_value
 from .engine import source_sha256
 
@@ -87,10 +87,16 @@ def read_tos_file(path: str | Path) -> TosFile:
     try:
         sheet = book.worksheets[0]
         headers = tuple(cell.value for cell in sheet[1])
-        headers = headers[:len(TOS_COLUMNS)] if len(headers) > len(TOS_COLUMNS) and all(
-            _blank(value) for value in headers[len(TOS_COLUMNS):]) else headers
-        if headers != TOS_COLUMNS:
-            raise NotExportedError(f"{path.name}: không đúng mẫu TOS 46 cột. Chọn file đã xuất từ app ở bước một.")
+        # Files exported earlier have the 46 headers; the template form adds the blank Column1.
+        # Anything after them must be blank in the header row; Column1 data is never read.
+        layout = TOS_COLUMNS
+        if headers[:len(TOS_EXPORT_COLUMNS)] == TOS_EXPORT_COLUMNS:
+            layout = TOS_EXPORT_COLUMNS
+        headers = headers[:len(layout)] if len(headers) > len(layout) and all(
+            _blank(value) for value in headers[len(layout):]) else headers
+        if headers != layout:
+            raise NotExportedError(f"{path.name}: không đúng mẫu TOS (46 cột, hoặc 47 cột có Column1). "
+                                   "Chọn file đã xuất từ app ở bước một.")
         properties = {prop.name: prop.value for prop in book.custom_doc_props.props}
         index = {name: position for position, name in enumerate(TOS_COLUMNS)}
         result = TosFile(path, source_sha256(path), properties)

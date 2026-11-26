@@ -166,6 +166,13 @@
       "description": "TOS export form and Đổi B/L tab (MC3) worker evidence."
     },
     {
+      "id": "truth-tos-template-mc64",
+      "family": "implementation_truth",
+      "path": "docs/reviews/MC64_TOS_TEMPLATE_REVIEW.md",
+      "status": "ACTIVE",
+      "description": "Export written as the Port TOS import template table (MC64), independent review."
+    },
+    {
       "id": "decision-tkinter-ui",
       "family": "continuity",
       "path": "docs/UI_DESIGN_DECISIONS.md",

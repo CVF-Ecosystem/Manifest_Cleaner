@@ -60,9 +60,28 @@ Sau khi sửa:
 - Đối chiếu cục bộ với `Vtos.xlsx` vẫn đúng như trước: chỉ lệch 8 container 40RH rỗng.
 - Gate worker-return và reviewer-fast đạt.
 
+## Kết quả import thử trên TOS
+
+Ngày 26-11-2026, operator đưa hai file vào `Manifest/Test/` (dữ liệu cục bộ, không có trong Git):
+
+- `Template_LuocKhaiHangHoa.xlsx`, SHA-256 877e8155…99a79f, là mẫu TOS dùng để import thật. Đó là một Excel Table tên `Sheet1` với 47 cột. Cột cuối `Column1` chỉ là phần thừa. Hai dòng mẫu chứa giá trị giả.
+- `mnf.xlsx`, SHA-256 e3711e8a…a3fa9, là file operator ghép thủ công từ file của app vào mẫu trên. File này **đã import được vào TOS**, theo lời operator.
+
+Đối chiếu:
+
+- 14 cột app điền trong `mnf.xlsx` khớp hoàn toàn với `MNF TAU FF2643S_VOSCO_CLEAN_DOI_BL.xlsx` của app trên cả 297 container.
+- Cột số vẫn ở dạng số. Các cột để trống khi import vẫn được TOS nhận: VGM, Nhóm TL, Phương Án (2 cột), Phương Thức Giao Nhận (2 cột) và Ghi chú.
+- Operator chủ động bỏ qua cột Xác nhận và chốt giữ nguyên xuất như hiện tại.
+- Operator tự điền 7 cột bằng tay: Cảng xếp `VNHPH`, Cảng dỡ `VNTTS`, Cảng đích `VNTTS`, Cntr Class `1`, CntrClass `Import`, Hàng nội/ngoại `F` và `Hàng nội`.
+  - Các giá trị này khác `Vtos.xlsx` ở hai chỗ. Cảng đích trong Vtos.xlsx là `VNHPH` hoặc `VNDAN`. Mã Hàng nội/ngoại là `L`, đi với `Hàng nội`; mẫu Template ghép `F` với `Hàng ngoại`.
+- **Dữ liệu mẫu còn sót.** Hai dòng đầu của `mnf.xlsx` (BEAU6394505 và BEAU6395440) còn giá trị mẫu của Template ở OOG_TOP, OOG_LEFT, OOG_RIGHT, OOG_BACK, OOG_FRONT, Cảng chuyển và Cảng giao nhận. Hai container này có thể đã được nhập vào TOS kèm kích thước OOG giả.
+- `mnf.xlsx` còn 3 dòng SVM, trong khi `Vtos.xlsx` có 2 SVM và 1 VFC. Cont VINAFCO cần sửa tay thành VFC chưa được sửa trong file này.
+
+Kết luận: không cần đổi mẫu xuất. Không thêm `Column1`, Excel Table hay dạng chữ cho số. Các giá trị 7 cột còn lại thay đổi theo từng tàu, nên chưa đưa vào app. MC64 vẫn còn mở cho các điểm trên.
+
 ## Còn mở
 
-- **MC64:** operator import thử trên TOS. Cần xem TOS tự điền hay bắt nhập 13 cột mà mẫu có giá trị nhưng app để trống: Xác nhận, VGM, Nhóm TL, ba cột Cảng, hai cột Phương Án, hai cột Phương Thức Giao Nhận, hai cột Cntr Class, hai cột Hàng nội/ngoại.
+- **MC64:** xem mục "Kết quả import thử trên TOS" bên dưới. Còn mở một phần.
 - Mã ISO cho kích cỡ ngoài năm cặp đã thấy, và mã TOS cho loại hàng ngoài GP/ER/ET (ví dụ REEFER, EMPTY), đang để trống.
 - Chưa thử tab Đổi B/L với manifest VIMC gốc, vì thư mục chỉ có bill VIMC đã xử lý.
 - Chưa có review độc lập cho phần triển khai. Ngày 26-11-2026, operator yêu cầu commit trên cơ sở tự review ở trên. Bản sửa MC52 (DOOR-CY) được commit riêng trước, là `b8f1c50`. Chưa build EXE.

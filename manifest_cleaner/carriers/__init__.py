@@ -15,6 +15,9 @@ TOS_COLUMNS = (
     "OOG_FRONT", "Term", "Số thứ tự", "Transist", "Cảng chuyển", "Cảng giao nhận",
     "Chỉ dẫn xếp dỡ",
 )
+# The template's Excel Table has one more column after the 46 headers; it is always blank.
+TOS_EXTRA_COLUMN = "Column1"
+TOS_EXPORT_COLUMNS = TOS_COLUMNS + (TOS_EXTRA_COLUMN,)
 # The columns the app fills, in TOS order, for every carrier. STT and Ghi chú are
 # shown in the app only; the Excel file leaves Ghi chú blank and has no STT.
 PORT_COLUMNS = (
@@ -23,6 +26,18 @@ PORT_COLUMNS = (
     "Hàng hóa", "Ghi chú",
 )
 APP_ONLY_COLUMNS = frozenset({"STT", "Ghi chú"})
+# Operator decision 2026-11-26, after a successful TOS import: every exported data row of every
+# carrier (all are domestic vessels) carries these fixed values, in upper case as given. They are
+# not app data, so they are not in PORT_COLUMNS. Hàng nội/ngoại (no trailing space) and Cntr Class
+# stay blank. Change a value here and nowhere else.
+TOS_FIXED_VALUES = {
+    "Phương Án": "NTAU",
+    "Phương Án ": "NHẬP TÀU",
+    "Phương Thức Giao Nhận": "TAU-BAI",
+    "Phương Thức Giao Nhận ": "GIAO NHẬN TÀU <=> BÃI",
+    "CntrClass": "IMPORT",
+    "Hàng nội/ngoại ": "HÀNG NỘI",
+}
 # Only pairs seen in the TOS form. Other codes stay blank until a TOS import confirms them.
 VTOS_TO_TOS_ISO = {"20DC": "22G0", "40HC": "45G0", "45HC": "L5G0", "40RH": "45R0", "20TK": "22T0"}
 CARGO_TO_TOS = {"GENERAL": ("GP", "General"), "EMPTY REEFER": ("ER", "Empty Reefer"),

@@ -16,7 +16,7 @@ from openpyxl import load_workbook
 from manifest_cleaner import exporter
 from manifest_cleaner.engine import process_manifest
 from manifest_cleaner.exporter import build_port_rows, export_port_excel
-from tests.test_integration import EXPECTED_TOS
+from tests.test_integration import EXPECTED_TOS_EXPORT
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "golden_v110"
@@ -58,7 +58,7 @@ class Golden110Tests(unittest.TestCase):
             try:
                 sheet = book[exporter.SHEET_NAME]
                 headers = [cell.value for cell in sheet[1]]
-                self.assertEqual(headers, EXPECTED_TOS)
+                self.assertEqual(headers, EXPECTED_TOS_EXPORT)
                 self.assertEqual(sheet.max_row - 1, len(expected["export_rows"]))
                 for position, wanted in enumerate(expected["export_rows"], 2):
                     self.assertIsNone(sheet.cell(position, headers.index("Ghi chú") + 1).value)

@@ -21,7 +21,7 @@ from openpyxl import Workbook, load_workbook
 from manifest_cleaner import bl_change, exporter, gui
 from manifest_cleaner.engine import load_review, load_settings, process_manifest
 from scripts.create_samples import CREATORS
-from tests.test_integration import EXPECTED_TOS
+from tests.test_integration import EXPECTED_TOS, EXPECTED_TOS_EXPORT
 
 LEGACY = Path(__file__).parent / "fixtures" / "review_v2_16col"
 GREEN, YELLOW = "E2EFDA", "FFFF00"
@@ -88,7 +88,7 @@ class TosFormTests(unittest.TestCase):
                 book = load_workbook(result["excel"])
                 try:
                     sheet = book.active
-                    self.assertEqual([cell.value for cell in sheet[1]], EXPECTED_TOS)
+                    self.assertEqual([cell.value for cell in sheet[1]], EXPECTED_TOS_EXPORT)
                     row = dict(zip(EXPECTED_TOS, (cell.value for cell in sheet[2])))
                     record = session.active_records()[0]
                     self.assertEqual(row["Số Container"], record["Container_No"])
@@ -132,7 +132,7 @@ class BlChangeTests(unittest.TestCase):
         book = load_workbook(result["excel"])
         try:
             sheet = book.active
-            self.assertEqual([cell.value for cell in sheet[1]], EXPECTED_TOS)
+            self.assertEqual([cell.value for cell in sheet[1]], EXPECTED_TOS_EXPORT)
             row = {name: sheet.cell(2, index + 1) for index, name in enumerate(EXPECTED_TOS)}
             self.assertEqual(row["Số BL"].value, "DEMO-VIMC-001")
             self.assertEqual(row["Hãng khai thác"].value, "VMC")

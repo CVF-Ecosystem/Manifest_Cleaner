@@ -105,7 +105,7 @@ class Cli110Tests(unittest.TestCase):
         row, properties = self.output_row(output)
         data = json.loads(review.read_text(encoding="utf-8"))
         expected_source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
-        self.assertEqual(len(row), 46)
+        self.assertEqual(len(row), 47)
         self.assertEqual(data["metadata"]["source_sha256"], expected_source_hash)
         self.assertEqual(properties["source_sha256"], expected_source_hash)
         self.assertEqual(properties["session_id"], data["metadata"]["session_id"])

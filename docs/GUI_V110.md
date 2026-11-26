@@ -1,6 +1,6 @@
 # Giao diện và đối chiếu dữ liệu — 1.1.0
 
-Ứng dụng vẫn chạy local, mỗi phiên xử lý một manifest của một hãng tàu. Từ 26-11-2026 (MC3), file nhập Cảng theo mẫu TOS 46 cột dùng chung cho cả ba hãng.
+Ứng dụng vẫn chạy local, mỗi phiên xử lý một manifest của một hãng tàu. Từ 26-11-2026 (MC3), file nhập Cảng theo mẫu import TOS (Template_LuocKhaiHangHoa) dùng chung cho cả ba hãng.
 
 ## Các thay đổi người dùng nhìn thấy
 

@@ -34,7 +34,7 @@
   <div class="wrap">
     <div class="eyebrow">Công cụ local · Dữ liệu nhập hệ thống Cảng</div>
     <h1>Một manifest.<br>Một hãng tàu.</h1>
-    <p>Đọc nguồn, giải quyết các mục cần kiểm tra và xuất theo mẫu TOS 46 cột dùng chung cho ba hãng. Phiên bản 1.1 bổ sung xác nhận từng trường, xem trước giá trị xuất và mở lại phiên làm việc.</p>
+    <p>Đọc nguồn, giải quyết các mục cần kiểm tra và xuất theo mẫu import TOS (Template_LuocKhaiHangHoa) dùng chung cho ba hãng, import thẳng vào TOS. Phiên bản 1.1 bổ sung xác nhận từng trường, xem trước giá trị xuất và mở lại phiên làm việc.</p>
     <div class="badges"><span class="badge version">Phiên bản 1.2.5</span><span class="badge">24-11-2026</span><span class="badge">VOSCO · VIMC · VINAFCO</span><span class="badge">Hướng dẫn offline</span></div>
   </div>
 </header>
@@ -61,7 +61,7 @@
       <div class="card step"><span class="number">01</span><h3>Chọn hãng, mở nguồn</h3><p>VOSCO, VIMC hoặc VINAFCO. Kiểm tra quy ước số, ý nghĩa trọng lượng và sheet đang dùng.</p></div>
       <div class="card step"><span class="number">02</span><h3>Xem mục cần kiểm tra</h3><p>Phân biệt lỗi theo dòng, lỗi toàn file, cảnh báo và container duy nhất. Mở đúng dòng để đối chiếu.</p></div>
       <div class="card step"><span class="number">03</span><h3>Sửa hoặc xác nhận</h3><p>Chỉ trường thực sự thay đổi hoặc được chọn xác nhận mới được ghi nhận. Mỗi lần lưu cần căn cứ.</p></div>
-      <div class="card step"><span class="number">04</span><h3>Xuất và giữ phiên</h3><p>Excel nhập Cảng theo mẫu TOS 46 cột, Ghi chú để trống. Mặc định lưu kèm JSON để mở lại phiên sau.</p></div>
+      <div class="card step"><span class="number">04</span><h3>Xuất và giữ phiên</h3><p>Excel nhập Cảng theo mẫu import TOS (Template_LuocKhaiHangHoa), Ghi chú để trống. Mặc định lưu kèm JSON để mở lại phiên sau.</p></div>
     </div>
     <p class="small muted" style="margin-top:15px">Tên tàu không quyết định cách đọc. VIMC nhận dạng bố cục từ nội dung; những trường hợp có nhiều cách đọc cần được người dùng đối chiếu.</p>
   </section>
@@ -120,7 +120,7 @@
     <div class="panel">
       <p>Khi không còn lỗi chặn, bấm <strong>Xuất file Manifest</strong>. Hộp thoại lưu mở sẵn thư mục chứa manifest đang xử lý. Các cảnh báo còn lại cần được đối chiếu và xác nhận xuất. Tùy chọn xuất kèm JSON mặc định được bật.</p>
       <div class="file-pair">
-        <div class="file"><strong>File nhập hệ thống Cảng</strong><code>manifest_VIMC_CLEAN.xlsx</code><p>Đúng tên/thứ tự 46 cột của mẫu TOS. Giữ kiểu dữ liệu và quy tắc đầu ra đã thống nhất.</p></div>
+        <div class="file"><strong>File nhập hệ thống Cảng</strong><code>manifest_VIMC_CLEAN.xlsx</code><p>Đúng cấu trúc mẫu import TOS: Excel Table Sheet1, 46 cột TOS và cột trống Column1. Giữ kiểu dữ liệu và quy tắc đầu ra đã thống nhất.</p></div>
         <div class="file"><strong>Phiên đối chiếu để mở lại</strong><code>manifest_VIMC_CLEAN.review.json</code><p>Giữ kết quả, nguồn, cấu hình, lịch sử sửa/xác nhận và dòng đã loại. JSON không dùng để nhập Cảng.</p></div>
       </div>
       <p>Nếu một trong hai file đã tồn tại, ứng dụng yêu cầu xác nhận ghi đè <strong>cả bộ</strong>. Giữ thêm manifest gốc để mở lại phiên. Có thể bấm <strong>Lưu đối chiếu</strong> ngay khi vẫn còn lỗi để tiếp tục sau.</p>
@@ -188,7 +188,7 @@
         <tr><td><strong>VINAFCO</strong></td><td><code>VFC/SVF</code>, marker <code>(S)/(C)/(N)</code>, mapping VTOS/loại hàng và cách tính số lượng theo nhóm.</td></tr>
       </tbody>
     </table></div>
-    <p class="small muted" style="margin-top:13px">Ba hãng dùng chung mẫu TOS 46 cột. Hàng VIMC đi tàu VOSCO dùng tab Đổi B/L. Hai cột seal tiếp tục được giữ; VIMC/VINAFCO làm tròn trọng lượng tại bước xuất và dùng nhãn hàng EMPTY khi E. Nguồn vẫn lưu để đối chiếu. Chi tiết đầy đủ nằm trong README và tài liệu từng hãng.</p>
+    <p class="small muted" style="margin-top:13px">Ba hãng dùng chung mẫu import TOS (Template_LuocKhaiHangHoa). Hàng VIMC đi tàu VOSCO dùng tab Đổi B/L. Hai cột seal tiếp tục được giữ; VIMC/VINAFCO làm tròn trọng lượng tại bước xuất và dùng nhãn hàng EMPTY khi E. Nguồn vẫn lưu để đối chiếu. Chi tiết đầy đủ nằm trong README và tài liệu từng hãng.</p>
   </section>
 
   <section aria-labelledby="demo-title">

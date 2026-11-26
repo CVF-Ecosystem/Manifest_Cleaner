@@ -1,6 +1,6 @@
 # Manifest Cleaner
 
-Ứng dụng Windows xử lý manifest của **VOSCO**, **VIMC** và **VINAFCO**. Mỗi phiên đọc một workbook, hỗ trợ đối chiếu theo container và xuất Excel theo **mẫu TOS 46 cột** dùng chung cho cả ba hãng để import vào TOS của Cảng. Khi một hãng gửi hàng qua tàu của hãng khác, tab **Đổi B/L** lấy B/L của hãng gửi vào file tàu. Dữ liệu được xử lý cục bộ.
+Ứng dụng Windows xử lý manifest của **VOSCO**, **VIMC** và **VINAFCO**. Mỗi phiên đọc một workbook, hỗ trợ đối chiếu theo container và xuất Excel theo **mẫu import TOS** (Template_LuocKhaiHangHoa: Excel Table `Sheet1`, 46 cột TOS và cột trống `Column1`) dùng chung cho cả ba hãng, import thẳng vào TOS của Cảng không cần copy/paste. Các cột app không có dữ liệu để trống. Khi một hãng gửi hàng qua tàu của hãng khác, tab **Đổi B/L** lấy B/L của hãng gửi vào file tàu. Dữ liệu được xử lý cục bộ.
 
 ## Bắt đầu
 
@@ -14,7 +14,7 @@ Dùng [mẫu tổng hợp trong samples/](samples/) để thử quy trình trư�
 1. **Mở manifest.** Chọn hãng tàu, bấm **Mở manifest…** và chọn tệp Excel. Chọn sheet chi tiết nếu ứng dụng phát hiện nhiều bảng phù hợp.
 2. **Đối chiếu dữ liệu.** Xem số dòng, lỗi chặn và cảnh báo trên dải tóm tắt. Trong tab **Cần kiểm tra**, chọn vấn đề để xem container, B/L, thông báo và vị trí nguồn.
 3. **Sửa hoặc xác nhận.** Dùng **Xem / sửa dòng** để so dữ liệu nguồn với giá trị sẽ xuất. Ghi lý do khi lưu chỉnh sửa, xác nhận cảnh báo hoặc loại dòng. Dùng **Lưu đối chiếu…** để giữ phiên đang làm.
-4. **Xuất Excel.** Khi đã xử lý hết lỗi chặn, bấm **Xuất file Manifest…**. File theo mẫu TOS 46 cột, tô màu các mục cần đối chiếu và để trống Ghi chú; ghi chú xem trên app. Tùy chọn xuất kèm JSON lưu phiên ngay cạnh Excel. Bấm **Mở thư mục kết quả** để xem tệp.
+4. **Xuất Excel.** Khi đã xử lý hết lỗi chặn, bấm **Xuất file Manifest…**. File theo mẫu import TOS (Template_LuocKhaiHangHoa), tô màu các mục cần đối chiếu và để trống Ghi chú; ghi chú xem trên app. Tùy chọn xuất kèm JSON lưu phiên ngay cạnh Excel. Bấm **Mở thư mục kết quả** để xem tệp.
 5. **Làm tiếp phiên đã lưu.** Chọn **Mở phiên đã lưu…** và mở JSON đối chiếu. Nếu manifest gốc đã chuyển thư mục, chọn lại tệp có cùng nội dung.
 
 ### Hàng của hãng khác đi trên tàu (tab Đổi B/L)

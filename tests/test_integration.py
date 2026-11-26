@@ -25,8 +25,13 @@ EXPECTED_TOS = ["Xác nhận", "ĐTTT", "Số lượng", "Số BL", "Số Contai
                 "Hàng nội/ngoại ", "Ghi chú", "OOG_TOP", "OOG_LEFT", "OOG_RIGHT", "OOG_BACK",
                 "OOG_FRONT", "Term", "Số thứ tự", "Transist", "Cảng chuyển", "Cảng giao nhận",
                 "Chỉ dẫn xếp dỡ"]
+# The exported workbook is the template's Excel Table: the 46 headers plus a blank Column1.
+EXPECTED_TOS_EXPORT = EXPECTED_TOS + ["Column1"]
 FILLED = {"Số lượng", "Số BL", "Số Container", "Hãng khai thác", "Kích cỡ", "Kích cỡ ISO", "F/E", "TL hàng",
           "Số niêm chì", "Số niêm chì 1", "Chủ hàng", "Loại hàng", "Loại hàng ", "Hàng hóa"}
+# Operator decision 2026-11-26: written literally here, not read from the exporter, so a silent change fails.
+FIXED = {"Phương Án": "NTAU", "Phương Án ": "NHẬP TÀU", "Phương Thức Giao Nhận": "TAU-BAI",
+         "Phương Thức Giao Nhận ": "GIAO NHẬN TÀU <=> BÃI", "CntrClass": "IMPORT", "Hàng nội/ngoại ": "HÀNG NỘI"}
 # Pairs observed in the TOS form.
 TOS_ISO = {"20DC": "22G0", "40HC": "45G0"}
 
@@ -60,13 +65,15 @@ class IntegrationTests(unittest.TestCase):
                 self.assertEqual(self.errors(session), [])
                 sheet, headers, values = self.read_output(session, f"{carrier}_out.xlsx")
                 self.assertEqual(sheet.title, "Sheet1")
-                self.assertEqual(headers, EXPECTED_TOS)
-                self.assertEqual(sheet.max_column, 46)
+                self.assertEqual(headers, EXPECTED_TOS_EXPORT)
+                self.assertEqual(sheet.max_column, 47)
                 self.assertEqual(sheet.max_row, 2)
                 for label in ("Số lượng", "TL hàng"):
                     self.assertEqual(values[label].data_type, "n")
-                for label in EXPECTED_TOS:
-                    self.assertEqual(values[label].value is not None, label in FILLED, label)
+                for label in EXPECTED_TOS_EXPORT:
+                    self.assertEqual(values[label].value is not None, label in FILLED | set(FIXED), label)
+                for label, expected in FIXED.items():
+                    self.assertEqual((values[label].value, values[label].data_type), (expected, "s"), label)
                 self.assertEqual((values["Loại hàng"].value, values["Loại hàng "].value), ("GP", "General"))
                 self.assertEqual(values["Kích cỡ ISO"].value, TOS_ISO[values["Kích cỡ"].value])
                 self.assertEqual(values["Số Container"].data_type, "s")
