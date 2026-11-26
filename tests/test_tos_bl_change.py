@@ -243,9 +243,10 @@ class BlChangeTabTests(unittest.TestCase):
                                    "0 container không có trên tàu, 0 B/L gom còn sót.")
                 root.update()
                 choosers = [widget for widget in app.bl_tab.winfo_children()[0].winfo_children()
+                            if isinstance(widget, tk.ttk.Entry) or str(widget.cget("text")) == "Chọn…"
                             if isinstance(widget, (tk.ttk.Button, tk.ttk.Entry))]
                 self.assertEqual(len(choosers), 4)
-                for widget in (app.bl_export_button, *choosers):
+                for widget in (app.bl_export_button, app.bl_guide_button, *choosers):
                     self.assertTrue(widget.winfo_viewable(), str(widget))
                     self.assertGreater(widget.winfo_height(), 10, str(widget))
                     right = widget.winfo_rootx() - root.winfo_rootx() + widget.winfo_width()
@@ -267,7 +268,8 @@ class BlChangeTabTests(unittest.TestCase):
             self.assertIsNone(app.session)
             self.assertEqual(str(app.bl_export_button.cget("state")), "disabled")
             choosers = [widget for widget in app.bl_tab.winfo_children()[0].winfo_children()
-                        if isinstance(widget, tk.ttk.Button)]
+                        if isinstance(widget, tk.ttk.Button) and str(widget.cget("text")) == "Chọn…"]
+            self.assertEqual(len(choosers), 2)
             with patch.object(gui.filedialog, "askopenfilename", side_effect=[str(vessel), str(partner)]):
                 for button in choosers:
                     button.invoke()
@@ -285,6 +287,34 @@ class BlChangeTabTests(unittest.TestCase):
         finally:
             book.close()
         self.assertTrue(target.with_suffix(".bl_change.json").is_file())
+
+    def test_a_raw_manifest_is_listed_and_the_user_is_told_to_export_it_first(self):
+        raw = self.root / "MNF FF2643S_VIMC.xls"
+        raw.write_bytes(b"not read: the extension already says it is a raw manifest")
+        legacy = self.root / "BILL GOC VMC.xlsx"
+        book = Workbook()
+        book.active.append(["STT", "Số Vận Đơn", "Số Container"])
+        book.save(legacy)
+        with self.live_app() as app:
+            app.tabs.select(2)
+            app.root.update()
+            partner = [widget for widget in app.bl_tab.winfo_children()[0].winfo_children()
+                       if isinstance(widget, tk.ttk.Button) and str(widget.cget("text")) == "Chọn…"][1]
+            for chosen in (raw, legacy):
+                with self.subTest(chosen=chosen.name),                         patch.object(gui.filedialog, "askopenfilename", return_value=str(chosen)) as ask,                         patch.object(gui.messagebox, "showwarning") as warned:
+                    partner.invoke()
+                patterns = dict(ask.call_args.kwargs["filetypes"])["Excel"].split()
+                self.assertIn("*.xls", patterns)
+                title, message = warned.call_args.args
+                self.assertEqual(title, "Chưa phải file đã xuất")
+                for expected in (chosen.name, "B2", "Mở manifest…", "Xuất file Manifest…"):
+                    self.assertIn(expected, message)
+            self.assertIsNone(app.bl_state["partner"])
+            self.assertIn("B1", gui.BL_CHANGE_GUIDE)
+            self.assertIn("_DOI_BL", gui.BL_CHANGE_GUIDE)
+            with patch.object(gui.messagebox, "showinfo") as shown:
+                app.bl_guide_button.invoke()
+            self.assertEqual(shown.call_args.args, ("Hướng dẫn Đổi B/L", gui.BL_CHANGE_GUIDE))
 
 
 if __name__ == "__main__":

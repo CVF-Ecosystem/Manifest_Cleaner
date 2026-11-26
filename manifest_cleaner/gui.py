@@ -248,6 +248,29 @@ def _ownership_display(counts):
     return f"{counts.get('soc', 0)} / {counts.get('coc', 0)}", f"khác {counts['other']}" if counts.get("other") else ""
 
 
+# Cross-line cargo is the least familiar task, so its steps are shown in the tab itself.
+BL_CHANGE_STEPS = ("B1: mở manifest tổng của tàu (chủ tàu) và xuất.  B2: mở manifest của hãng gửi hàng và xuất.  "
+                   "B3: chọn hai file .xlsx vừa xuất ở đây rồi bấm Xuất. Thêm hãng gửi: làm lại B2, B3 với "
+                   "File tàu là file _DOI_BL vừa ra.")
+BL_CHANGE_GUIDE = (
+    "Dùng khi hàng của một hãng đi trên tàu của hãng khác, ví dụ hàng VIMC trên tàu VOSCO.\n\n"
+    "B1. Manifest tổng của tàu: chọn Hãng tàu là hãng chủ tàu (VOSCO), bấm Mở manifest…, xử lý tab Cần kiểm tra, "
+    "rồi bấm Xuất file Manifest…. Được file ..._VOSCO_CLEAN.xlsx.\n\n"
+    "B2. Manifest của hãng gửi hàng: chọn Hãng tàu là hãng gửi (VIMC), mở manifest của hãng đó, xử lý và xuất. "
+    "Được file ..._VIMC_CLEAN.xlsx.\n\n"
+    "B3. Mở tab Đổi B/L. File tàu: chọn file của B1. File hãng gửi hàng: chọn file của B2. "
+    "Bấm Xuất file TOS đã đổi B/L…. Được file ..._DOI_BL.xlsx kèm file truy vết .bl_change.json.\n\n"
+    "Có thêm hãng gửi (ví dụ VINAFCO): làm lại B2 với manifest của hãng đó, rồi B3 với File tàu là file "
+    "_DOI_BL.xlsx vừa ra ở lần trước, không chọn lại file của B1.\n\n"
+    "Tab chỉ nhận file .xlsx đã xuất ở B1, B2. Manifest gốc (.xls) phải mở và xuất ở màn hình chính trước.\n"
+    "App lấy từ file hãng gửi: Số lượng, Số BL, Hãng khai thác, Chủ hàng, TL hàng, Hàng hóa. "
+    "Ô đổi có nền xanh lá. Kích cỡ, F/E, seal, loại hàng khác nhau thì giữ theo file tàu và tô vàng.\n\n"
+    "Cont VINAFCO nằm trong manifest VIMC: app ghi SVM. Khi VINAFCO chưa gửi manifest riêng, sửa tay cột "
+    "Hãng khai thác thành VFC trong file _DOI_BL.xlsx trước khi import vào TOS.\n\n"
+    "File cuối cùng để import vào TOS là file _DOI_BL.xlsx của lần đổi sau cùng."
+)
+
+
 # TOS repeats two headers with a trailing space for the name beside a code. The Excel file
 # keeps the TOS spelling; the app labels them so the two columns can be told apart.
 COLUMN_LABELS = {"Loại hàng": "Loại hàng (mã)", "Loại hàng ": "Loại hàng (tên)"}
@@ -2222,12 +2245,18 @@ class ManifestApp:
         tab.rowconfigure(2, weight=1)
         outer.grid(row=0, column=0, sticky="ew")
         outer.columnconfigure(1, weight=1)
-        _wrapped_label(outer, style="Muted.TLabel", text=(
-            "Ghép theo số container hai file đã xuất ở bước một và lấy B/L của hãng gửi vào file tàu. "
-            "File nguồn không bị ghi.")).grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, gap // 2))
+        steps = ttk.Label(outer, text=BL_CHANGE_STEPS, style="Muted.TLabel")
+        steps.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, gap // 2))
+        guide = self.bl_guide_button = ttk.Button(outer, text="Hướng dẫn…", style="Ghost.TButton",
+                                                  command=lambda: messagebox.showinfo(
+                                                      "Hướng dẫn Đổi B/L", BL_CHANGE_GUIDE, parent=self.root))
+        guide.grid(row=0, column=3, sticky="ne", padx=(gap, 0))
+        outer.bind("<Configure>", lambda event: steps.configure(
+            wraplength=max(100, event.width - guide.winfo_reqwidth() - 2 * gap)), add="+")
         paths = {key: tk.StringVar() for key in state if key != "plan"}
         details = {key: tk.StringVar() for key in paths}
-        labels = {"vessel": "File tàu", "partner": "File hãng gửi hàng"}
+        labels = {"vessel": "File tàu (B1)", "partner": "File hãng gửi hàng (B2)"}
+        steps_for = {"vessel": ("B1", "hãng chủ tàu (VOSCO)"), "partner": ("B2", "hãng gửi hàng (VIMC hoặc VINAFCO)")}
         for row, key in enumerate(("vessel", "partner"), 1):
             ttk.Label(outer, text=labels[key], font=FONT_BOLD).grid(row=row, column=0, sticky="w", padx=(0, gap))
             ttk.Entry(outer, textvariable=paths[key], state="readonly").grid(row=row, column=1, sticky="ew",
@@ -2309,12 +2338,22 @@ class ManifestApp:
             export.configure(state="normal" if counts["changed"] else "disabled")
 
         def choose(name):
-            path = filedialog.askopenfilename(parent=self.root, title=labels[name], filetypes=[("Excel", "*.xlsx")],
+            # Raw manifests are listed too, so a user who picks one is told what to do instead of not finding it.
+            path = filedialog.askopenfilename(parent=self.root, title=f"{labels[name]}: file .xlsx đã xuất",
+                                              filetypes=[("Excel", "*.xlsx *.xls *.xlsm"), ("Tất cả", "*.*")],
                                               initialdir=self._output_directory())
             if not path:
                 return
             try:
                 item = bl_change.read_tos_file(path)
+            except bl_change.NotExportedError:
+                step, carrier = steps_for[name]
+                messagebox.showwarning("Chưa phải file đã xuất", (
+                    f"{Path(path).name} là manifest gốc hoặc file theo mẫu cũ, chưa phải file đã xuất ở {step}.\n\n"
+                    f"Làm {step} trước: chọn Hãng tàu là {carrier}, bấm Mở manifest…, chọn file này, xử lý tab "
+                    "Cần kiểm tra rồi bấm Xuất file Manifest…. Sau đó quay lại tab Đổi B/L và chọn file .xlsx "
+                    "vừa xuất."), parent=self.root)
+                return
             except Exception as exc:
                 messagebox.showerror("Không đọc được file", str(exc), parent=self.root)
                 return
@@ -2449,8 +2488,9 @@ class ManifestApp:
             "4. Nhập lý do rồi bấm Lưu chỉnh sửa / xác nhận để áp dụng vào phiên. Lưu đối chiếu ghi các sửa đổi và lịch sử vào JSON. "
             "Xuất Excel mặc định lưu kèm JSON. Mở lại JSON cần đúng manifest gốc chưa thay đổi.\n"
             "5. File xuất theo mẫu TOS 46 cột để import vào TOS. Ghi chú chỉ hiện trên app.\n"
-            "6. Khi một hãng gửi hàng qua tàu hãng khác: xuất riêng manifest của từng hãng, rồi bấm Đổi B/L… "
-            "để lấy B/L của hãng gửi vào file tàu.\n\n"
+            "6. Hàng của hãng khác đi trên tàu (ví dụ VIMC trên tàu VOSCO): B1 mở và xuất manifest tổng của tàu; "
+            "B2 mở và xuất manifest của hãng gửi; B3 mở tab Đổi B/L, chọn hai file .xlsx vừa xuất rồi bấm Xuất. "
+            "Thêm hãng gửi: làm lại B2, B3 với File tàu là file _DOI_BL vừa ra. Tab Đổi B/L có nút Hướng dẫn… chi tiết.\n\n"
             "Cửa sổ sửa — Ctrl+S hoặc Ctrl+Enter để lưu, Esc để hủy. Nhấn Enter khi đang nhập lý do cũng lưu.\n"
             "Cửa sổ chính — Ctrl+O mở manifest, Ctrl+S xuất Excel, F1 xem hướng dẫn.\n"
             "Mục Gần đây (5 manifest đã đọc, mọi hãng) hiện khi chưa mở file. Bấm một mục để mở lại bằng đúng hãng đã dùng.", parent=self.root)

@@ -35,6 +35,10 @@ CONFLICT_FILL = "FFFFFF00"
 TRACE_SCHEMA = "manifest-cleaner.blChange@1.0.0"
 
 
+class NotExportedError(ValueError):
+    """The file is a raw manifest or an old-layout export, not a TOS file from step one."""
+
+
 @dataclass
 class TosFile:
     path: Path
@@ -78,7 +82,7 @@ def _plain(value):
 def read_tos_file(path: str | Path) -> TosFile:
     path = Path(path).resolve()
     if path.suffix.lower() != ".xlsx":
-        raise ValueError(f"{path.name}: cần file .xlsx đã xuất từ app theo mẫu TOS.")
+        raise NotExportedError(f"{path.name}: cần file .xlsx đã xuất từ app theo mẫu TOS.")
     book = openpyxl.load_workbook(path, data_only=True)
     try:
         sheet = book.worksheets[0]
@@ -86,7 +90,7 @@ def read_tos_file(path: str | Path) -> TosFile:
         headers = headers[:len(TOS_COLUMNS)] if len(headers) > len(TOS_COLUMNS) and all(
             _blank(value) for value in headers[len(TOS_COLUMNS):]) else headers
         if headers != TOS_COLUMNS:
-            raise ValueError(f"{path.name}: không đúng mẫu TOS 46 cột. Chọn file đã xuất từ app ở bước một.")
+            raise NotExportedError(f"{path.name}: không đúng mẫu TOS 46 cột. Chọn file đã xuất từ app ở bước một.")
         properties = {prop.name: prop.value for prop in book.custom_doc_props.props}
         index = {name: position for position, name in enumerate(TOS_COLUMNS)}
         result = TosFile(path, source_sha256(path), properties)

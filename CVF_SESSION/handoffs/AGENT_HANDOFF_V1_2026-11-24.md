@@ -356,3 +356,35 @@ Commit continuity này ghi lại hai mã commit trên. Chưa push lên remote, c
 - Operator import thử file mẫu TOS trên TOS (MC64).
 - Quyết định có push và build lại EXE hay không.
 - Reviewer độc lập cho MC3 nếu operator muốn.
+
+### MC3: thử với manifest VIMC gốc và quyết định về cont VINAFCO
+
+Ngày 26-11-2026 đã thử với manifest VIMC gốc `MNF FF2643S_VIMC.xls`, chỉ ghi vào thư mục tạm:
+
+- Bước một: 36 container, 18 B/L, 0 lỗi, 0 cảnh báo.
+- Đổi B/L với file tàu `..._VOSCO_CLEAN_new.xlsx`: 36 container đổi, 0 khác biệt.
+- So với Vtos.xlsx trên 297 container: khớp, trừ 8 cont 40RH rỗng đã chốt và 1 container. Container đó là VFCU2251345: app ghi SVM theo quy tắc VIMC, TOS ghi VFC.
+- Trong phiên VIMC, sửa tay thành VFC bị chặn bởi lỗi UNKNOWN_OPERATOR.
+
+Quyết định của operator:
+
+- Giữ nguyên quy tắc VIMC.
+- Trước mắt sửa tay ô Hãng khai thác trong file Excel cuối.
+- Về lâu dài, VINAFCO sẽ gửi manifest riêng. File đó đi qua bước một với quy tắc VINAFCO, rồi qua tab Đổi B/L lần thứ hai.
+
+Đã kiểm việc chạy hai lần nối tiếp: file kết quả đọc lại được làm file tàu. Chạy lại cùng một file VIMC thì không có thay đổi nào. Chạy với một file VINAFCO tổng hợp thì đổi SVM thành VFC.
+
+Còn mở: chưa có manifest VINAFCO thật cho hàng đi tàu hãng khác, nên chưa biết bộ đọc VINAFCO có đọc đúng bố cục đó không.
+
+### MC62: hướng dẫn cho quy trình Đổi B/L
+
+Operator nhận xét: quy trình Đổi B/L khó hiểu nhất với người dùng. Lượt này giữ cùng phạm vi MC62 và WO_MC_TOS_EXPORT, không đổi quy tắc dữ liệu. Những gì đã thêm:
+
+- Trong tab: một dòng tóm tắt B1, B2, B3 và nút **Hướng dẫn…** mở bản đầy đủ. Bản đầy đủ có phần chạy nối tiếp cho hãng thứ ba và phần sửa tay VFC.
+- Nhãn hai ô chọn file: "File tàu (B1)" và "File hãng gửi hàng (B2)".
+- Hộp chọn file hiện cả .xls. Khi người dùng chọn manifest gốc hoặc file theo mẫu cũ, app nhắc làm B1 hoặc B2 trước. Lời nhắc dùng `bl_change.NotExportedError`.
+- Mục 6 của Hướng dẫn nhanh và README mục "Hàng của hãng khác đi trên tàu" ghi cùng quy trình. README bỏ câu "Excel ghi chú".
+
+Một lệnh sửa trung gian đã chèn dấu xuống dòng thật vào chuỗi Python. Lỗi được phát hiện khi import thất bại và được sửa trước khi chạy test.
+
+Kết quả: 331 test đạt, gồm ca mới cho việc chọn manifest gốc và nút Hướng dẫn. Ca kích thước tối thiểu vẫn đạt sau khi thêm dòng tóm tắt. Chưa commit.
