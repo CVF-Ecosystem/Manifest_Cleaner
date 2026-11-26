@@ -475,3 +475,19 @@ Quyết định này thay câu "các cột TOS khác để trống" của MC61 c
 Đây là sửa lỗi cùng phạm vi WO_MC_TOS_EXPORT. Worker là Sonnet 5.5 effort high. Orchestrator Opus 5.5 review.
 
 Kết quả: worker hoàn thành phần giá trị cố định. Reviewer đưa 6 file từ CRLF về LF, chạy 348 ca đạt, và kiểm luồng FF2643S thật đúng 6 giá trị trên 297 dòng. File thử là `Manifest/Test/FF2643S_APP_TEMPLATE_DOI_BL_v2.xlsx`. Chưa commit, chưa build EXE.
+
+### MC64: commit 490f409, push và dựng EXE (Haiku 5.5)
+
+Ngày 26-11-2026, operator yêu cầu commit, push và dựng EXE. Mô hình được đặt thành Haiku 5.5 cho lượt này.
+
+- Commit `490f409` (ghi thẳng mẫu import TOS và giá trị cố định R, S, T, U, AF, AH). Đã push fast-forward `b62c509..490f409`. Remote và local cùng ở `490f409`.
+- Kiểm trước commit: 348 test đạt, kiểm tra phát hành đạt, catalog đạt, activation CURRENT_ASSESSED, gate pre-commit PASS 7/7.
+- Không đưa vào commit: `Manifest/`, file dữ liệu nghiệp vụ, và thư mục chưa theo dõi `Manifest Cleaner v2.0/`.
+- EXE dựng bằng `BUILD_EXE.cmd` và `BUILD_ONEFILE.cmd`. Mỗi lần chạy 348 test đạt trước khi đóng gói.
+  - `dist/ManifestCleaner/ManifestCleaner.exe`, SHA-256 `c570e80e85a6f5a9a3889dc004190b929270890e3b7de7fa3bd262da7231bbe2`.
+  - `dist/onefile/ManifestCleaner.exe`, SHA-256 `55db0d56d975a6d0a9ac9fc2c804cbda7dca3095709b37ed8d8520ad57bab9a7`.
+  - Cả hai mở cửa sổ "Manifest Cleaner 1.2.7" (8,1 giây và 5,3 giây), đóng bình thường, không còn tiến trình.
+- Bản thư mục lại xóa `recent_files.json` của operator. File đã được khôi phục từ bản sao, giống hệt. Bản một file không bị ảnh hưởng.
+- Chưa kiểm: xuất Excel và import file có giá trị cố định vào TOS. Chưa kiểm trên máy Cảng. Excel thật chưa được mở trong môi trường này.
+
+Còn mở: operator import thử `Manifest/Test/FF2643S_APP_TEMPLATE_DOI_BL_v2.xlsx` vào TOS. Reviewer độc lập cho MC3 và MC64 chưa có.
